@@ -15,14 +15,14 @@ const (
 // ExternalNameConfigs contains all external name configurations for this
 // provider.
 var ExternalNameConfigs = map[string]config.ExternalName{
-	"clickhousedbops_database":                    idWithclusterName(),
-	"clickhousedbops_grant_privilege":             idWithStub(), // cannot be imported
-	"clickhousedbops_grant_role":                  idWithStub(), // cannot be imported
-	"clickhousedbops_role":                        idWithclusterName(),
-	"clickhousedbops_setting":                     idWithStub(), // cannot be imported
+	"clickhousedbops_database":                     idWithclusterName(),
+	"clickhousedbops_grant_privilege":              idWithStub(), // cannot be imported
+	"clickhousedbops_grant_role":                   idWithStub(), // cannot be imported
+	"clickhousedbops_role":                         idWithclusterName(),
+	"clickhousedbops_setting":                      idWithStub(), // cannot be imported
 	"clickhousedbops_settings_profile":             idWithclusterName(),
 	"clickhousedbops_settings_profile_association": idWithStub(), // cannot be imported
-	"clickhousedbops_user":                        idWithclusterName(),
+	"clickhousedbops_user":                         idWithclusterName(),
 }
 
 // ExternalNameConfigured returns the list of possible external name
