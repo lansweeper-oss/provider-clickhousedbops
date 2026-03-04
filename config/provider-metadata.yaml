@@ -1,0 +1,265 @@
+name: ClickHouse/clickhousedbops
+resources:
+    clickhousedbops_database:
+        subCategory: ""
+        description: 'Use the clickhousedbops_database resource to create a database in a ClickHouse instance. Known limitations: Changing the comment on a database resource is unsupported and will cause the database to be destroyed and recreated. WARNING: you will lose any content of the database if you do so!'
+        name: clickhousedbops_database
+        title: clickhousedbops_database Resource - clickhousedbops
+        examples:
+            - name: logs
+              manifest: |-
+                {
+                  "cluster_name": "cluster",
+                  "name": "logs"
+                }
+        argumentDocs:
+            cluster_name: |-
+                (String) Name of the cluster to create the database into. If omitted, the database will be created on the replica hit by the query.
+                This field must be left null when using a ClickHouse Cloud cluster.
+                Should be set when hitting a cluster with more than one replica.
+            comment: (String) Comment associated with the database
+            database: 'resource is unsupported and will cause the database to be destroyed and recreated. WARNING: you will lose any content of the database if you do so!'
+            name: (String) Name of the database
+            uuid: (String) The system-assigned UUID for the database
+        importStatements:
+            - |-
+              # Databases can be imported by specifying the UUID.
+              # Find the UUID of the database by checking system.databases table.
+              terraform import clickhousedbops_database.example xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+              # It's also possible to import databases using the name:
+
+              terraform import clickhousedbops_database.example databasename
+
+              # IMPORTANT: if you have a multi node cluster, you need to specify the cluster name!
+
+              terraform import clickhousedbops_database.example cluster:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+              terraform import clickhousedbops_database.example cluster:databasename
+    clickhousedbops_grant_privilege:
+        subCategory: ""
+        description: 'You can use the clickhousedbops_grant_privilege resource to grant privileges on databases and tables to either a clickhousedbops_user or a clickhousedbops_role. Please note that in order to grant privileges to all database and/or all tables, the database and/or table fields must be set to null, and not to "*". Known limitations: Only a subset of privileges can be granted on ClickHouse cloud. For example the ALL privilege can''t be granted. See https://clickhouse.com/docs/en/sql-reference/statements/grant#allIt''s not possible to grant privileges using their alias name. The canonical name must be used.It''s not possible to grant group of privileges. Please grant each member of the group individually instead.It''s not possible to grant the same clickhousedbops_grant_privilege to both a clickhousedbops_user and a clickhousedbops_role using a single clickhousedbops_grant_privilege stanza. You can do that using two different stanzas, one with grantee_user_name and the other with grantee_role_name fields set.It''s not possible to grant the same privilege (example ''SELECT'') to multiple entities (for example tables) with a single stanza. You can do that my creating one stanza for each entity you want to grant privileges on.Importing clickhousedbops_grant_privilege resources into terraform is not supported.'
+        name: clickhousedbops_grant_privilege
+        title: clickhousedbops_grant_privilege Resource - clickhousedbops
+        examples:
+            - name: grant
+              manifest: |-
+                {
+                  "column_name": "count",
+                  "database_name": "default",
+                  "grant_option": true,
+                  "grantee_user_name": "my_user_name",
+                  "privilege_name": "SELECT",
+                  "table_name": "tbl1"
+                }
+        argumentDocs:
+            ALL: privilege can't be granted. See https://clickhouse.com/docs/en/sql-reference/statements/grant#all
+            clickhousedbops_grant_privilege: to both a clickhousedbops_user and a clickhousedbops_role using a single clickhousedbops_grant_privilege stanza. You can do that using two different stanzas, one with grantee_user_name and the other with grantee_role_name fields set.
+            cluster_name: |-
+                (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+                This field must be left null when using a ClickHouse Cloud cluster.
+                When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
+            column_name: (String) The name of the column in table_name to grant privilege on.
+            database_name: (String) The name of the database to grant privilege on. Defaults to all databases if left null
+            grant_option: (Boolean) If true, the grantee will be able to grant the same privileges to others.
+            grantee_role_name: (String) Name of the role to grant privileges to.
+            grantee_user_name: (String) Name of the user to grant privileges to.
+            privilege_name: (String) The privilege to grant, such as CREATE DATABASE, SELECT, etc. See https://clickhouse.com/docs/en/sql-reference/statements/grant#privileges.
+            table_name: (String) The name of the table to grant privilege on.
+        importStatements: []
+    clickhousedbops_grant_role:
+        subCategory: ""
+        description: 'You can use the clickhousedbops_grant_role resource to grant a clickhousedbops_role to either a clickhousedbops_user or to another clickhousedbops_role. Known limitations: It''s not possible to grant the same clickhousedbops_role to both a clickhousedbops_user and a clickhousedbops_role using a single clickhousedbops_grant_role stanza. You can do that using two different stanzas, one with grantee_user_name and the other with grantee_role_name fields set.Importing clickhousedbops_grant_role resources into terraform is not supported.'
+        name: clickhousedbops_grant_role
+        title: clickhousedbops_grant_role Resource - clickhousedbops
+        examples:
+            - name: role_to_user
+              manifest: |-
+                {
+                  "cluster_name": "cluster",
+                  "grantee_user_name": "myuser",
+                  "role_name": "myrole"
+                }
+        argumentDocs:
+            admin_option: (Boolean) If true, the grantee will be able to grant role_name to other users or roles.
+            clickhousedbops_grant_role: resources into terraform is not supported.
+            clickhousedbops_role: to both a clickhousedbops_user and a clickhousedbops_role using a single clickhousedbops_grant_role stanza. You can do that using two different stanzas, one with grantee_user_name and the other with grantee_role_name fields set.
+            cluster_name: |-
+                (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+                This field must be left null when using a ClickHouse Cloud cluster.
+                When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
+            grantee_role_name: (String) Name of the role to grant role_name to.
+            grantee_user_name: (String) Name of the user to grant role_name to.
+            role_name: (String) Name of the role to be granted
+        importStatements: []
+    clickhousedbops_role:
+        subCategory: ""
+        description: You can use the clickhousedbops_role resource to create a role in a ClickHouse instance.
+        name: clickhousedbops_role
+        title: clickhousedbops_role Resource - clickhousedbops
+        examples:
+            - name: writer
+              manifest: |-
+                {
+                  "cluster_name": "cluster",
+                  "name": "writer"
+                }
+        argumentDocs:
+            cluster_name: |-
+                (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+                This field must be left null when using a ClickHouse Cloud cluster.
+                When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
+            id: (String) The system-assigned ID for the role
+            name: (String) Name of the role
+        importStatements:
+            - |-
+              # Roles can be imported by specifying the ID.
+              # Find the ID of the role by checking system.roles table.
+              terraform import clickhousedbops_role.example xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+              # It's also possible to import roles by name:
+
+              terraform import clickhousedbops_role.example rolename
+
+              # IMPORTANT: if you have a multi node cluster, you need to specify the cluster name!
+
+              terraform import clickhousedbops_role.example cluster:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+              terraform import clickhousedbops_role.example cluster:rolename
+    clickhousedbops_setting:
+        subCategory: ""
+        description: You can use the clickhousedbops_setting resource to manage the single settings of a Setting Profile in a ClickHouse instance.
+        name: clickhousedbops_setting
+        title: clickhousedbops_setting Resource - clickhousedbops
+        examples:
+            - name: setting1
+              manifest: |-
+                {
+                  "max": "2000",
+                  "min": "100",
+                  "name": "max_memory_usage",
+                  "settings_profile_id": "${clickhousedbops_settings_profile.profile1.id}",
+                  "value": 1000,
+                  "writability": "CHANGEABLE_IN_READONLY"
+                }
+              references:
+                settings_profile_id: clickhousedbops_settings_profile.profile1.id
+        argumentDocs:
+            cluster_name: |-
+                (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+                This field must be left null when using a ClickHouse Cloud cluster.
+                When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
+            create: (String) A string that can be parsed as a duration consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+            max: (String) Max Value for the setting
+            min: (String) Min Value for the setting
+            name: (String) Name of the setting
+            settings_profile_id: (String) ID of the settings profile
+            timeouts: (Attributes) (see below for nested schema)
+            value: (String) Value for the setting
+            writability: (String) Writability attribute for the setting
+        importStatements: []
+    clickhousedbops_settings_profile:
+        subCategory: ""
+        description: You can use the clickhousedbops_settings_profile resource to create a Setting Profile in a ClickHouse instance.
+        name: clickhousedbops_settings_profile
+        title: clickhousedbops_settings_profile Resource - clickhousedbops
+        examples:
+            - name: profile1
+              manifest: |-
+                {
+                  "cluster_name": "cluster",
+                  "name": "profile1"
+                }
+        argumentDocs:
+            cluster_name: |-
+                (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+                This field must be left null when using a ClickHouse Cloud cluster.
+                When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
+            id: (String) ID of the settings profile
+            inherit_from: (List of String) List of setting profile names to inherit from
+            name: (String) Name of the settings profile
+        importStatements:
+            - |-
+              # Settings profiles can be imported by specifying the UUID.
+              # Find the ID of the settings profile by checking system.settings_profiles table.
+              terraform import clickhousedbops_settings_profile.example xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+              # It's also possible to import settings profiles by name:
+
+              terraform import clickhousedbops_settings_profile.example name
+
+              # IMPORTANT: if you have a multi node cluster, you need to specify the cluster name!
+
+              terraform import clickhousedbops_settings_profile.example cluster:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+              terraform import clickhousedbops_settings_profile.example cluster:name
+    clickhousedbops_settings_profile_association:
+        subCategory: ""
+        description: You can use the clickhousedbops_settings_profile_association resource to associate a settings_profile to a role or user in a ClickHouse instance.
+        name: clickhousedbops_settings_profile_association
+        title: clickhousedbops_settings_profile_association Resource - clickhousedbops
+        examples:
+            - name: roleassociation
+              manifest: |-
+                {
+                  "role_id": "${clickhousedbops_role.role1.id}",
+                  "settings_profile_id": "${clickhousedbops_settings_profile.profile1.id}"
+                }
+              references:
+                role_id: clickhousedbops_role.role1.id
+                settings_profile_id: clickhousedbops_settings_profile.profile1.id
+        argumentDocs:
+            cluster_name: |-
+                (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+                This field must be left null when using a ClickHouse Cloud cluster.
+                When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
+            role_id: (String) ID of the SettingsProfileAssociation to associate the Settings profile to
+            settings_profile_id: (String) ID of the settings profile to associate
+            user_id: (String) ID of the User to associate the Settings profile to
+        importStatements: []
+    clickhousedbops_user:
+        subCategory: ""
+        description: 'You can use the clickhousedbops_user resource to create a user in a ClickHouse instance. Password Field Options This resource supports two approaches for setting passwords: password_sha256_hash_wo and password_sha256_hash_wo_version:  field uses the write-only pattern (not stored in state), so you must bump password_sha256_hash_wo_version to trigger password updates.password_sha256_hash: Use this field for OpenTofu (version < 1.11) compatibility. This field uses the standard Sensitive attribute and is stored in state, so OpenTofu can automatically detect password changes. Any change to this field will trigger resource replacement. You must use either password_sha256_hash_wo/password_sha256_hash_wo_version pair OR password_sha256_hash, but not both. Known limitations: Changing the password will cause the database user to be deleted and recreated.Changing password_sha256_hash_wo alone does not trigger an update. You must also bump password_sha256_hash_wo_version.When importing an existing user, the clickhousedbops_user resource will be lacking the password or the password_sha256_hash_wo_version, and thus the subsequent apply will need to recreate the database User in order to set a password.'
+        name: clickhousedbops_user
+        title: clickhousedbops_user Resource - clickhousedbops
+        examples:
+            - name: jane
+              manifest: |-
+                {
+                  "cluster_name": "cluster",
+                  "name": "jane",
+                  "password_sha256_hash_wo": "${sha256(\"test\")}",
+                  "password_sha256_hash_wo_version": 4
+                }
+            - name: john
+              manifest: |-
+                {
+                  "cluster_name": "cluster",
+                  "name": "john",
+                  "password_sha256_hash": "${sha256(\"test\")}"
+                }
+        argumentDocs:
+            Sensitive: attribute and is stored in state, so OpenTofu can automatically detect password changes. Any change to this field will trigger resource replacement.
+            clickhousedbops_user: resource will be lacking the password or the password_sha256_hash_wo_version, and thus the subsequent apply will need to recreate the database User in order to set a password.
+            cluster_name: |-
+                (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+                This field must be left null when using a ClickHouse Cloud cluster.
+                When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
+            host_ips: (Set of String) IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
+            id: (String) The system-assigned ID for the user
+            name: (String) Name of the user
+            password_sha256_hash: (String, Sensitive, Deprecated) SHA256 hash of the password to be set for the user. Use this for Terraform/OpenTofu < 1.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
+            password_sha256_hash_wo: and password_sha256_hash_wo_version
+            password_sha256_hash_wo_version: to trigger password updates.
+        importStatements:
+            - |-
+              # Users can be imported by specifying the ID.
+              # Find the ID of the user by checking system.users table.
+              # WARNING: imported users will be recreated during first 'terraform apply' because the password cannot be imported.
+              terraform import clickhousedbops_user.example xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+              # It's also possible to import users using the username:
+
+              terraform import clickhousedbops_user.example username
+
+              # IMPORTANT: if you have a multi node cluster, you need to specify the cluster name!
+
+              terraform import clickhousedbops_user.example cluster:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+              terraform import clickhousedbops_user.example cluster:username

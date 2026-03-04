@@ -1,0 +1,13 @@
+apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+kind: Role
+metadata:
+  annotations:
+    meta.upbound.io/example-id: clickhousedbops/v1alpha1/role
+  labels:
+    testing.upbound.io/example-name: writer
+  name: writer
+  namespace: crossplane-system
+spec:
+  forProvider:
+    clusterName: cluster
+    name: writer

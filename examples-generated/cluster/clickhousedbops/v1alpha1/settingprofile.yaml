@@ -1,0 +1,12 @@
+apiVersion: clickhousedbops.crossplane.io/v1alpha1
+kind: SettingProfile
+metadata:
+  annotations:
+    meta.upbound.io/example-id: clickhousedbops/v1alpha1/settingprofile
+  labels:
+    testing.upbound.io/example-name: profile1
+  name: profile1
+spec:
+  forProvider:
+    clusterName: cluster
+    name: profile1

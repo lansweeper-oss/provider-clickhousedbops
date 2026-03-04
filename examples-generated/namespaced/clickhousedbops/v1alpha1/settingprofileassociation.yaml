@@ -1,0 +1,13 @@
+apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+kind: SettingProfileAssociation
+metadata:
+  annotations:
+    meta.upbound.io/example-id: clickhousedbops/v1alpha1/settingprofileassociation
+  labels:
+    testing.upbound.io/example-name: roleassociation
+  name: roleassociation
+  namespace: crossplane-system
+spec:
+  forProvider:
+    roleId: ${clickhousedbops_role.role1.id}
+    settingsProfileId: ${clickhousedbops_settings_profile.profile1.id}
