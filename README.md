@@ -1,4 +1,4 @@
-# Provider Template
+# Provider clickhousedbops
 
 `provider-clickhousedbops` is a [Crossplane](https://crossplane.io/) provider
 clickhousedbops that is built using [Upjet](https://github.com/crossplane/upjet) code
