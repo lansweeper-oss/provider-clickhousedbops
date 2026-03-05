@@ -4,18 +4,18 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version string to use while publishing the package (e.g. v1.0.0-alpha.1)"
+        description: Version string to use while publishing the package (e.g. v1.0.0-alpha.1)
         default: ''
         required: false
       go-version:
-        description: 'Go version to use if building needs to be done'
+        description: Go version to use if building needs to be done
         default: '1.26'
         required: false
 
 env:
-  DOCKER_BUILDX_VERSION: 'v0.32.1'
-  UP_VERSION: 'v0.39.0'
-  UPBOUND_REGORG: 'xpkg.upbound.io/crossplane-contrib'
+  DOCKER_BUILDX_VERSION: v0.32.1
+  UP_VERSION: v0.39.0
+  UPBOUND_REGORG: xpkg.upbound.io/lansweeper
 
 jobs:
   publish-provider-package:
@@ -59,7 +59,7 @@ jobs:
         env:
           # We're using docker buildx, which doesn't actually load the images it
           # builds by default. Specifying --load does so.
-          BUILD_ARGS: "--load"
+          BUILD_ARGS: --load
 
       - name: Publish Artifacts
         run: |
@@ -69,7 +69,7 @@ jobs:
         name: Determine if mirroring to upbound
         run: |
           should_mirror=false
-          if [[ -n "${{ secrets.XPKG_MIRROR_ACCESS_ID }}" && -n "${{ secrets.XPKG_MIRROR_TOKEN }}"; then
+          if [[ -n "${{ secrets.XPKG_MIRROR_ACCESS_ID }}" && -n "${{ secrets.XPKG_MIRROR_TOKEN }}" ]]; then
             should_mirror=true
           fi
           echo "should_mirror=${should_mirror}" >> $GITHUB_OUTPUT
