@@ -136,7 +136,12 @@ pull-docs:
 	fi
 	@git -C "$(WORK_DIR)/$(TERRAFORM_PROVIDER_SOURCE)" sparse-checkout set "$(TERRAFORM_DOCS_PATH)"
 
-generate.init: $(TERRAFORM_PROVIDER_SCHEMA) pull-docs
+$(TERRAFORM_PROVIDER_SCHEMA:.json=.generated.lst): $(TERRAFORM_PROVIDER_SCHEMA)
+	@$(INFO) generating resource list from provider schema
+	@python3 -c "import json,sys; d=json.load(open(sys.argv[1])); p=next(iter(d['provider_schemas'])); print(json.dumps(list(d['provider_schemas'][p]['resource_schemas'].keys())))" $(TERRAFORM_PROVIDER_SCHEMA) > config/generated.lst
+	@$(OK) generating resource list from provider schema
+
+generate.init: $(TERRAFORM_PROVIDER_SCHEMA) $(TERRAFORM_PROVIDER_SCHEMA:.json=.generated.lst) pull-docs
 
 .PHONY: $(TERRAFORM_PROVIDER_SCHEMA) pull-docs check-terraform-version
 # ====================================================================================
