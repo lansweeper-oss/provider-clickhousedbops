@@ -1,0 +1,45 @@
+version: 2
+
+updates:
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    target-branch: "main"
+    labels:
+      - "automated"
+    open-pull-requests-limit: 5
+    # Only update kubernetes-related deps; all other Go deps are disabled
+    # (enable them per-package if a vulnerability is found)
+    allow:
+      - dependency-name: "k8s.io/*"
+      - dependency-name: "sigs.k8s.io/*"
+    ignore:
+      # k8s.io/client-go switched to semver; ignore >= 1.0 to avoid old tags
+      - dependency-name: "k8s.io/client-go"
+        versions: [">=1.0.0"]
+    groups:
+      # Single PR for all patch/digest bumps of kubernetes-related deps
+      kubernetes-patches:
+        patterns:
+          - "k8s.io/*"
+          - "sigs.k8s.io/*"
+        update-types:
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    target-branch: "main"
+    labels:
+      - "automated"
+    open-pull-requests-limit: 5
+    groups:
+      # Single PR for all minor and patch bumps of GitHub Actions
+      github-actions-non-major:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
