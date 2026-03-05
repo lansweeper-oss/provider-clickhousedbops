@@ -4,7 +4,9 @@ on:
   push:
     branches:
       - release-*
-  pull_request: {}
+  pull_request:
+      branches:
+      - main
   workflow_dispatch: {}
 
 concurrency:
@@ -54,7 +56,6 @@ jobs:
         run: |
           make crddiff
       - name: Report native schema version changes
-        if: ${{ inputs.upjet-based-provider }}
         run: |
           make schema-version-diff
 
