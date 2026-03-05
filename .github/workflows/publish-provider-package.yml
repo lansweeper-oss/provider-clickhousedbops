@@ -66,6 +66,7 @@ jobs:
           make BRANCH_NAME="main" ${{ inputs.version != '' && format('VERSION={0}', inputs.version) || '' }} publish
 
       - id: set
+        name: Determine if mirroring to upbound
         run: |
           should_mirror=false
           if [[ -n "${{ secrets.XPKG_MIRROR_ACCESS_ID }}" && -n "${{ secrets.XPKG_MIRROR_TOKEN }}"; then
