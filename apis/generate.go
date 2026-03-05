@@ -20,6 +20,9 @@
 // Run Upjet generator
 //go:generate go run ../cmd/generator/main.go ..
 
+// Copy generated examples into examples/ (preserving manual files like providerconfig)
+//go:generate bash -c "cp -r ../examples-generated/* ../examples/"
+
 // Generate deepcopy methodsets and CRD manifests
 //go:generate go run -tags generate sigs.k8s.io/controller-tools/cmd/controller-gen object:headerFile=../hack/boilerplate.go.txt paths=./... crd:allowDangerousTypes=true,crdVersions=v1 output:artifacts:config=../package/crds
 
