@@ -1,6 +1,11 @@
 apiVersion: meta.pkg.crossplane.io/v1
 kind: Provider
 metadata:
+  annotations:
+    meta.crossplane.io/maintainer: Lansweeper <PlatformTeam@lansweeper.com>
+    meta.crossplane.io/source: github.com/lansweeper-oss/provider-clickhousedbops
+    meta.crossplane.io/license: Apache-2.0
+    meta.crossplane.io/description: An upjet provider for ClickHouseDBOps
   name: provider-clickhousedbops
 spec:
   capabilities:
