@@ -61,6 +61,8 @@ jobs:
           make crddiff
 
       - name: Report native schema version changes
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref || github.event.repository.default_branch }}
         run: |
           make schema-version-diff
 
