@@ -39,6 +39,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Login to Upbound
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
+        with:
+          registry: xpkg.upbound.io
+          username: ${{ secrets.XPKG_MIRROR_ACCESS_ID }}
+          password: ${{ secrets.XPKG_MIRROR_TOKEN }}
+
       - name: Checkout ${{ github.repository }} ${{ inputs.version }}
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4
         with:
@@ -75,27 +82,4 @@ jobs:
           echo "should_mirror=${should_mirror}" >> $GITHUB_OUTPUT
     outputs:
       should_mirror: ${{ steps.set.outputs.should_mirror }}
-
-  mirror-to-xpkg-upbound-io:
-    needs: publish-provider-package
-    runs-on: ubuntu-latest
-    if: ${{ needs.publish-provider-package.outputs.should_mirror == 'true' }}
-    steps:
-      - name: Setup crane
-        # crane will inherit credentials from `docker login`
-        uses: imjasonh/setup-crane@6da1ae018866400525525ce74ff892880c099987 # v0.5
-
-      - name: Validate crane installation
-        run: crane version
-
-      - name: Login to Upbound
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
-        with:
-          registry: xpkg.upbound.io
-          username: ${{ secrets.XPKG_MIRROR_ACCESS_ID }}
-          password: ${{ secrets.XPKG_MIRROR_TOKEN }}
-
-      - name: Mirror to xpkg.upbound.io
-        run: |
-          crane copy ghcr.io/${{ github.repository }}:${{ inputs.version }} ${{ env.UPBOUND_REGORG }}/${{ github.event.repository.name }}:${{ inputs.version }} --allow-nondistributable-artifacts
 
