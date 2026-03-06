@@ -1,0 +1,30 @@
+apiVersion: clickhousedbops.m.crossplane.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: default
+  namespace: crossplane-system
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      name: clickhousedbops-creds
+      key: credentials
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: clickhousedbops-creds
+  namespace: crossplane-system
+type: Opaque
+stringData:
+  credentials: |
+    {
+      "host": "clickhouse.example.com",
+      "port": 9000,
+      "protocol": "native",
+      "auth_config": {
+        "strategy": "password",
+        "username": "default",
+        "password": "changeme"
+      }
+    }

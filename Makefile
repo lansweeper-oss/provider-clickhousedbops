@@ -136,6 +136,11 @@ pull-docs:
 	fi
 	@git -C "$(WORK_DIR)/$(TERRAFORM_PROVIDER_SOURCE)" sparse-checkout set "$(TERRAFORM_DOCS_PATH)"
 
+$(TERRAFORM_PROVIDER_SCHEMA:.json=.generated.lst): $(TERRAFORM_PROVIDER_SCHEMA)
+	@$(INFO) generating resource list from provider schema
+	@python3 -c "import json,sys; d=json.load(open(sys.argv[1])); p=next(iter(d['provider_schemas'])); print(json.dumps(list(d['provider_schemas'][p]['resource_schemas'].keys())))" $(TERRAFORM_PROVIDER_SCHEMA) > config/generated.lst
+	@$(OK) generating resource list from provider schema
+
 generate.init: $(TERRAFORM_PROVIDER_SCHEMA) pull-docs
 
 .PHONY: $(TERRAFORM_PROVIDER_SCHEMA) pull-docs check-terraform-version
@@ -224,7 +229,7 @@ crddiff: $(UPTEST)
 	done
 	@$(OK) Checking breaking CRD schema changes
 
-schema-version-diff:
+schema-version-diff: $(TERRAFORM_PROVIDER_SCHEMA:.json=.generated.lst)
 	@$(INFO) Checking for native state schema version changes
 	@export PREV_PROVIDER_VERSION=$$(git cat-file -p "${GITHUB_BASE_REF}:Makefile" | sed -nr 's/^export[[:space:]]*TERRAFORM_PROVIDER_VERSION[[:space:]]*:=[[:space:]]*(.+)/\1/p'); \
 	echo Detected previous Terraform provider version: $${PREV_PROVIDER_VERSION}; \

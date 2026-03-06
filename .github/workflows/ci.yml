@@ -3,9 +3,10 @@ name: CI
 on:
   push:
     branches:
-      - main
       - release-*
-  pull_request: {}
+  pull_request:
+      branches:
+      - main
   workflow_dispatch: {}
 
 concurrency:
@@ -42,20 +43,26 @@ jobs:
         with:
           submodules: true
 
+      - name: Fetch base
+        run: git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
+
       - name: Get modified CRDs
         id: modified-crds
         uses: tj-actions/changed-files@22103cc46bda19c2b464ffe86db46df6922fd323 # v47.0.5
         with:
           files: |
             package/crds/**
+
       - name: Report breaking CRD OpenAPI v3 schema changes
         if: steps.modified-crds.outputs.any_changed == 'true'
         env:
           MODIFIED_CRD_LIST: ${{ steps.modified-crds.outputs.all_changed_files }}
         run: |
           make crddiff
+
       - name: Report native schema version changes
-        if: ${{ inputs.upjet-based-provider }}
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref || github.event.repository.default_branch }}
         run: |
           make schema-version-diff
 

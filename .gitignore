@@ -6,6 +6,10 @@ cover.out
 /.vendor-new
 .DS_Store
 
+# generated files
+config/generated.lst
+examples-generated
+
 # ignore IDE folders
 .vscode/
 .idea/

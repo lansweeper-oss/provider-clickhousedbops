@@ -6,7 +6,8 @@ name: End to End Testing
 
 on:
   issue_comment:
-    types: [created]
+    types:
+      - created
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

@@ -17,9 +17,9 @@ img.build:
 	@$(OK) docker build $(IMAGE)
 
 img.publish:
-	@$(INFO) Skipping image publish for $(IMAGE)
-	@echo Publish is deferred to xpkg machinery
-	@$(OK) Image publish skipped for $(IMAGE)
+	@$(INFO) docker push $(IMAGE)
+	@$(MAKE) BUILD_ARGS="--push --platform $(IMAGE_PLATFORMS)" img.build.shared
+	@$(OK) docker push $(IMAGE)
 
 img.build.shared:
 	@cp Dockerfile $(IMAGE_TEMP_DIR) || $(FAIL)
