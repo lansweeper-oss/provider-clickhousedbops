@@ -1,0 +1,34 @@
+---
+# Secret containing the ClickHouse connection credentials.
+# The credentials key must be a JSON object matching the Terraform provider
+# configuration for ClickHouse/clickhousedbops.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: clickhouse-credentials
+  namespace: crossplane-system
+type: Opaque
+stringData:
+  credentials: |
+    {
+      "host": "my-instance.clickhouse.cloud",
+      "port": 9440,
+      "protocol": "nativesecure",
+      "auth_config": {
+        "strategy": "basic",
+        "username": "default",
+        "password": "changeme"
+      }
+    }
+---
+apiVersion: clickhousedbops.m.crossplane.io/v1beta1
+kind: ClusterProviderConfig
+metadata:
+  name: default
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: clickhouse-credentials
+      key: credentials

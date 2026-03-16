@@ -1,0 +1,17 @@
+apiVersion: clickhousedbops.crossplane.io/v1alpha1
+kind: User
+metadata:
+  annotations:
+    meta.upbound.io/example-id: clickhousedbops/v1alpha1/user
+  labels:
+    testing.upbound.io/example-name: jane
+  name: jane
+spec:
+  forProvider:
+    clusterName: cluster
+    name: jane
+    passwordSha256HashWoSecretRef:
+      key: example-key
+      name: example-secret
+      namespace: upbound-system
+    passwordSha256HashWoVersion: 4

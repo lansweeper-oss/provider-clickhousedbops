@@ -38,7 +38,7 @@ type UserInitParameters struct {
 	PasswordSha256HashSecretRef *v1.LocalSecretKeySelector `json:"passwordSha256HashSecretRef,omitempty" tf:"-"`
 
 	// and password_sha256_hash_wo_version
-	// SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash.
+	// SHA256 hash of the password to authenticate the user. If you set autoGeneratePassword to true, the Secret referenced here will be created or updated with the generated password if it does not already contain one.
 	PasswordSha256HashWoSecretRef *v1.LocalSecretKeySelector `json:"passwordSha256HashWoSecretRef,omitempty" tf:"-"`
 
 	// to trigger password updates.
@@ -75,6 +75,11 @@ type UserObservation struct {
 
 type UserParameters struct {
 
+	// If true, the password will be auto-generated and stored in the Secret referenced by the passwordSecretRef field.
+	// +upjet:crd:field:TFTag=-
+	// +kubebuilder:validation:Optional
+	AutoGeneratePassword *bool `json:"autoGeneratePassword,omitempty" tf:"-"`
+
 	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
@@ -101,7 +106,7 @@ type UserParameters struct {
 	PasswordSha256HashSecretRef *v1.LocalSecretKeySelector `json:"passwordSha256HashSecretRef,omitempty" tf:"-"`
 
 	// and password_sha256_hash_wo_version
-	// SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash.
+	// SHA256 hash of the password to authenticate the user. If you set autoGeneratePassword to true, the Secret referenced here will be created or updated with the generated password if it does not already contain one.
 	// +kubebuilder:validation:Optional
 	PasswordSha256HashWoSecretRef *v1.LocalSecretKeySelector `json:"passwordSha256HashWoSecretRef,omitempty" tf:"-"`
 

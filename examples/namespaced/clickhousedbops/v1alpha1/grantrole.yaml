@@ -1,0 +1,14 @@
+apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+kind: GrantRole
+metadata:
+  annotations:
+    meta.upbound.io/example-id: clickhousedbops/v1alpha1/grantrole
+  labels:
+    testing.upbound.io/example-name: role_to_user
+  name: role-to-user
+  namespace: crossplane-system
+spec:
+  forProvider:
+    clusterName: cluster
+    granteeUserName: myuser
+    roleName: myrole

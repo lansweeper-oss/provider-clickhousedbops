@@ -1,0 +1,16 @@
+apiVersion: clickhousedbops.crossplane.io/v1alpha1
+kind: GrantPrivilege
+metadata:
+  annotations:
+    meta.upbound.io/example-id: clickhousedbops/v1alpha1/grantprivilege
+  labels:
+    testing.upbound.io/example-name: grant
+  name: grant
+spec:
+  forProvider:
+    columnName: count
+    databaseName: default
+    grantOption: true
+    granteeUserName: my_user_name
+    privilegeName: SELECT
+    tableName: tbl1

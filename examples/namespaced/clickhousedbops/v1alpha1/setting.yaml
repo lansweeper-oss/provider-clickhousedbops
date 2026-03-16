@@ -1,0 +1,17 @@
+apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+kind: Setting
+metadata:
+  annotations:
+    meta.upbound.io/example-id: clickhousedbops/v1alpha1/setting
+  labels:
+    testing.upbound.io/example-name: setting1
+  name: setting1
+  namespace: crossplane-system
+spec:
+  forProvider:
+    max: "2000"
+    min: "100"
+    name: max_memory_usage
+    settingsProfileId: ${clickhousedbops_settings_profile.profile1.id}
+    value: 1000
+    writability: CHANGEABLE_IN_READONLY
