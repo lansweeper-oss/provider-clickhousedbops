@@ -55,7 +55,7 @@ jobs:
         run: git fetch --prune --unshallow
 
       - name: Setup Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v3
         with:
           go-version: ${{ inputs.go-version }}
 
