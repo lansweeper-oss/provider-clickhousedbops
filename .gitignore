@@ -13,3 +13,5 @@ examples-generated
 # ignore IDE folders
 .vscode/
 .idea/
+
+.claude/

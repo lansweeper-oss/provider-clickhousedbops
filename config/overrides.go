@@ -3,7 +3,9 @@ package config
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	ujconfig "github.com/crossplane/upjet/v2/pkg/config"
+	"github.com/crossplane/upjet/v2/pkg/config"
+	"github.com/crossplane/upjet/v2/pkg/types/comments"
+	tfschema "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 var gkvOverrideMap = map[string]schema.GroupVersionKind{
@@ -25,8 +27,8 @@ var gkvOverrideMap = map[string]schema.GroupVersionKind{
 	},
 }
 
-func gvkOverride() ujconfig.ResourceOption {
-	return func(r *ujconfig.Resource) {
+func gvkOverride() config.ResourceOption {
+	return func(r *config.Resource) {
 		if r.ShortGroup == resourcePrefix {
 			r.ShortGroup = ""
 		}
@@ -38,4 +40,25 @@ func gvkOverride() ujconfig.ResourceOption {
 			}
 		}
 	}
+}
+
+func Configure(p *config.Provider) {
+	p.AddResourceConfigurator("clickhousedbops_user", func(r *config.Resource) {
+		desc, _ := comments.New("If true, the password will be auto-generated and"+
+			" stored in the Secret referenced by the passwordSecretRef field.",
+			comments.WithTFTag("-"))
+		r.TerraformResource.Schema["auto_generate_password"] = &tfschema.Schema{
+			Type:        tfschema.TypeBool,
+			Optional:    true,
+			Description: desc.String(),
+		}
+		r.InitializerFns = append(r.InitializerFns,
+			PasswordGenerator(
+				"spec.forProvider.passwordSecretRef",
+				"spec.forProvider.autoGeneratePassword",
+			))
+		r.TerraformResource.Schema["password_sha256_hash_wo"].Description = "SHA256 hash of the password to authenticate the user." +
+			" If you set autoGeneratePassword to true, the Secret referenced here will be" +
+			" created or updated with the generated password if it does not already contain one."
+	})
 }
