@@ -46,16 +46,18 @@ func TerraformSetupBuilder(version, providerSource, providerVersion string) terr
 		if err != nil {
 			return ps, fmt.Errorf(errExtractCredentials+": %w", err)
 		}
-		creds := map[string]string{}
+		creds := map[string]any{}
 		if err := json.Unmarshal(data, &creds); err != nil {
 			return ps, fmt.Errorf(errUnmarshalCredentials+": %w", err)
 		}
 
 		// Set credentials in Terraform provider configuration.
-		/*ps.Configuration = map[string]any{
-			"username": creds["username"],
-			"password": creds["password"],
-		}*/
+		ps.Configuration = map[string]any{
+			"host":        creds["host"],
+			"port":        creds["port"],
+			"protocol":    creds["protocol"],
+			"auth_config": creds["auth_config"],
+		}
 		return ps, nil
 	}
 }
