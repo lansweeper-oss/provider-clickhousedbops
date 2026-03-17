@@ -18,10 +18,28 @@ jobs:
     with:
       cleanup-disk: true
       go-version: ${{ github.event.inputs.go-version }}
+      mirror: false
       registry_org: lansweeper-oss
       repository: provider-clickhousedbops
       version: ${{ github.event.inputs.version }}
     secrets:
       GHCR_PAT: ${{ secrets.GITHUB_TOKEN }}
-      XPKG_MIRROR_ACCESS_ID: ${{ secrets.XPKG_MIRROR_ACCESS_ID }}
-      XPKG_MIRROR_TOKEN: ${{ secrets.XPKG_MIRROR_TOKEN }}
+
+  mirror-to-upbound:
+    needs: publish-provider-package
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.version != '' }}
+    steps:
+      - name: Setup crane
+        uses: imjasonh/setup-crane@v0.4
+
+      - name: Login to Upbound
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
+        with:
+          registry: xpkg.upbound.io
+          username: ${{ secrets.XPKG_MIRROR_ACCESS_ID }}
+          password: ${{ secrets.XPKG_MIRROR_TOKEN }}
+
+      - name: Mirror to Upbound
+        run: |
+          crane copy ghcr.io/lansweeper-oss/provider-clickhousedbops:${{ github.event.inputs.version }} xpkg.upbound.io/lansweeper/provider-clickhousedbops:${{ github.event.inputs.version }} --allow-nondistributable-artifacts
