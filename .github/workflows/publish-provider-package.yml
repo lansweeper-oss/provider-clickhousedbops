@@ -18,7 +18,8 @@ jobs:
     with:
       cleanup-disk: true
       go-version: ${{ github.event.inputs.go-version }}
-      repository: provider-mongodbatlas
+      registry_org: lansweeper-oss
+      repository: provider-clickhousedbops
       version: ${{ github.event.inputs.version }}
     secrets:
       GHCR_PAT: ${{ secrets.GITHUB_TOKEN }}
