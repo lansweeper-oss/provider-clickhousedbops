@@ -65,7 +65,7 @@ CROSSPLANE_VERSION = 2.2.0
 # ====================================================================================
 # Setup Images
 
-REGISTRY_ORGS ?= ghcr.io/lansweeper-oss
+REGISTRY_ORGS ?= xpkg.upbound.io/lansweeper
 IMAGES = $(PROJECT_NAME)
 -include build/makelib/imagelight.mk
 
