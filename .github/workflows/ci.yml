@@ -15,7 +15,7 @@ concurrency:
 env:
   # Common versions
   GO_VERSION: '1.26'
-  GOLANGCI_VERSION: 'v2.10.1'
+  GOLANGCI_VERSION: 'v2.11.3'
   DOCKER_BUILDX_VERSION: 'v0.32.1'
 
 jobs:
