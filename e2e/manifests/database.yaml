@@ -1,0 +1,11 @@
+apiVersion: clickhousedbops.crossplane.io/v1alpha1
+kind: Database
+metadata:
+  annotations:
+    meta.upbound.io/example-id: clickhousedbops/v1alpha1/database
+  labels:
+    testing.upbound.io/example-name: testdb
+  name: testdb
+spec:
+  forProvider:
+    name: testdb

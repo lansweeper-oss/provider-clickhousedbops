@@ -1,0 +1,16 @@
+apiVersion: clickhousedbops.crossplane.io/v1alpha1
+kind: User
+metadata:
+  annotations:
+    meta.upbound.io/example-id: clickhousedbops/v1alpha1/user
+  labels:
+    testing.upbound.io/example-name: testuser
+  name: testuser
+spec:
+  forProvider:
+    name: testuser
+    autoGeneratePassword: true
+    passwordSha256HashSecretRef:
+      name: testuser-password-hash
+      namespace: crossplane-system
+      key: hash

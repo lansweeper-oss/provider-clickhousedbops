@@ -1,0 +1,11 @@
+apiVersion: clickhousedbops.crossplane.io/v1alpha1
+kind: Role
+metadata:
+  annotations:
+    meta.upbound.io/example-id: clickhousedbops/v1alpha1/role
+  labels:
+    testing.upbound.io/example-name: testrole
+  name: testrole
+spec:
+  forProvider:
+    name: testrole

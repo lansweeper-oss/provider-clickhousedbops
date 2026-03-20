@@ -3,20 +3,26 @@ package config
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/crossplane/upjet/v2/pkg/config"
 )
 
 const (
-	sep = ":"
+	// sentinelUUID is used as a placeholder Terraform ID for resources that have not yet been
+	// created. It is a valid UUID format so ClickHouse can parse it without error. It must NOT
+	// match any ClickHouse system database UUID — in particular, the nil UUID
+	// (00000000-0000-0000-0000-000000000000) is reserved for information_schema and would cause
+	// the provider to return that database instead of "not found". All-f is not a valid random
+	// UUID (version 4) so ClickHouse would never assign it to a real database.
+	sentinelUUID = "ffffffff-ffff-ffff-ffff-ffffffffffff"
+	sep          = ":"
 )
 
 // ExternalNameConfigs contains all external name configurations for this
 // provider.
 var ExternalNameConfigs = map[string]config.ExternalName{
-	"clickhousedbops_database":                     idWithClusterName(),
+	"clickhousedbops_database":                     idWithClusterNameDatabase(),
 	"clickhousedbops_grant_privilege":              idWithStub(), // cannot be imported
 	"clickhousedbops_grant_role":                   idWithStub(), // cannot be imported
 	"clickhousedbops_role":                         idWithClusterName(),
@@ -55,6 +61,27 @@ func idWithClusterName() config.ExternalName {
 	return e
 }
 
+// idWithClusterNameDatabase is like idWithClusterName but uses the "uuid"
+// field from the Terraform state as the external name. The database framework
+// provider does not set an "id" attribute in its state — it uses "uuid" as the
+// primary identifier — so we must read "uuid" instead of "id".
+func idWithClusterNameDatabase() config.ExternalName {
+	e := config.IdentifierFromProvider
+	e.GetIDFn = IDFromClusterName(sep)
+	e.GetExternalNameFn = func(tfstate map[string]any) (string, error) {
+		if uuidVal, ok := tfstate["uuid"].(string); ok && uuidVal != "" {
+			// Strip the cluster name prefix if present (same as ExternalNameFromClusterName).
+			if strings.Contains(uuidVal, sep) {
+				return strings.Split(uuidVal, sep)[1], nil
+			}
+			return uuidVal, nil
+		}
+		// Fall back to the id-based extraction for safety.
+		return ExternalNameFromClusterName(sep)(tfstate)
+	}
+	return e
+}
+
 func idWithStub() config.ExternalName {
 	e := config.IdentifierFromProvider
 	e.GetExternalNameFn = func(tfstate map[string]any) (string, error) {
@@ -78,22 +105,23 @@ func ExtractIDFromState(tfstate map[string]any) (string, error) {
 
 func IDFromClusterName(sep string) func(context.Context, string, map[string]any, map[string]any) (string, error) {
 	return func(_ context.Context, externalName string, parameters map[string]any, _ map[string]any) (string, error) {
-		nameVal, ok := parameters["name"]
-		if !ok {
-			return "", errors.New("'name' parameter missing from resource state")
-		}
-		name, ok := nameVal.(string)
-		if !ok {
-			return "", fmt.Errorf("'name' parameter is not a string: %T", nameVal)
+		nameVal := parameters["name"]
+		name, _ := nameVal.(string)
+		// If the external name is empty or still matches the resource name, the
+		// provider has not yet assigned a UUID (new resource). Use a nil UUID so
+		// ClickHouse returns 0 rows and the provider signals "not found",
+		// allowing upjet to proceed with creation.
+		id := externalName
+		if id == "" || id == name {
+			id = sentinelUUID
 		}
 		if clusterVal, ok := parameters["cluster_name"]; ok {
 			cluster, ok := clusterVal.(string)
-			if !ok {
-				return "", fmt.Errorf("'cluster_name' parameter is not a string: %T", clusterVal)
+			if ok && cluster != "" {
+				return cluster + sep + id, nil
 			}
-			return cluster + sep + name, nil
 		}
-		return name, nil
+		return id, nil
 	}
 }
 

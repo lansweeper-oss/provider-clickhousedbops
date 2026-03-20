@@ -72,10 +72,10 @@ IMAGES = $(PROJECT_NAME)
 # ====================================================================================
 # Setup XPKG
 
-XPKG_REG_ORGS ?= xpkg.upbound.io/lansweeper
+XPKG_REG_ORGS ?= xpkg.upbound.io/lansweeper ghcr.io/lansweeper-oss
 # NOTE(hasheddan): skip promoting on xpkg.crossplane.io as channel tags are
 # inferred.
-XPKG_REG_ORGS_NO_PROMOTE ?= xpkg.upbound.io/lansweeper
+XPKG_REG_ORGS_NO_PROMOTE ?= xpkg.upbound.io/lansweeper ghcr.io/lansweeper-oss
 XPKGS = $(PROJECT_NAME)
 -include build/makelib/xpkg.mk
 
@@ -194,33 +194,54 @@ run: go.build
 # ====================================================================================
 # End to End Testing
 CROSSPLANE_NAMESPACE = crossplane-system
+
+# Required by build/makelib/uptest.mk — tells the e2e target which make target
+# deploys the provider into the local Kind cluster.
+UPTEST_LOCAL_DEPLOY_TARGET = local.xpkg.deploy.provider.$(PROJECT_NAME)
+
+# Default to the checked-in e2e manifests; override from the command line when
+# running the cloud-credentials-based suite (UPTEST_INPUT_MANIFESTS=...).
+UPTEST_INPUT_MANIFESTS ?= $(shell find e2e/manifests -name '*.yaml' 2>/dev/null | sort | tr '\n' ',' | sed 's/,$$//')
+
+# No external datasource needed for the local Kind-based tests.
+UPTEST_DATASOURCE_PATH ?= /dev/null
+
+UPTEST_SETUP_SCRIPT = cluster/test/setup.sh
+
 -include build/makelib/local.xpkg.mk
 -include build/makelib/controlplane.mk
+-include build/makelib/uptest.mk
 
-# This target requires the following environment variables to be set:
-# - UPTEST_EXAMPLE_LIST, a comma-separated list of examples to test
-#   To ensure the proper functioning of the end-to-end test resource pre-deletion hook, it is crucial to arrange your resources appropriately.
-#   You can check the basic implementation here: https://github.com/crossplane/uptest/blob/main/internal/templates/03-delete.yaml.tmpl.
-# - UPTEST_CLOUD_CREDENTIALS (optional), multiple sets of AWS IAM User credentials specified as key=value pairs.
-#   The support keys are currently `DEFAULT` and `PEER`. So, an example for the value of this env. variable is:
-#   DEFAULT='[default]
-#   aws_access_key_id = REDACTED
-#   aws_secret_access_key = REDACTED'
-#   PEER='[default]
-#   aws_access_key_id = REDACTED
-#   aws_secret_access_key = REDACTED'
-#   The associated `ProviderConfig`s will be named as `default` and `peer`.
-# - UPTEST_DATASOURCE_PATH (optional), please see https://github.com/crossplane/uptest#injecting-dynamic-values-and-datasource
-uptest: $(UPTEST) $(KUBECTL) $(CHAINSAW) $(CROSSPLANE_CLI)
+uptest-e2e: $(UPTEST) $(KUBECTL) $(CHAINSAW) $(CROSSPLANE_CLI)
 	@$(INFO) running automated tests
-	@KUBECTL=$(KUBECTL) CHAINSAW=$(CHAINSAW) CROSSPLANE_CLI=$(CROSSPLANE_CLI) CROSSPLANE_NAMESPACE=$(CROSSPLANE_NAMESPACE) $(UPTEST) e2e "${UPTEST_EXAMPLE_LIST}" --data-source="${UPTEST_DATASOURCE_PATH}" --setup-script=cluster/test/setup.sh --default-conditions="Test" || $(FAIL)
+	@KUBECTL=$(KUBECTL) CHAINSAW=$(CHAINSAW) CROSSPLANE_CLI=$(CROSSPLANE_CLI) \
+	  CROSSPLANE_NAMESPACE=$(CROSSPLANE_NAMESPACE) \
+	  $(UPTEST) e2e "$(UPTEST_INPUT_MANIFESTS)" \
+	  --data-source="$(UPTEST_DATASOURCE_PATH)" \
+	  --setup-script=$(UPTEST_SETUP_SCRIPT) \
+	  --default-conditions="Test" || $(FAIL)
 	@$(OK) running automated tests
+
+uptest: uptest-e2e
 
 local-deploy: build controlplane.up local.xpkg.deploy.provider.$(PROJECT_NAME)
 	@$(INFO) running locally built provider
 	@$(KUBECTL) wait provider.pkg $(PROJECT_NAME) --for condition=Healthy --timeout 5m
 	@$(KUBECTL) -n crossplane-system wait --for=condition=Available deployment --all --timeout=5m
 	@$(OK) running locally built provider
+
+# Pruning stale xpkg files before syncing ensures only the current build is deployed.
+# Without this, local.xpkg.sync picks up old xpkg files alphabetically (e.g. v7 > v22)
+# and installs outdated CRDs in the local Kind cluster.
+local.xpkg.sync: prune.stale.xpkg
+
+prune.stale.xpkg:
+	@$(INFO) pruning stale xpkg artifacts
+	@for dir in $(OUTPUT_DIR)/xpkg/linux_*/; do \
+		[ -d "$$dir" ] || continue; \
+		ls -t "$$dir"*.xpkg 2>/dev/null | tail -n +2 | xargs rm -f 2>/dev/null || true; \
+	done
+	@$(OK) pruning stale xpkg artifacts
 
 e2e: local-deploy uptest
 
@@ -251,7 +272,7 @@ schema-version-diff: $(TERRAFORM_PROVIDER_SCHEMA:.json=.generated.lst)
 	./scripts/version_diff.py config/generated.lst "$(WORK_DIR)/schema.json.$${PREV_PROVIDER_VERSION}" config/schema.json
 	@$(OK) Checking for native state schema version changes
 
-.PHONY: cobertura submodules fallthrough run crds.clean
+.PHONY: e2e cobertura submodules fallthrough run crds.clean clean prune.stale.xpkg
 
 # ====================================================================================
 # Special Targets
