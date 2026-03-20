@@ -87,6 +87,10 @@ spec:
                 type: string
               forProvider:
                 properties:
+                  autoGeneratePassword:
+                    description: If true, the password will be auto-generated and
+                      stored in the Secret referenced by the passwordSecretRef field.
+                    type: boolean
                   clusterName:
                     description: |-
                       (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
@@ -131,7 +135,7 @@ spec:
                   passwordSha256HashWoSecretRef:
                     description: |-
                       and password_sha256_hash_wo_version
-                      SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash.
+                      SHA256 hash of the password to authenticate the user. If you set autoGeneratePassword to true, the Secret referenced here will be created or updated with the generated password if it does not already contain one.
                     properties:
                       key:
                         description: The key to select.
@@ -210,7 +214,7 @@ spec:
                   passwordSha256HashWoSecretRef:
                     description: |-
                       and password_sha256_hash_wo_version
-                      SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash.
+                      SHA256 hash of the password to authenticate the user. If you set autoGeneratePassword to true, the Secret referenced here will be created or updated with the generated password if it does not already contain one.
                     properties:
                       key:
                         description: The key to select.
