@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/crossplane/upjet/v2/pkg/config"
@@ -15,14 +16,14 @@ const (
 // ExternalNameConfigs contains all external name configurations for this
 // provider.
 var ExternalNameConfigs = map[string]config.ExternalName{
-	"clickhousedbops_database":                     idWithclusterName(),
+	"clickhousedbops_database":                     idWithClusterName(),
 	"clickhousedbops_grant_privilege":              idWithStub(), // cannot be imported
 	"clickhousedbops_grant_role":                   idWithStub(), // cannot be imported
-	"clickhousedbops_role":                         idWithclusterName(),
+	"clickhousedbops_role":                         idWithClusterName(),
 	"clickhousedbops_setting":                      idWithStub(), // cannot be imported
-	"clickhousedbops_settings_profile":             idWithclusterName(),
+	"clickhousedbops_settings_profile":             idWithClusterName(),
 	"clickhousedbops_settings_profile_association": idWithStub(), // cannot be imported
-	"clickhousedbops_user":                         idWithclusterName(),
+	"clickhousedbops_user":                         idWithClusterName(),
 }
 
 // ExternalNameConfigured returns the list of possible external name
@@ -47,7 +48,7 @@ func ExternalNameConfigurations() config.ResourceOption {
 	}
 }
 
-func idWithclusterName() config.ExternalName {
+func idWithClusterName() config.ExternalName {
 	e := config.IdentifierFromProvider
 	e.GetIDFn = IDFromClusterName(sep)
 	e.GetExternalNameFn = ExternalNameFromClusterName(sep)
@@ -77,10 +78,20 @@ func ExtractIDFromState(tfstate map[string]any) (string, error) {
 
 func IDFromClusterName(sep string) func(context.Context, string, map[string]any, map[string]any) (string, error) {
 	return func(_ context.Context, externalName string, parameters map[string]any, _ map[string]any) (string, error) {
-		name := parameters["name"].(string)
-		cluster, ok := parameters["cluster_name"]
-		if ok {
-			return cluster.(string) + sep + name, nil
+		nameVal, ok := parameters["name"]
+		if !ok {
+			return "", errors.New("'name' parameter missing from resource state")
+		}
+		name, ok := nameVal.(string)
+		if !ok {
+			return "", fmt.Errorf("'name' parameter is not a string: %T", nameVal)
+		}
+		if clusterVal, ok := parameters["cluster_name"]; ok {
+			cluster, ok := clusterVal.(string)
+			if !ok {
+				return "", fmt.Errorf("'cluster_name' parameter is not a string: %T", clusterVal)
+			}
+			return cluster + sep + name, nil
 		}
 		return name, nil
 	}

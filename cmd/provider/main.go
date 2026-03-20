@@ -78,7 +78,7 @@ var cli struct {
 	TerraformVersion string   `help:"Terraform version" required:"" env:"TERRAFORM_VERSION"`
 	ProviderSource   string   `help:"Terraform provider source" required:"" env:"TERRAFORM_PROVIDER_SOURCE"`
 	ProviderVersion  string   `help:"Terraform provider version" required:"" env:"TERRAFORM_PROVIDER_VERSION"`
-	CertsDir         certsDir `help:"The directory that contains the server key and certificate" default:"${defaultCertsDir}" env:"${defautCertsDirEnvVar}"`
+	CertsDir         certsDir `help:"The directory that contains the server key and certificate" default:"${defaultCertsDir}" env:"${defaultCertsDirEnvVar}"`
 }
 
 func main() {
@@ -87,8 +87,8 @@ func main() {
 		kong.Description("Crossplane Provider for ClickhouseDBOps"),
 		kong.Bind(&certsDirSet),
 		kong.Vars{
-			"defaultCertsDir":      tlsServerCertDir,
-			"defautCertsDirEnvVar": certsDirEnvVar,
+			"defaultCertsDir":       tlsServerCertDir,
+			"defaultCertsDirEnvVar": certsDirEnvVar,
 		},
 	)
 
@@ -266,7 +266,7 @@ func canWatchCRD(ctx context.Context, mgr manager.Manager) (bool, error) {
 			},
 		}
 		if err := mgr.GetClient().Create(ctx, sar); err != nil {
-			return false, errors.Wrapf(err, "unable to perform RBAC check for verb %s on CustomResourceDefinitions", verbs)
+			return false, errors.Wrapf(err, "unable to perform RBAC check for verb %s on CustomResourceDefinitions", verb)
 		}
 		if !sar.Status.Allowed {
 			return false, nil

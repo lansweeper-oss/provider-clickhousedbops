@@ -123,11 +123,17 @@ func applyConnectionSecret(ctx context.Context, c client.Client, mg xpresource.M
 		return nil
 	}
 	connSecret := &corev1.Secret{}
+	connSecret.SetName(connRef.Name)
+	connSecret.SetNamespace(mg.GetNamespace())
 	if err := c.Get(ctx, types.NamespacedName{Namespace: mg.GetNamespace(), Name: connRef.Name}, connSecret); xpresource.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("cannot get connection secret: %w", err)
 	}
-	connSecret.SetName(connRef.Name)
-	connSecret.SetNamespace(mg.GetNamespace())
+	if !meta.WasCreated(connSecret) {
+		// We don't want to own the Secret if it is created by someone
+		// else, otherwise the deletion of the managed resource will
+		// delete the Secret that we didn't create in the first place.
+		meta.AddOwnerReference(connSecret, meta.AsOwner(meta.TypedReferenceTo(mg, mg.GetObjectKind().GroupVersionKind())))
+	}
 	if connSecret.Data == nil {
 		connSecret.Data = make(map[string][]byte, 1)
 	}
