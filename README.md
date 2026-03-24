@@ -40,6 +40,29 @@ stringData:
     }
 ```
 
+or
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: clickhousedbops-creds
+  namespace: crossplane-system
+type: Opaque
+stringData:
+  credentials: |
+    {
+      "host": "clickhouse.example.com",
+      "port": "8443",
+      "protocol": "https",
+      "auth_config": {
+        "strategy": "basicauth",
+        "username": "default",
+        "password": "changeme"
+      }
+    }
+```
+
 #### 2. Create a ProviderConfig referencing the Secret
 
 **Namespaced** (secret must be in the same namespace as the managed resources):
