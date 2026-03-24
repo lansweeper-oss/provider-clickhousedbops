@@ -103,6 +103,17 @@ func idWithClusterNameDatabase() config.ExternalName {
 
 func idWithStub() config.ExternalName {
 	e := config.IdentifierFromProvider
+	e.GetIDFn = func(_ context.Context, externalName string, _ map[string]any, _ map[string]any) (string, error) {
+		// Grant resources use a provider-assigned composite key (e.g. "SELECT:db::user").
+		// K8s resource names never contain ":", so if externalName has no ":" it is
+		// a pre-creation placeholder — return "" so the framework provider skips Read
+		// (treats the resource as non-existent) instead of trying to parse the K8s
+		// name as a composite key and returning a parse error.
+		if strings.Contains(externalName, sep) {
+			return externalName, nil
+		}
+		return "", nil
+	}
 	e.GetExternalNameFn = func(tfstate map[string]any) (string, error) {
 		en, _ := config.IDAsExternalName(tfstate)
 		return en, nil

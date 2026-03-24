@@ -224,7 +224,7 @@ uptest-e2e: $(UPTEST) $(KUBECTL) $(CHAINSAW) $(CROSSPLANE_CLI)
 
 uptest: uptest-e2e
 
-local-deploy: build controlplane.up local.xpkg.deploy.provider.$(PROJECT_NAME)
+local-deploy: generate build controlplane.up local.xpkg.deploy.provider.$(PROJECT_NAME)
 	@$(INFO) running locally built provider
 	@$(KUBECTL) wait provider.pkg $(PROJECT_NAME) --for condition=Healthy --timeout 5m
 	@$(KUBECTL) -n crossplane-system wait --for=condition=Available deployment --all --timeout=5m
@@ -272,7 +272,7 @@ schema-version-diff: $(TERRAFORM_PROVIDER_SCHEMA:.json=.generated.lst)
 	./scripts/version_diff.py config/generated.lst "$(WORK_DIR)/schema.json.$${PREV_PROVIDER_VERSION}" config/schema.json
 	@$(OK) Checking for native state schema version changes
 
-.PHONY: e2e cobertura submodules fallthrough run crds.clean clean prune.stale.xpkg
+.PHONY: e2e cobertura generate local-deploy submodules fallthrough run crds.clean clean prune.stale.xpkg
 
 # ====================================================================================
 # Special Targets
