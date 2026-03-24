@@ -11,10 +11,11 @@ import (
 const (
 	// sentinelUUID is used as a placeholder Terraform ID for resources that have not yet been
 	// created. It is a valid UUID format so ClickHouse can parse it without error. It must NOT
-	// match any ClickHouse system database UUID — in particular, the nil UUID
+	// match any ClickHouse system database UUID, in particular the nil UUID
 	// (00000000-0000-0000-0000-000000000000) is reserved for information_schema and would cause
-	// the provider to return that database instead of "not found". All-f is not a valid random
-	// UUID (version 4) so ClickHouse would never assign it to a real database.
+	// the provider to return that database instead of "not found".
+	// This is not a valid random UUID (version 4) so ClickHouse would never assign it to a real
+	// database.
 	sentinelUUID = "ffffffff-ffff-ffff-ffff-ffffffffffff"
 	sep          = ":"
 )
@@ -65,7 +66,7 @@ func idWithClusterName() config.ExternalName {
 		// initial observe (finds the existing resource) and the pre-creation
 		// observe (returns "not found", triggering creation).
 		id := externalName
-		if id == "" || id == name {
+		if id == "" {
 			id = name
 		}
 		if clusterVal, ok := parameters["cluster_name"]; ok {
@@ -80,10 +81,7 @@ func idWithClusterName() config.ExternalName {
 	return e
 }
 
-// idWithClusterNameDatabase is like idWithClusterName but uses the "uuid"
-// field from the Terraform state as the external name. The database framework
-// provider does not set an "id" attribute in its state — it uses "uuid" as the
-// primary identifier — so we must read "uuid" instead of "id".
+// idWithClusterNameDatabase uses the "uuid" field from tfstate as external name.
 func idWithClusterNameDatabase() config.ExternalName {
 	e := config.IdentifierFromProvider
 	e.GetIDFn = IDFromClusterName(sep)
@@ -101,19 +99,22 @@ func idWithClusterNameDatabase() config.ExternalName {
 	return e
 }
 
+// idWithStub extends config.IdentifierFromProvider with a custom GetIDFn for resources that use a
+// provider-assigned composite key and cannot be imported.
+// The composite key always contains ":" (e.g. "SELECT:testdb::testuser").
+// Before creation, externalName is the plain K8s resource name which never contains ":".
+// Returning "" in that case signals to upjet that there is no existing resource to look up, so it proceeds directly to creation.
 func idWithStub() config.ExternalName {
 	e := config.IdentifierFromProvider
 	e.GetIDFn = func(_ context.Context, externalName string, _ map[string]any, _ map[string]any) (string, error) {
-		// Grant resources use a provider-assigned composite key (e.g. "SELECT:db::user").
-		// K8s resource names never contain ":", so if externalName has no ":" it is
-		// a pre-creation placeholder — return "" so the framework provider skips Read
-		// (treats the resource as non-existent) instead of trying to parse the K8s
-		// name as a composite key and returning a parse error.
 		if strings.Contains(externalName, sep) {
 			return externalName, nil
 		}
 		return "", nil
 	}
+	// Return "" instead of an error when id is absent from tfstate. This
+	// happens when terraform refresh signals "not found" and Terraform removes
+	// the resource from state, leaving no id key in the attributes map.
 	e.GetExternalNameFn = func(tfstate map[string]any) (string, error) {
 		en, _ := config.IDAsExternalName(tfstate)
 		return en, nil
@@ -137,10 +138,10 @@ func IDFromClusterName(sep string) func(context.Context, string, map[string]any,
 	return func(_ context.Context, externalName string, parameters map[string]any, _ map[string]any) (string, error) {
 		nameVal := parameters["name"]
 		name, _ := nameVal.(string)
-		// If the external name is empty or still matches the resource name, the
-		// provider has not yet assigned a UUID (new resource). Use a nil UUID so
-		// ClickHouse returns 0 rows and the provider signals "not found",
-		// allowing upjet to proceed with creation.
+		// Before creation, externalName equals the K8s resource name (crossplane default) or is empty.
+		// In either case the provider has not yet assigned a real UUID.
+		// Use sentinelUUID so ClickHouse receives a syntactically valid UUID that matches no row,
+		// causing the provider to signal "not found" and allowing upjet to proceed with creation.
 		id := externalName
 		if id == "" || id == name {
 			id = sentinelUUID

@@ -20,20 +20,23 @@ type terraformedObservation interface {
 	SetObservation(map[string]any) error
 }
 
-// NamedResourceIDInitializer seeds the "id" field in status.atProvider with
-// sentinelUUID before the first Terraform observe cycle.
+// sentinelUUIDInitializer seeds the given observation field with sentinelUUID
+// before the first Terraform observe cycle, leaving it untouched once the
+// provider has written a real UUID to it.
 //
-// Background: resources like clickhousedbops_user and clickhousedbops_settings_profile
-// have a UUID "id" attribute that the provider uses for Read lookups. Without this
-// initializer, upjet seeds the TF state with id=<resource-name> (e.g. "testuser"),
-// and the provider tries to execute WHERE id = UUID('testuser'), which causes a
-// ClickHouse parse error instead of returning "not found".
+// This is needed for resources where the TF provider uses a UUID field for
+// Read lookups: an empty or name-based value causes ClickHouse to return a
+// UUID parse error (code 376) instead of zero rows. Seeding a syntactically
+// valid but non-existent UUID causes ClickHouse to return zero rows, which
+// the provider maps to "not found", triggering resource creation.
 //
-// Seeding id=sentinelUUID (a valid UUID format) causes the provider to return zero
-// rows, which upjet interprets as "not found" and proceeds with resource creation.
-// After creation the provider writes the real UUID to state; the initializer then
-// leaves it untouched on subsequent reconciles.
-func NamedResourceIDInitializer() config.NewInitializerFn {
+// Usage:
+//   - field="id"   for SDK-based resources (user, role, settings_profile) where
+//                  hasTFID is forced false via delete(schema, "id") so that
+//                  EnsureTFState uses the observation value instead of GetIDFn.
+//   - field="uuid" for the framework-based database resource, which looks up
+//                  by "uuid" rather than "id" in its TF state.
+func sentinelUUIDInitializer(field string) config.NewInitializerFn {
 	return func(_ client.Client) managed.Initializer {
 		return managed.InitializerFn(func(_ context.Context, mg xpresource.Managed) error {
 			tr, ok := mg.(terraformedObservation)
@@ -42,56 +45,16 @@ func NamedResourceIDInitializer() config.NewInitializerFn {
 			}
 			obs, err := tr.GetObservation()
 			if err != nil {
-				return fmt.Errorf("cannot get observation for ID initializer: %w", err)
+				return fmt.Errorf("cannot get observation for %s initializer: %w", field, err)
 			}
-			if idVal, _ := obs["id"].(string); idVal != "" && idVal != sentinelUUID {
+			if val, _ := obs[field].(string); val != "" && val != sentinelUUID {
 				// Real UUID already set (post-creation) — leave it alone.
 				return nil
 			}
 			if obs == nil {
 				obs = make(map[string]any)
 			}
-			obs["id"] = sentinelUUID
-			return tr.SetObservation(obs)
-		})
-	}
-}
-
-// DatabaseUUIDInitializer seeds the "uuid" field in status.atProvider with the
-// nil-UUID sentinel before the first Terraform observe cycle.
-//
-// Background: clickhousedbops_database is a terraform-plugin-framework resource
-// whose Read function looks up the database via "WHERE uuid = ?" using the
-// "uuid" attribute from the prior Terraform state (not from the TF resource
-// "id"). For a brand-new resource the Terraform state is empty so uuid is "",
-// which causes ClickHouse to return a UUID parse error rather than zero rows.
-//
-// upjet's EnsureTFState merges status.atProvider into the Terraform state file
-// (terraform.tfstate) without touching the Terraform config (main.tf.json), so
-// the sentinel never triggers the framework's "read-only attribute" validation.
-// Once ClickHouse receives the nil UUID it returns zero rows, the provider
-// signals "not found", and upjet proceeds with resource creation. After
-// creation upjet writes the real UUID back to status.atProvider, so subsequent
-// observe cycles use the actual UUID.
-func DatabaseUUIDInitializer() config.NewInitializerFn {
-	return func(_ client.Client) managed.Initializer {
-		return managed.InitializerFn(func(_ context.Context, mg xpresource.Managed) error {
-			tr, ok := mg.(terraformedObservation)
-			if !ok {
-				return nil
-			}
-			obs, err := tr.GetObservation()
-			if err != nil {
-				return fmt.Errorf("cannot get observation for database UUID initializer: %w", err)
-			}
-			if uuidVal, _ := obs["uuid"].(string); uuidVal != "" {
-				// UUID already set (post-creation or user-provided) — leave it alone.
-				return nil
-			}
-			if obs == nil {
-				obs = make(map[string]any)
-			}
-			obs["uuid"] = sentinelUUID
+			obs[field] = sentinelUUID
 			return tr.SetObservation(obs)
 		})
 	}
@@ -148,7 +111,7 @@ func Configure(p *config.Provider) {
 		// remains false. EnsureTFState uses the len(attrs)==0 empty check: it
 		// writes the state only when no state file exists (fresh resource), and
 		// skips once the provider has populated it with the real UUID.
-		r.InitializerFns = append(r.InitializerFns, DatabaseUUIDInitializer())
+		r.InitializerFns = append(r.InitializerFns, sentinelUUIDInitializer("uuid"))
 		r.UseAsync = true
 	})
 	p.AddResourceConfigurator("clickhousedbops_user", func(r *config.Resource) {
@@ -169,7 +132,7 @@ func Configure(p *config.Provider) {
 			Description: desc.String(),
 		}
 		r.InitializerFns = append(r.InitializerFns,
-			NamedResourceIDInitializer(),
+			sentinelUUIDInitializer("id"),
 			PasswordGenerator(
 				"spec.forProvider.passwordSha256HashSecretRef",
 				"spec.forProvider.autoGeneratePassword",
@@ -182,11 +145,11 @@ func Configure(p *config.Provider) {
 		// Same hasTFID=false trick as for clickhousedbops_user — prevents name-based
 		// id from being written to TF state on first reconcile, avoiding UUID parse errors.
 		delete(r.TerraformResource.Schema, "id")
-		r.InitializerFns = append(r.InitializerFns, NamedResourceIDInitializer())
+		r.InitializerFns = append(r.InitializerFns, sentinelUUIDInitializer("id"))
 	})
 	p.AddResourceConfigurator("clickhousedbops_role", func(r *config.Resource) {
 		// Same hasTFID=false trick — role lookup also uses UUID-based WHERE id=UUID(...).
 		delete(r.TerraformResource.Schema, "id")
-		r.InitializerFns = append(r.InitializerFns, NamedResourceIDInitializer())
+		r.InitializerFns = append(r.InitializerFns, sentinelUUIDInitializer("id"))
 	})
 }
