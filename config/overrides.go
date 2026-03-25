@@ -32,10 +32,10 @@ type terraformedObservation interface {
 //
 // Usage:
 //   - field="id"   for SDK-based resources (user, role, settings_profile) where
-//                  hasTFID is forced false via delete(schema, "id") so that
-//                  EnsureTFState uses the observation value instead of GetIDFn.
+//     hasTFID is forced false via delete(schema, "id") so that
+//     EnsureTFState uses the observation value instead of GetIDFn.
 //   - field="uuid" for the framework-based database resource, which looks up
-//                  by "uuid" rather than "id" in its TF state.
+//     by "uuid" rather than "id" in its TF state.
 func sentinelUUIDInitializer(field string) config.NewInitializerFn {
 	return func(_ client.Client) managed.Initializer {
 		return managed.InitializerFn(func(_ context.Context, mg xpresource.Managed) error {
