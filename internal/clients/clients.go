@@ -44,18 +44,20 @@ func TerraformSetupBuilder(version, providerSource, providerVersion string) terr
 
 		data, err := resource.CommonCredentialExtractor(ctx, pcSpec.Credentials.Source, client, pcSpec.Credentials.CommonCredentialSelectors)
 		if err != nil {
-			return ps, fmt.Errorf(errExtractCredentials+": %w", err)
+			return terraform.Setup{}, fmt.Errorf(errExtractCredentials+": %w", err)
 		}
-		creds := map[string]string{}
+		creds := map[string]any{}
 		if err := json.Unmarshal(data, &creds); err != nil {
-			return ps, fmt.Errorf(errUnmarshalCredentials+": %w", err)
+			return terraform.Setup{}, fmt.Errorf(errUnmarshalCredentials+": %w", err)
 		}
 
 		// Set credentials in Terraform provider configuration.
-		/*ps.Configuration = map[string]any{
-			"username": creds["username"],
-			"password": creds["password"],
-		}*/
+		ps.Configuration = map[string]any{
+			"host":        creds["host"],
+			"port":        creds["port"],
+			"protocol":    creds["protocol"],
+			"auth_config": creds["auth_config"],
+		}
 		return ps, nil
 	}
 }
@@ -76,7 +78,7 @@ func toSharedPCSpec(pc *clusterv1beta1.ProviderConfig) (*namespacedv1beta1.Provi
 
 func resolveProviderConfig(ctx context.Context, crClient client.Client, mg resource.Managed) (*namespacedv1beta1.ProviderConfigSpec, error) {
 	switch managed := mg.(type) {
-	case resource.LegacyManaged:
+	case resource.LegacyManaged: //nolint:staticcheck
 		return resolveLegacy(ctx, crClient, managed)
 	case resource.ModernManaged:
 		return resolveModern(ctx, crClient, managed)
@@ -85,7 +87,7 @@ func resolveProviderConfig(ctx context.Context, crClient client.Client, mg resou
 	}
 }
 
-func resolveLegacy(ctx context.Context, client client.Client, mg resource.LegacyManaged) (*namespacedv1beta1.ProviderConfigSpec, error) {
+func resolveLegacy(ctx context.Context, client client.Client, mg resource.LegacyManaged) (*namespacedv1beta1.ProviderConfigSpec, error) { //nolint:staticcheck
 	configRef := mg.GetProviderConfigReference()
 	if configRef == nil {
 		return nil, errors.New(errNoProviderConfig)
@@ -116,7 +118,7 @@ func resolveModern(ctx context.Context, crClient client.Client, mg resource.Mode
 	pcObj, ok := pcRuntimeObj.(client.Object)
 	if !ok {
 		// This indicates a programming error, types are not properly generated
-		return nil, errors.New(" is not an Object")
+		return nil, fmt.Errorf("provider config type %T is not a client.Object; this indicates a code generation issue", pcRuntimeObj)
 	}
 
 	// Namespace will be ignored if the PC is a cluster-scoped type

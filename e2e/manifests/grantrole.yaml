@@ -1,0 +1,15 @@
+apiVersion: clickhousedbops.crossplane.io/v1alpha1
+kind: GrantRole
+metadata:
+  annotations:
+    meta.upbound.io/example-id: clickhousedbops/v1alpha1/grantrole
+    # ClickHouse does not support importing grants; skip the import phase.
+    uptest.upbound.io/skip-import: "true"
+    uptest.upbound.io/dependencies: testuser,testrole
+  labels:
+    testing.upbound.io/example-name: testgrantrole
+  name: testgrantrole
+spec:
+  forProvider:
+    granteeUserName: testuser
+    roleName: testrole

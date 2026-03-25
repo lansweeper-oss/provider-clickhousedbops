@@ -12,7 +12,7 @@ TERRAFORM_VERSION_VALID := $(shell [ "$(TERRAFORM_VERSION)" = "`printf "$(TERRAF
 
 export TERRAFORM_PROVIDER_SOURCE ?= ClickHouse/clickhousedbops
 export TERRAFORM_PROVIDER_REPO ?= https://github.com/ClickHouse/terraform-provider-clickhousedbops
-export TERRAFORM_PROVIDER_VERSION ?= 1.8.0
+export TERRAFORM_PROVIDER_VERSION ?= 1.9.0
 export TERRAFORM_PROVIDER_DOWNLOAD_NAME ?= terraform-provider-clickhousedbops
 export TERRAFORM_PROVIDER_DOWNLOAD_URL_PREFIX ?= https://github.com/ClickHouse/$(TERRAFORM_PROVIDER_DOWNLOAD_NAME)/releases/download/v$(TERRAFORM_PROVIDER_VERSION)
 export TERRAFORM_NATIVE_PROVIDER_BINARY ?= $(TERRAFORM_PROVIDER_DOWNLOAD_NAME)_v$(TERRAFORM_PROVIDER_VERSION)
@@ -121,12 +121,23 @@ $(TERRAFORM): check-terraform-version
 	@rm -fr $(TOOLS_HOST_DIR)/tmp-terraform
 	@$(OK) installing terraform $(HOSTOS)-$(HOSTARCH)
 
+TERRAFORM_PROVIDER_PLUGIN_DIR := $(TERRAFORM_WORKDIR)/plugins
+TERRAFORM_PROVIDER_CLI_CONFIG := $(TERRAFORM_WORKDIR)/dev.tfrc
+
 $(TERRAFORM_PROVIDER_SCHEMA): $(TERRAFORM)
 	@$(INFO) generating provider schema for $(TERRAFORM_PROVIDER_SOURCE) $(TERRAFORM_PROVIDER_VERSION)
-	@mkdir -p $(TERRAFORM_WORKDIR)
+	@mkdir -p $(TERRAFORM_WORKDIR) $(TERRAFORM_PROVIDER_PLUGIN_DIR)
+	@curl -fsSL $(TERRAFORM_PROVIDER_DOWNLOAD_URL_PREFIX)/$(TERRAFORM_PROVIDER_DOWNLOAD_NAME)_$(TERRAFORM_PROVIDER_VERSION)_$(SAFEHOST_PLATFORM).zip \
+		-o $(TERRAFORM_WORKDIR)/provider.zip
+	@unzip -o $(TERRAFORM_WORKDIR)/provider.zip -d $(TERRAFORM_PROVIDER_PLUGIN_DIR)
+	@chmod +x $(TERRAFORM_PROVIDER_PLUGIN_DIR)/$(TERRAFORM_PROVIDER_DOWNLOAD_NAME)_v$(TERRAFORM_PROVIDER_VERSION)*
+	@printf 'provider_installation {\n  dev_overrides {\n    "%s" = "%s"\n  }\n}\n' \
+		"$(shell echo $(TERRAFORM_PROVIDER_SOURCE) | tr '[:upper:]' '[:lower:]')" \
+		"$(abspath $(TERRAFORM_PROVIDER_PLUGIN_DIR))" \
+		> $(TERRAFORM_PROVIDER_CLI_CONFIG)
 	@echo '{"terraform":[{"required_providers":[{"provider":{"source":"'"$(TERRAFORM_PROVIDER_SOURCE)"'","version":"'"$(TERRAFORM_PROVIDER_VERSION)"'"}}],"required_version":"'"$(TERRAFORM_VERSION)"'"}]}' > $(TERRAFORM_WORKDIR)/main.tf.json
-	@$(TERRAFORM) -chdir=$(TERRAFORM_WORKDIR) init > $(TERRAFORM_WORKDIR)/terraform-logs.txt 2>&1
-	@$(TERRAFORM) -chdir=$(TERRAFORM_WORKDIR) providers schema -json=true > $(TERRAFORM_PROVIDER_SCHEMA) 2>> $(TERRAFORM_WORKDIR)/terraform-logs.txt
+	@TF_CLI_CONFIG_FILE=$(abspath $(TERRAFORM_PROVIDER_CLI_CONFIG)) $(TERRAFORM) -chdir=$(TERRAFORM_WORKDIR) init > $(TERRAFORM_WORKDIR)/terraform-logs.txt 2>&1 || true
+	@TF_CLI_CONFIG_FILE=$(abspath $(TERRAFORM_PROVIDER_CLI_CONFIG)) $(TERRAFORM) -chdir=$(TERRAFORM_WORKDIR) providers schema -json=true > $(TERRAFORM_PROVIDER_SCHEMA) 2>> $(TERRAFORM_WORKDIR)/terraform-logs.txt
 	@$(OK) generating provider schema for $(TERRAFORM_PROVIDER_SOURCE) $(TERRAFORM_PROVIDER_VERSION)
 
 pull-docs:
@@ -142,6 +153,7 @@ $(TERRAFORM_PROVIDER_SCHEMA:.json=.generated.lst): $(TERRAFORM_PROVIDER_SCHEMA)
 	@$(OK) generating resource list from provider schema
 
 generate.init: $(TERRAFORM_PROVIDER_SCHEMA) pull-docs
+generate.done: copy-examples
 
 .PHONY: $(TERRAFORM_PROVIDER_SCHEMA) pull-docs check-terraform-version
 # ====================================================================================
@@ -182,33 +194,54 @@ run: go.build
 # ====================================================================================
 # End to End Testing
 CROSSPLANE_NAMESPACE = crossplane-system
+
+# Required by build/makelib/uptest.mk — tells the e2e target which make target
+# deploys the provider into the local Kind cluster.
+UPTEST_LOCAL_DEPLOY_TARGET = local.xpkg.deploy.provider.$(PROJECT_NAME)
+
+# Default to the checked-in e2e manifests; override from the command line when
+# running the cloud-credentials-based suite (UPTEST_INPUT_MANIFESTS=...).
+UPTEST_INPUT_MANIFESTS ?= $(shell find e2e/manifests -name '*.yaml' 2>/dev/null | sort | tr '\n' ',' | sed 's/,$$//')
+
+# No external datasource needed for the local Kind-based tests.
+UPTEST_DATASOURCE_PATH ?= /dev/null
+
+UPTEST_SETUP_SCRIPT = cluster/test/setup.sh
+
 -include build/makelib/local.xpkg.mk
 -include build/makelib/controlplane.mk
+-include build/makelib/uptest.mk
 
-# This target requires the following environment variables to be set:
-# - UPTEST_EXAMPLE_LIST, a comma-separated list of examples to test
-#   To ensure the proper functioning of the end-to-end test resource pre-deletion hook, it is crucial to arrange your resources appropriately.
-#   You can check the basic implementation here: https://github.com/crossplane/uptest/blob/main/internal/templates/03-delete.yaml.tmpl.
-# - UPTEST_CLOUD_CREDENTIALS (optional), multiple sets of AWS IAM User credentials specified as key=value pairs.
-#   The support keys are currently `DEFAULT` and `PEER`. So, an example for the value of this env. variable is:
-#   DEFAULT='[default]
-#   aws_access_key_id = REDACTED
-#   aws_secret_access_key = REDACTED'
-#   PEER='[default]
-#   aws_access_key_id = REDACTED
-#   aws_secret_access_key = REDACTED'
-#   The associated `ProviderConfig`s will be named as `default` and `peer`.
-# - UPTEST_DATASOURCE_PATH (optional), please see https://github.com/crossplane/uptest#injecting-dynamic-values-and-datasource
-uptest: $(UPTEST) $(KUBECTL) $(CHAINSAW) $(CROSSPLANE_CLI)
+uptest-e2e: $(UPTEST) $(KUBECTL) $(CHAINSAW) $(CROSSPLANE_CLI)
 	@$(INFO) running automated tests
-	@KUBECTL=$(KUBECTL) CHAINSAW=$(CHAINSAW) CROSSPLANE_CLI=$(CROSSPLANE_CLI) CROSSPLANE_NAMESPACE=$(CROSSPLANE_NAMESPACE) $(UPTEST) e2e "${UPTEST_EXAMPLE_LIST}" --data-source="${UPTEST_DATASOURCE_PATH}" --setup-script=cluster/test/setup.sh --default-conditions="Test" || $(FAIL)
+	@KUBECTL=$(KUBECTL) CHAINSAW=$(CHAINSAW) CROSSPLANE_CLI=$(CROSSPLANE_CLI) \
+	  CROSSPLANE_NAMESPACE=$(CROSSPLANE_NAMESPACE) \
+	  $(UPTEST) e2e "$(UPTEST_INPUT_MANIFESTS)" \
+	  --data-source="$(UPTEST_DATASOURCE_PATH)" \
+	  --setup-script=$(UPTEST_SETUP_SCRIPT) \
+	  --default-conditions="Test" || $(FAIL)
 	@$(OK) running automated tests
+
+uptest: uptest-e2e
 
 local-deploy: build controlplane.up local.xpkg.deploy.provider.$(PROJECT_NAME)
 	@$(INFO) running locally built provider
 	@$(KUBECTL) wait provider.pkg $(PROJECT_NAME) --for condition=Healthy --timeout 5m
 	@$(KUBECTL) -n crossplane-system wait --for=condition=Available deployment --all --timeout=5m
 	@$(OK) running locally built provider
+
+# Pruning stale xpkg files before syncing ensures only the current build is deployed.
+# Without this, local.xpkg.sync picks up old xpkg files alphabetically (e.g. v7 > v22)
+# and installs outdated CRDs in the local Kind cluster.
+local.xpkg.sync: prune.stale.xpkg
+
+prune.stale.xpkg:
+	@$(INFO) pruning stale xpkg artifacts
+	@for dir in $(OUTPUT_DIR)/xpkg/linux_*/; do \
+		[ -d "$$dir" ] || continue; \
+		ls -t "$$dir"*.xpkg 2>/dev/null | tail -n +2 | xargs rm -f 2>/dev/null || true; \
+	done
+	@$(OK) pruning stale xpkg artifacts
 
 e2e: local-deploy uptest
 
@@ -239,7 +272,7 @@ schema-version-diff: $(TERRAFORM_PROVIDER_SCHEMA:.json=.generated.lst)
 	./scripts/version_diff.py config/generated.lst "$(WORK_DIR)/schema.json.$${PREV_PROVIDER_VERSION}" config/schema.json
 	@$(OK) Checking for native state schema version changes
 
-.PHONY: cobertura submodules fallthrough run crds.clean
+.PHONY: e2e cobertura local-deploy submodules fallthrough run crds.clean clean prune.stale.xpkg
 
 # ====================================================================================
 # Special Targets
@@ -265,3 +298,8 @@ help-special: crossplane.help
 # TODO(negz): Update CI to use these targets.
 vendor: modules.download
 vendor.check: modules.check
+
+# Copy examples-generated to examples
+copy-examples:
+	@$(INFO) copying generated examples to examples
+	@cp -r examples-generated/* examples/ || $(FAIL)

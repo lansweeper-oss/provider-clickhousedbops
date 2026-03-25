@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2024 The Crossplane Authors <https://crossplane.io>
+// SPDX-FileCopyrightText: 2026 The Crossplane Authors <https://crossplane.io>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -39,6 +39,9 @@ func SetupGated(mgr ctrl.Manager, o tjcontroller.Options) error {
 func Setup(mgr ctrl.Manager, o tjcontroller.Options) error {
 	name := managed.ControllerName(v1alpha1.Role_GroupVersionKind.String())
 	var initializers managed.InitializerChain
+	for _, i := range o.Provider.Resources["clickhousedbops_role"].InitializerFns {
+		initializers = append(initializers, i(mgr.GetClient()))
+	}
 	eventHandler := handler.NewEventHandler(handler.WithLogger(o.Logger.WithValues("gvk", v1alpha1.Role_GroupVersionKind)))
 	ac := tjcontroller.NewAPICallbacks(mgr, xpresource.ManagedKind(v1alpha1.Role_GroupVersionKind), tjcontroller.WithEventHandler(eventHandler))
 	opts := []managed.ReconcilerOption{
@@ -65,8 +68,7 @@ func Setup(mgr ctrl.Manager, o tjcontroller.Options) error {
 	// register webhooks for the kind v1alpha1.Role
 	// if they're enabled.
 	if o.StartWebhooks {
-		if err := ctrl.NewWebhookManagedBy(mgr).
-			For(&v1alpha1.Role{}).
+		if err := ctrl.NewWebhookManagedBy(mgr, &v1alpha1.Role{}).
 			Complete(); err != nil {
 			return errors.Wrap(err, "cannot register webhook for the kind v1alpha1.Role")
 		}

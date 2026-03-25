@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
-	"github.com/alecthomas/kingpin/v2"
+	"github.com/alecthomas/kong"
 	changelogsv1alpha1 "github.com/crossplane/crossplane-runtime/v2/apis/changelogs/proto/v1alpha1"
 	xpcontroller "github.com/crossplane/crossplane-runtime/v2/pkg/controller"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
@@ -20,6 +19,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/statemetrics"
 	tjcontroller "github.com/crossplane/upjet/v2/pkg/controller"
 	"github.com/crossplane/upjet/v2/pkg/terraform"
+	"github.com/go-logr/logr"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	authv1 "k8s.io/api/authorization/v1"
@@ -51,51 +51,67 @@ const (
 	tlsServerCertDir        = "/tls/server"
 )
 
+type certsDir string
+
+func (d certsDir) BeforeApply(certsDirSet *bool) error {
+	// we record whether the command-line option "--certs-dir" was supplied
+	*certsDirSet = true
+	return nil
+}
+
+var cli struct {
+	Debug          bool `help:"Run with debug logging" short:"d"`
+	LeaderElection bool `help:"Use leader election for the controller manager" short:"l" default:"false" env:"LEADER_ELECTION"`
+
+	SyncPeriod              time.Duration `help:"Controller manager sync period such as 300ms, 1.5h, or 2h45m" short:"s" default:"1h"`
+	PollInterval            time.Duration `help:"How often individual resources will be checked for drift from the desired state" default:"1m"`
+	PollStateMetricInterval time.Duration `help:"State metric recording interval" default:"5s"`
+
+	MaxReconcileRate         int    `help:"The global maximum rate per second at which resources may checked for drift from the desired state." default:"10"`
+	EnableManagementPolicies bool   `help:"Enable support for Management Policies" default:"true" env:"ENABLE_MANAGEMENT_POLICIES"`
+	EnableChangeLogs         bool   `help:"Enable support for capturing change logs during reconciliation" default:"false" env:"ENABLE_CHANGE_LOGS"`
+	ChangelogsSocketPath     string `help:"Path for changelogs socket (if enabled)" default:"/var/run/changelogs/changelogs.sock" env:"CHANGELOGS_SOCKET_PATH"`
+
+	WebhookPort        int    `help:"The port the webhook listens on" default:"9443" env:"WEBHOOK_PORT"`
+	MetricsBindAddress string `help:"The address the metrics server listens on" default:":8080" env:"METRICS_BIND_ADDRESS"`
+
+	TerraformVersion string   `help:"Terraform version" required:"" env:"TERRAFORM_VERSION"`
+	ProviderSource   string   `help:"Terraform provider source" required:"" env:"TERRAFORM_PROVIDER_SOURCE"`
+	ProviderVersion  string   `help:"Terraform provider version" required:"" env:"TERRAFORM_PROVIDER_VERSION"`
+	CertsDir         certsDir `help:"The directory that contains the server key and certificate" default:"${defaultCertsDir}" env:"${defaultCertsDirEnvVar}"`
+}
+
 func main() {
-	var (
-		app                     = kingpin.New(filepath.Base(os.Args[0]), "Terraform based Crossplane provider for Template").DefaultEnvars()
-		debug                   = app.Flag("debug", "Run with debug logging.").Short('d').Bool()
-		syncPeriod              = app.Flag("sync", "Controller manager sync period such as 300ms, 1.5h, or 2h45m").Short('s').Default("1h").Duration()
-		pollInterval            = app.Flag("poll", "Poll interval controls how often an individual resource should be checked for drift.").Default("10m").Duration()
-		pollStateMetricInterval = app.Flag("poll-state-metric", "State metric recording interval").Default("5s").Duration()
-		leaderElection          = app.Flag("leader-election", "Use leader election for the controller manager.").Short('l').Default("false").OverrideDefaultFromEnvar("LEADER_ELECTION").Bool()
-		maxReconcileRate        = app.Flag("max-reconcile-rate", "The global maximum rate per second at which resources may be checked for drift from the desired state.").Default("10").Int()
-
-		webhookPort          = app.Flag("webhook-port", "The port the webhook listens on").Default("9443").Envar("WEBHOOK_PORT").Int()
-		metricsBindAddress   = app.Flag("metrics-bind-address", "The address the metrics server listens on").Default(":8080").Envar("METRICS_BIND_ADDRESS").String()
-		changelogsSocketPath = app.Flag("changelogs-socket-path", "Path for changelogs socket (if enabled)").Default("/var/run/changelogs/changelogs.sock").Envar("CHANGELOGS_SOCKET_PATH").String()
-
-		terraformVersion = app.Flag("terraform-version", "Terraform version.").Required().Envar("TERRAFORM_VERSION").String()
-		providerSource   = app.Flag("terraform-provider-source", "Terraform provider source.").Required().Envar("TERRAFORM_PROVIDER_SOURCE").String()
-		providerVersion  = app.Flag("terraform-provider-version", "Terraform provider version.").Required().Envar("TERRAFORM_PROVIDER_VERSION").String()
-
-		enableManagementPolicies = app.Flag("enable-management-policies", "Enable support for Management Policies.").Default("true").Envar("ENABLE_MANAGEMENT_POLICIES").Bool()
-		enableChangeLogs         = app.Flag("enable-changelogs", "Enable support for capturing change logs during reconciliation.").Default("false").Envar("ENABLE_CHANGE_LOGS").Bool()
-
-		certsDirSet = false
-		// we record whether the command-line option "--certs-dir" was supplied
-		// in the registered PreAction for the flag.
-		certsDir = app.Flag("certs-dir", "The directory that contains the server key and certificate.").Default(tlsServerCertDir).Envar(certsDirEnvVar).PreAction(func(_ *kingpin.ParseContext) error {
-			certsDirSet = true
-			return nil
-		}).String()
+	certsDirSet := false
+	ctx := kong.Parse(&cli,
+		kong.Description("Crossplane Provider for ClickhouseDBOps"),
+		kong.Bind(&certsDirSet),
+		kong.Vars{
+			"defaultCertsDir":       tlsServerCertDir,
+			"defaultCertsDirEnvVar": certsDirEnvVar,
+		},
 	)
 
-	kingpin.MustParse(app.Parse(os.Args[1:]))
-
-	zl := zap.New(zap.UseDevMode(*debug))
+	zl := zap.New(zap.UseDevMode(cli.Debug))
 	log := logging.NewLogrLogger(zl.WithName("provider-clickhousedbops"))
-	if *debug {
+	if cli.Debug {
 		// The controller-runtime runs with a no-op logger by default. It is
 		// *very* verbose even at info level, so we only provide it a real
 		// logger when we're running in debug mode.
 		ctrl.SetLogger(zl)
+	} else {
+		// controller-runtime v0.23+ requires SetLogger to be called, otherwise
+		// background goroutines (e.g. priority queue) will warn about missing logger.
+		ctrl.SetLogger(logr.Discard())
 	}
 
-	log.Debug("Starting", "sync-period", syncPeriod.String(), "poll-interval", pollInterval.String(), "max-reconcile-rate", *maxReconcileRate)
+	// currently, we configure the jitter to be the 5% of the poll interval
+	pollJitter := time.Duration(float64(cli.PollInterval) * 0.05)
+
+	log.Debug("Starting", "sync-period", cli.SyncPeriod.String(), "poll-interval", cli.PollInterval.String(), "max-reconcile-rate", cli.MaxReconcileRate)
 
 	cfg, err := ctrl.GetConfig()
-	kingpin.FatalIfError(err, "Cannot get API server rest config")
+	ctx.FatalIfErrorf(err, "Cannot get API server rest config")
 
 	// Get the TLS certs directory from the environment variables set by
 	// Crossplane if they're available.
@@ -113,35 +129,35 @@ func main() {
 			xpCertsDir = os.Getenv(webhookTLSCertDirEnvVar)
 		}
 		// we probably don't need this condition but just to be on the
-		// safe side, if we are missing any kingpin machinery details...
+		// safe side, if we are missing any kong machinery details...
 		if xpCertsDir != "" {
-			*certsDir = xpCertsDir
+			cli.CertsDir = certsDir(xpCertsDir)
 		}
 	}
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		LeaderElection:   *leaderElection,
+		LeaderElection:   cli.LeaderElection,
 		LeaderElectionID: "crossplane-leader-election-provider-clickhousedbops",
 		Cache: cache.Options{
-			SyncPeriod: syncPeriod,
+			SyncPeriod: &cli.SyncPeriod,
 		},
 		Metrics: metricsserver.Options{
-			BindAddress: *metricsBindAddress,
+			BindAddress: cli.MetricsBindAddress,
 		},
 		WebhookServer: webhook.NewServer(
 			webhook.Options{
-				CertDir: *certsDir,
-				Port:    *webhookPort,
+				CertDir: string(cli.CertsDir),
+				Port:    cli.WebhookPort,
 			}),
 		LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
 		LeaseDuration:              func() *time.Duration { d := 60 * time.Second; return &d }(),
 		RenewDeadline:              func() *time.Duration { d := 50 * time.Second; return &d }(),
 	})
-	kingpin.FatalIfError(err, "Cannot create controller manager")
-	kingpin.FatalIfError(apisCluster.AddToScheme(mgr.GetScheme()), "Cannot add cluster-scoped Template APIs to scheme")
-	kingpin.FatalIfError(apisNamespaced.AddToScheme(mgr.GetScheme()), "Cannot add namespaced Template APIs to scheme")
-	kingpin.FatalIfError(apiextensionsv1.AddToScheme(mgr.GetScheme()), "Cannot add api-extensions APIs to scheme")
-	kingpin.FatalIfError(authv1.AddToScheme(mgr.GetScheme()), "Cannot add k8s authorization APIs to scheme")
+	ctx.FatalIfErrorf(err, "Cannot create controller manager")
+	ctx.FatalIfErrorf(apisCluster.AddToScheme(mgr.GetScheme()), "Cannot add cluster-scoped Template APIs to scheme")
+	ctx.FatalIfErrorf(apisNamespaced.AddToScheme(mgr.GetScheme()), "Cannot add namespaced Template APIs to scheme")
+	ctx.FatalIfErrorf(apiextensionsv1.AddToScheme(mgr.GetScheme()), "Cannot add api-extensions APIs to scheme")
+	ctx.FatalIfErrorf(authv1.AddToScheme(mgr.GetScheme()), "Cannot add k8s authorization APIs to scheme")
 
 	metricRecorder := managed.NewMRMetricRecorder()
 	stateMetrics := statemetrics.NewMRStateMetrics()
@@ -152,88 +168,86 @@ func main() {
 	clusterOpts := tjcontroller.Options{
 		Options: xpcontroller.Options{
 			Logger:                  log,
-			GlobalRateLimiter:       ratelimiter.NewGlobal(*maxReconcileRate),
-			PollInterval:            *pollInterval,
-			MaxConcurrentReconciles: *maxReconcileRate,
+			GlobalRateLimiter:       ratelimiter.NewGlobal(cli.MaxReconcileRate),
+			PollInterval:            cli.PollInterval,
+			MaxConcurrentReconciles: cli.MaxReconcileRate,
 			Features:                &feature.Flags{},
 			MetricOptions: &xpcontroller.MetricOptions{
-				PollStateMetricInterval: *pollStateMetricInterval,
+				PollStateMetricInterval: cli.PollStateMetricInterval,
 				MRMetrics:               metricRecorder,
 				MRStateMetrics:          stateMetrics,
 			},
 		},
-		Provider: config.GetProvider(),
-		// use the following WorkspaceStoreOption to enable the shared gRPC mode
-		// terraform.WithProviderRunner(terraform.NewSharedProvider(log, os.Getenv("TERRAFORM_NATIVE_PROVIDER_PATH"), terraform.WithNativeProviderArgs("-debuggable")))
+		Provider:       config.GetProvider(),
+		SetupFn:        clients.TerraformSetupBuilder(cli.TerraformVersion, cli.ProviderSource, cli.ProviderVersion),
 		WorkspaceStore: terraform.NewWorkspaceStore(log),
-		SetupFn:        clients.TerraformSetupBuilder(*terraformVersion, *providerSource, *providerVersion),
-		StartWebhooks:  *certsDir != "",
+		PollJitter:     pollJitter,
+		StartWebhooks:  cli.CertsDir != "",
 	}
 
 	namespacedOpts := tjcontroller.Options{
 		Options: xpcontroller.Options{
 			Logger:                  log,
-			GlobalRateLimiter:       ratelimiter.NewGlobal(*maxReconcileRate),
-			PollInterval:            *pollInterval,
-			MaxConcurrentReconciles: *maxReconcileRate,
+			GlobalRateLimiter:       ratelimiter.NewGlobal(cli.MaxReconcileRate),
+			PollInterval:            cli.PollInterval,
+			MaxConcurrentReconciles: cli.MaxReconcileRate,
 			Features:                &feature.Flags{},
 			MetricOptions: &xpcontroller.MetricOptions{
-				PollStateMetricInterval: *pollStateMetricInterval,
+				PollStateMetricInterval: cli.PollStateMetricInterval,
 				MRMetrics:               metricRecorder,
 				MRStateMetrics:          stateMetrics,
 			},
 		},
-		Provider: config.GetProviderNamespaced(),
-		// use the following WorkspaceStoreOption to enable the shared gRPC mode
-		// terraform.WithProviderRunner(terraform.NewSharedProvider(log, os.Getenv("TERRAFORM_NATIVE_PROVIDER_PATH"), terraform.WithNativeProviderArgs("-debuggable")))
+		Provider:       config.GetProviderNamespaced(),
+		SetupFn:        clients.TerraformSetupBuilder(cli.TerraformVersion, cli.ProviderSource, cli.ProviderVersion),
 		WorkspaceStore: terraform.NewWorkspaceStore(log),
-		SetupFn:        clients.TerraformSetupBuilder(*terraformVersion, *providerSource, *providerVersion),
-		StartWebhooks:  *certsDir != "",
+		PollJitter:     pollJitter,
+		StartWebhooks:  cli.CertsDir != "",
 	}
 
-	if *enableManagementPolicies {
+	if cli.EnableManagementPolicies {
 		clusterOpts.Features.Enable(features.EnableBetaManagementPolicies)
 		namespacedOpts.Features.Enable(features.EnableBetaManagementPolicies)
 		log.Info("Beta feature enabled", "flag", features.EnableBetaManagementPolicies)
 	}
 
-	if *enableChangeLogs {
+	if cli.EnableChangeLogs {
 		clusterOpts.Features.Enable(feature.EnableAlphaChangeLogs)
 		namespacedOpts.Features.Enable(feature.EnableAlphaChangeLogs)
 		log.Info("Alpha feature enabled", "flag", feature.EnableAlphaChangeLogs)
 
-		conn, err := grpc.NewClient("unix://"+*changelogsSocketPath, grpc.WithTransportCredentials(insecure.NewCredentials()))
-		kingpin.FatalIfError(err, "failed to create change logs client connection at %s", *changelogsSocketPath)
+		conn, err := grpc.NewClient("unix://"+cli.ChangelogsSocketPath, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		ctx.FatalIfErrorf(err, "failed to create change logs client connection at %s", cli.ChangelogsSocketPath)
 
 		clo := xpcontroller.ChangeLogOptions{
 			ChangeLogger: managed.NewGRPCChangeLogger(
 				changelogsv1alpha1.NewChangeLogServiceClient(conn),
-				managed.WithProviderVersion(fmt.Sprintf("provider-upjet-aws:%s", version.Version))),
+				managed.WithProviderVersion(fmt.Sprintf("provider-clickhousedbops:%s", version.Version))),
 		}
 		clusterOpts.ChangeLogOptions = &clo
 		namespacedOpts.ChangeLogOptions = &clo
 	}
 
 	canSafeStart, err := canWatchCRD(context.TODO(), mgr)
-	kingpin.FatalIfError(err, "SafeStart precheck failed")
+	ctx.FatalIfErrorf(err, "SafeStart precheck failed")
 	if canSafeStart {
 		crdGate := new(gate.Gate[schema.GroupVersionKind])
 		clusterOpts.Gate = crdGate
 		namespacedOpts.Gate = crdGate
-		kingpin.FatalIfError(customresourcesgate.Setup(mgr, xpcontroller.Options{
+		ctx.FatalIfErrorf(customresourcesgate.Setup(mgr, xpcontroller.Options{
 			Logger:                  log,
 			Gate:                    crdGate,
 			MaxConcurrentReconciles: 1,
 		}), "Cannot setup CRD gate")
-		kingpin.FatalIfError(controllerCluster.SetupGated(mgr, clusterOpts), "Cannot setup cluster-scoped Template controllers")
-		kingpin.FatalIfError(controllerNamespaced.SetupGated(mgr, namespacedOpts), "Cannot setup namespaced Template controllers")
+		ctx.FatalIfErrorf(controllerCluster.SetupGated(mgr, clusterOpts), "Cannot setup cluster-scoped Template controllers")
+		ctx.FatalIfErrorf(controllerNamespaced.SetupGated(mgr, namespacedOpts), "Cannot setup namespaced Template controllers")
 	} else {
 		log.Info("Provider has missing RBAC permissions for watching CRDs, controller SafeStart capability will be disabled")
-		kingpin.FatalIfError(controllerCluster.Setup(mgr, clusterOpts), "Cannot setup cluster-scoped Template controllers")
-		kingpin.FatalIfError(controllerNamespaced.Setup(mgr, namespacedOpts), "Cannot setup namespaced Template controllers")
+		ctx.FatalIfErrorf(controllerCluster.Setup(mgr, clusterOpts), "Cannot setup cluster-scoped Template controllers")
+		ctx.FatalIfErrorf(controllerNamespaced.Setup(mgr, namespacedOpts), "Cannot setup namespaced Template controllers")
 	}
 
-	kingpin.FatalIfError(mgr.Start(ctrl.SetupSignalHandler()), "Cannot start controller manager")
+	ctx.FatalIfErrorf(mgr.Start(ctrl.SetupSignalHandler()), "Cannot start controller manager")
 }
 
 func canWatchCRD(ctx context.Context, mgr manager.Manager) (bool, error) {
@@ -252,7 +266,7 @@ func canWatchCRD(ctx context.Context, mgr manager.Manager) (bool, error) {
 			},
 		}
 		if err := mgr.GetClient().Create(ctx, sar); err != nil {
-			return false, errors.Wrapf(err, "unable to perform RBAC check for verb %s on CustomResourceDefinitions", verbs)
+			return false, errors.Wrapf(err, "unable to perform RBAC check for verb %s on CustomResourceDefinitions", verb)
 		}
 		if !sar.Status.Allowed {
 			return false, nil

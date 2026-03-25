@@ -9,20 +9,28 @@ import (
 )
 
 const (
-	sep = ":"
+	// sentinelUUID is used as a placeholder Terraform ID for resources that have not yet been
+	// created. It is a valid UUID format so ClickHouse can parse it without error. It must NOT
+	// match any ClickHouse system database UUID, in particular the nil UUID
+	// (00000000-0000-0000-0000-000000000000) is reserved for information_schema and would cause
+	// the provider to return that database instead of "not found".
+	// This is not a valid random UUID (version 4) so ClickHouse would never assign it to a real
+	// database.
+	sentinelUUID = "ffffffff-ffff-ffff-ffff-ffffffffffff"
+	sep          = ":"
 )
 
 // ExternalNameConfigs contains all external name configurations for this
 // provider.
 var ExternalNameConfigs = map[string]config.ExternalName{
-	"clickhousedbops_database":                     idWithclusterName(),
+	"clickhousedbops_database":                     idWithClusterNameDatabase(),
 	"clickhousedbops_grant_privilege":              idWithStub(), // cannot be imported
 	"clickhousedbops_grant_role":                   idWithStub(), // cannot be imported
-	"clickhousedbops_role":                         idWithclusterName(),
+	"clickhousedbops_role":                         idWithClusterName(),
 	"clickhousedbops_setting":                      idWithStub(), // cannot be imported
-	"clickhousedbops_settings_profile":             idWithclusterName(),
+	"clickhousedbops_settings_profile":             idWithClusterName(),
 	"clickhousedbops_settings_profile_association": idWithStub(), // cannot be imported
-	"clickhousedbops_user":                         idWithclusterName(),
+	"clickhousedbops_user":                         idWithClusterName(),
 }
 
 // ExternalNameConfigured returns the list of possible external name
@@ -47,15 +55,66 @@ func ExternalNameConfigurations() config.ResourceOption {
 	}
 }
 
-func idWithclusterName() config.ExternalName {
+func idWithClusterName() config.ExternalName {
 	e := config.IdentifierFromProvider
-	e.GetIDFn = IDFromClusterName(sep)
+	e.GetIDFn = func(_ context.Context, externalName string, parameters map[string]any, _ map[string]any) (string, error) {
+		nameVal := parameters["name"]
+		name, _ := nameVal.(string)
+		// Fall back to the resource name when no provider-assigned ID exists yet.
+		// Unlike databases (which use UUID-based lookup), users/roles/profiles
+		// support import by name, so using the name here works for both the
+		// initial observe (finds the existing resource) and the pre-creation
+		// observe (returns "not found", triggering creation).
+		id := externalName
+		if id == "" {
+			id = name
+		}
+		if clusterVal, ok := parameters["cluster_name"]; ok {
+			cluster, ok := clusterVal.(string)
+			if ok && cluster != "" {
+				return cluster + sep + id, nil
+			}
+		}
+		return id, nil
+	}
 	e.GetExternalNameFn = ExternalNameFromClusterName(sep)
 	return e
 }
 
+// idWithClusterNameDatabase uses the "uuid" field from tfstate as external name.
+func idWithClusterNameDatabase() config.ExternalName {
+	e := config.IdentifierFromProvider
+	e.GetIDFn = IDFromClusterName(sep)
+	e.GetExternalNameFn = func(tfstate map[string]any) (string, error) {
+		if uuidVal, ok := tfstate["uuid"].(string); ok && uuidVal != "" {
+			// Strip the cluster name prefix if present (same as ExternalNameFromClusterName).
+			if strings.Contains(uuidVal, sep) {
+				return strings.Split(uuidVal, sep)[1], nil
+			}
+			return uuidVal, nil
+		}
+		// Fall back to the id-based extraction for safety.
+		return ExternalNameFromClusterName(sep)(tfstate)
+	}
+	return e
+}
+
+// idWithStub extends config.IdentifierFromProvider with a custom GetIDFn for resources that use a
+// provider-assigned composite key and cannot be imported.
+// The composite key always contains ":" (e.g. "SELECT:testdb::testuser").
+// Before creation, externalName is the plain K8s resource name which never contains ":".
+// Returning "" in that case signals to upjet that there is no existing resource to look up, so it proceeds directly to creation.
 func idWithStub() config.ExternalName {
 	e := config.IdentifierFromProvider
+	e.GetIDFn = func(_ context.Context, externalName string, _ map[string]any, _ map[string]any) (string, error) {
+		if strings.Contains(externalName, sep) {
+			return externalName, nil
+		}
+		return "", nil
+	}
+	// Return "" instead of an error when id is absent from tfstate. This
+	// happens when terraform refresh signals "not found" and Terraform removes
+	// the resource from state, leaving no id key in the attributes map.
 	e.GetExternalNameFn = func(tfstate map[string]any) (string, error) {
 		en, _ := config.IDAsExternalName(tfstate)
 		return en, nil
@@ -77,12 +136,23 @@ func ExtractIDFromState(tfstate map[string]any) (string, error) {
 
 func IDFromClusterName(sep string) func(context.Context, string, map[string]any, map[string]any) (string, error) {
 	return func(_ context.Context, externalName string, parameters map[string]any, _ map[string]any) (string, error) {
-		name := parameters["name"].(string)
-		cluster, ok := parameters["cluster_name"]
-		if ok {
-			return cluster.(string) + sep + name, nil
+		nameVal := parameters["name"]
+		name, _ := nameVal.(string)
+		// Before creation, externalName equals the K8s resource name (crossplane default) or is empty.
+		// In either case the provider has not yet assigned a real UUID.
+		// Use sentinelUUID so ClickHouse receives a syntactically valid UUID that matches no row,
+		// causing the provider to signal "not found" and allowing upjet to proceed with creation.
+		id := externalName
+		if id == "" || id == name {
+			id = sentinelUUID
 		}
-		return name, nil
+		if clusterVal, ok := parameters["cluster_name"]; ok {
+			cluster, ok := clusterVal.(string)
+			if ok && cluster != "" {
+				return cluster + sep + id, nil
+			}
+		}
+		return id, nil
 	}
 }
 
