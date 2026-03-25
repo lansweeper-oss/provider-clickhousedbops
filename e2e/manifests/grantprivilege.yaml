@@ -5,6 +5,7 @@ metadata:
     meta.upbound.io/example-id: clickhousedbops/v1alpha1/grantprivilege
     # ClickHouse does not support importing grants; skip the import phase.
     uptest.upbound.io/skip-import: "true"
+    uptest.upbound.io/dependencies: testuser,testdb
   labels:
     testing.upbound.io/example-name: testgrantprivilege
   name: testgrantprivilege
