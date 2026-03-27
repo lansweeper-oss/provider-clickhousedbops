@@ -28,10 +28,6 @@ spec:
           kind: User
           metadata:
             name: testuser
-          status:
-            conditions:
-            - type: Ready
-              status: "True"
 
   - name: assert-connection-secret
     try:

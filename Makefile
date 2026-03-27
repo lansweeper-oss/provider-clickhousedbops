@@ -221,9 +221,8 @@ UPTEST_SETUP_SCRIPT = cluster/test/setup.sh
 chainsaw-e2e: $(CHAINSAW)
 	@if [ -d e2e/tests ] && [ -n "$$(find e2e/tests -name 'chainsaw-test.yaml' 2>/dev/null)" ]; then \
 	  $(INFO) running chainsaw tests; \
-	  $(CHAINSAW) test e2e/tests/ || $(FAIL); \
-	  $(OK) running chainsaw tests; \
-	fi
+	  $(CHAINSAW) test e2e/tests/ || $(FAIL) \
+	; fi
 
 e2e: chainsaw-e2e
 
