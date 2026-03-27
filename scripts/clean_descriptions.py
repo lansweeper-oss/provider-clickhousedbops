@@ -3,17 +3,24 @@
 Clean generated field descriptions in upjet output.
 
 upjet generates two blocks per field in Go type files:
-  // (String) Description line.   <- TF-annotated   (remove)
-  // Description line.            <- plain duplicate (keep)
+
+  // (String) Line 1 of description.   <- TF-annotated block, first line
+  // Line 2 (continuation).            <- continuation of annotated block
+  // Line 1 of description.            <- plain duplicate block (keep)
+  // Line 2 (continuation).            <- continuation of plain block (keep)
 
 controller-gen propagates these into CRD YAML descriptions:
-  (String) Description line.      <- TF-annotated   (remove)
-  Description line.               <- plain duplicate (keep)
 
-The annotated and plain lines may differ slightly (e.g. backtick formatting),
-so annotated lines are always removed unconditionally when they lead a block.
+  (String) Line 1 of description.   <- TF-annotated block, first line
+  Line 2 (continuation).            <- continuation of annotated block
+  Line 1 of description.            <- plain duplicate block (keep)
+  Line 2 (continuation).            <- continuation of plain block (keep)
 
-Run this script after `make generate` to strip the annotated lines.
+The annotated block is always removed in full: the script finds where the
+plain duplicate begins (the first line that matches the annotated line minus
+its type prefix) and discards everything before it.
+
+Run this script after `make generate` to strip the annotated blocks.
 """
 import re
 import sys
@@ -28,23 +35,38 @@ _GO_TYPE_LINE = re.compile(r'^\s*// \([^)]+\) .+$')
 _YAML_TYPE_LINE = re.compile(r'^\s*\([^)]+\) .+$')
 
 
+def _normalize(s: str) -> str:
+    """Strip backtick formatting and whitespace for comparison purposes."""
+    return s.replace('`', '').strip()
+
+
 # ---------------------------------------------------------------------------
 # Go file cleaning
 # ---------------------------------------------------------------------------
 
 def _clean_go_block(block: list[str]) -> list[str]:
     """
-    Remove TF-annotated lines and stray lowercase fragment lines from a
-    consecutive comment block.
+    Remove TF-annotated blocks from a consecutive comment block.
 
-    - Lines matching `// (Type) ...` at the start of the block are dropped.
-    - A leading lowercase fragment line is dropped (e.g. 'to trigger updates.').
+    upjet emits an annotated block (starting with ``// (Type) ...``) followed
+    by a plain duplicate.  The annotated block may span multiple lines
+    (continuation lines have the same indentation but no type prefix).
+    The entire annotated block — first line plus all continuations — is dropped
+    by seeking forward to the first line that matches the plain duplicate of
+    the annotated first line.
     """
-    # Drop all leading (Type)-annotated lines.
     while block and _GO_TYPE_LINE.match(block[0]):
+        # Derive what the plain duplicate of this annotated line looks like.
+        plain_first = re.sub(r'^(\s*// )\([^)]+\) ', r'\1', block[0])
         block = block[1:]
+        # Skip continuation lines until the plain duplicate is found.
+        skip = 0
+        while skip < len(block) and _normalize(block[skip]) != _normalize(plain_first):
+            skip += 1
+        if skip < len(block):
+            block = block[skip:]
 
-    # Drop a leading lowercase fragment line.
+    # Drop a leading lowercase fragment line (orphaned URL continuation).
     if len(block) >= 2 and re.match(r'^\s*// [a-z]', block[0]):
         block = block[1:]
 
@@ -92,26 +114,27 @@ def clean_go_file(path: Path) -> bool:
 # CRD YAML file cleaning
 # ---------------------------------------------------------------------------
 
-def _normalize(s: str) -> str:
-    """Strip backtick formatting for comparison purposes."""
-    return s.replace('`', '').strip()
-
-
 def _clean_yaml_body(body_lines: list[str]) -> list[str]:
     """
-    Remove TF-annotated lines from a YAML description body.
+    Remove TF-annotated blocks from a YAML description body.
 
-    1. Drop leading lines matching `(Type) ...` unconditionally.
+    1. Drop leading annotated blocks (starting with ``(Type) ...``) together
+       with their continuation lines, by seeking to the plain duplicate.
     2. Drop consecutive near-duplicate lines where one is the same as the
        other but without backtick formatting (keep the backtick version).
     """
-    # Step 1: remove type-annotated leading lines and any orphaned continuations.
-    # Continuations are lines that start with a lowercase letter immediately after
-    # a type-annotated line (e.g. a URL wrapped by controller-gen).
-    while body_lines and (
-        _YAML_TYPE_LINE.match(body_lines[0])
-        or re.match(r'^\s*[a-z]', body_lines[0])
-    ):
+    # Step 1: remove type-annotated leading blocks and their continuations.
+    while body_lines and _YAML_TYPE_LINE.match(body_lines[0]):
+        plain_first = re.sub(r'^\s*\([^)]+\) ', '', body_lines[0])
+        body_lines = body_lines[1:]
+        skip = 0
+        while skip < len(body_lines) and _normalize(body_lines[skip]) != _normalize(plain_first):
+            skip += 1
+        if skip < len(body_lines):
+            body_lines = body_lines[skip:]
+
+    # Also remove orphaned lowercase continuation lines (e.g. wrapped URLs).
+    while body_lines and re.match(r'^\s*[a-z]', body_lines[0]):
         body_lines = body_lines[1:]
 
     # Step 2: remove near-duplicate consecutive lines (backtick vs plain).
