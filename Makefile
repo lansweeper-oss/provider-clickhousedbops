@@ -157,7 +157,7 @@ generate.done: copy-examples clean-descriptions
 
 clean-descriptions:
 	@$(INFO) cleaning generated field descriptions
-	@python3 scripts/clean_descriptions.py apis/ package/crds/
+	@python3 scripts/clean_descriptions.py package/crds/
 	@$(OK) cleaning generated field descriptions
 
 .PHONY: $(TERRAFORM_PROVIDER_SCHEMA) pull-docs check-terraform-version clean-descriptions

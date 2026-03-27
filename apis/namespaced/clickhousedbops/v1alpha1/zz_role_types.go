@@ -16,17 +16,24 @@ import (
 
 type RoleInitParameters struct {
 
+	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+	// This field must be left null when using a ClickHouse Cloud cluster.
+	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
+	// (String) Name of the role
 	// Name of the role
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
 }
 
 type RoleObservation struct {
 
+	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+	// This field must be left null when using a ClickHouse Cloud cluster.
+	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
@@ -35,18 +42,23 @@ type RoleObservation struct {
 	// assigned ID for the role
 	ID *string `json:"id,omitempty" tf:"id,omitempty"`
 
+	// (String) Name of the role
 	// Name of the role
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
 }
 
 type RoleParameters struct {
 
+	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+	// This field must be left null when using a ClickHouse Cloud cluster.
+	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// +kubebuilder:validation:Optional
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
+	// (String) Name of the role
 	// Name of the role
 	// +kubebuilder:validation:Optional
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`

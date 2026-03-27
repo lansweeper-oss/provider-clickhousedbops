@@ -15,49 +15,65 @@ import (
 
 type DatabaseInitParameters struct {
 
+	// (String) Name of the cluster to create the database into. If omitted, the database will be created on the replica hit by the query.
+	// This field must be left null when using a ClickHouse Cloud cluster.
+	// Should be set when hitting a cluster with more than one replica.
 	// Name of the cluster to create the database into. If omitted, the database will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// Should be set when hitting a cluster with more than one replica.
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
+	// (String) Comment associated with the database
 	// Comment associated with the database
 	Comment *string `json:"comment,omitempty" tf:"comment,omitempty"`
 
+	// (String) Name of the database
 	// Name of the database
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
 }
 
 type DatabaseObservation struct {
 
+	// (String) Name of the cluster to create the database into. If omitted, the database will be created on the replica hit by the query.
+	// This field must be left null when using a ClickHouse Cloud cluster.
+	// Should be set when hitting a cluster with more than one replica.
 	// Name of the cluster to create the database into. If omitted, the database will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// Should be set when hitting a cluster with more than one replica.
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
+	// (String) Comment associated with the database
 	// Comment associated with the database
 	Comment *string `json:"comment,omitempty" tf:"comment,omitempty"`
 
 	ID *string `json:"id,omitempty" tf:"id,omitempty"`
 
+	// (String) Name of the database
 	// Name of the database
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
 
+	// assigned UUID for the database
 	// The system-assigned UUID for the database
 	UUID *string `json:"uuid,omitempty" tf:"uuid,omitempty"`
 }
 
 type DatabaseParameters struct {
 
+	// (String) Name of the cluster to create the database into. If omitted, the database will be created on the replica hit by the query.
+	// This field must be left null when using a ClickHouse Cloud cluster.
+	// Should be set when hitting a cluster with more than one replica.
 	// Name of the cluster to create the database into. If omitted, the database will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// Should be set when hitting a cluster with more than one replica.
 	// +kubebuilder:validation:Optional
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
+	// (String) Comment associated with the database
 	// Comment associated with the database
 	// +kubebuilder:validation:Optional
 	Comment *string `json:"comment,omitempty" tf:"comment,omitempty"`
 
+	// (String) Name of the database
 	// Name of the database
 	// +kubebuilder:validation:Optional
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`

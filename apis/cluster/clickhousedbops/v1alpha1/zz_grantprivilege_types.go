@@ -15,96 +15,126 @@ import (
 
 type GrantPrivilegeInitParameters struct {
 
+	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+	// This field must be left null when using a ClickHouse Cloud cluster.
+	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
+	// (String) The name of the column in table_name to grant privilege on.
 	// The name of the column in `table_name` to grant privilege on.
 	ColumnName *string `json:"columnName,omitempty" tf:"column_name,omitempty"`
 
+	// (String) The name of the database to grant privilege on. Defaults to all databases if left null
 	// The name of the database to grant privilege on. Defaults to all databases if left null
 	DatabaseName *string `json:"databaseName,omitempty" tf:"database_name,omitempty"`
 
+	// (Boolean) If true, the grantee will be able to grant the same privileges to others.
 	// If true, the grantee will be able to grant the same privileges to others.
 	GrantOption *bool `json:"grantOption,omitempty" tf:"grant_option,omitempty"`
 
+	// (String) Name of the role to grant privileges to.
 	// Name of the `role` to grant privileges to.
 	GranteeRoleName *string `json:"granteeRoleName,omitempty" tf:"grantee_role_name,omitempty"`
 
+	// (String) Name of the user to grant privileges to.
 	// Name of the `user` to grant privileges to.
 	GranteeUserName *string `json:"granteeUserName,omitempty" tf:"grantee_user_name,omitempty"`
 
+	// reference/statements/grant#privileges.
 	// The privilege to grant, such as `CREATE DATABASE`, `SELECT`, etc. See https://clickhouse.com/docs/en/sql-reference/statements/grant#privileges.
 	PrivilegeName *string `json:"privilegeName,omitempty" tf:"privilege_name,omitempty"`
 
+	// (String) The name of the table to grant privilege on.
 	// The name of the table to grant privilege on.
 	TableName *string `json:"tableName,omitempty" tf:"table_name,omitempty"`
 }
 
 type GrantPrivilegeObservation struct {
 
+	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+	// This field must be left null when using a ClickHouse Cloud cluster.
+	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
+	// (String) The name of the column in table_name to grant privilege on.
 	// The name of the column in `table_name` to grant privilege on.
 	ColumnName *string `json:"columnName,omitempty" tf:"column_name,omitempty"`
 
+	// (String) The name of the database to grant privilege on. Defaults to all databases if left null
 	// The name of the database to grant privilege on. Defaults to all databases if left null
 	DatabaseName *string `json:"databaseName,omitempty" tf:"database_name,omitempty"`
 
+	// (Boolean) If true, the grantee will be able to grant the same privileges to others.
 	// If true, the grantee will be able to grant the same privileges to others.
 	GrantOption *bool `json:"grantOption,omitempty" tf:"grant_option,omitempty"`
 
+	// (String) Name of the role to grant privileges to.
 	// Name of the `role` to grant privileges to.
 	GranteeRoleName *string `json:"granteeRoleName,omitempty" tf:"grantee_role_name,omitempty"`
 
+	// (String) Name of the user to grant privileges to.
 	// Name of the `user` to grant privileges to.
 	GranteeUserName *string `json:"granteeUserName,omitempty" tf:"grantee_user_name,omitempty"`
 
 	ID *string `json:"id,omitempty" tf:"id,omitempty"`
 
+	// reference/statements/grant#privileges.
 	// The privilege to grant, such as `CREATE DATABASE`, `SELECT`, etc. See https://clickhouse.com/docs/en/sql-reference/statements/grant#privileges.
 	PrivilegeName *string `json:"privilegeName,omitempty" tf:"privilege_name,omitempty"`
 
+	// (String) The name of the table to grant privilege on.
 	// The name of the table to grant privilege on.
 	TableName *string `json:"tableName,omitempty" tf:"table_name,omitempty"`
 }
 
 type GrantPrivilegeParameters struct {
 
+	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+	// This field must be left null when using a ClickHouse Cloud cluster.
+	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// +kubebuilder:validation:Optional
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
+	// (String) The name of the column in table_name to grant privilege on.
 	// The name of the column in `table_name` to grant privilege on.
 	// +kubebuilder:validation:Optional
 	ColumnName *string `json:"columnName,omitempty" tf:"column_name,omitempty"`
 
+	// (String) The name of the database to grant privilege on. Defaults to all databases if left null
 	// The name of the database to grant privilege on. Defaults to all databases if left null
 	// +kubebuilder:validation:Optional
 	DatabaseName *string `json:"databaseName,omitempty" tf:"database_name,omitempty"`
 
+	// (Boolean) If true, the grantee will be able to grant the same privileges to others.
 	// If true, the grantee will be able to grant the same privileges to others.
 	// +kubebuilder:validation:Optional
 	GrantOption *bool `json:"grantOption,omitempty" tf:"grant_option,omitempty"`
 
+	// (String) Name of the role to grant privileges to.
 	// Name of the `role` to grant privileges to.
 	// +kubebuilder:validation:Optional
 	GranteeRoleName *string `json:"granteeRoleName,omitempty" tf:"grantee_role_name,omitempty"`
 
+	// (String) Name of the user to grant privileges to.
 	// Name of the `user` to grant privileges to.
 	// +kubebuilder:validation:Optional
 	GranteeUserName *string `json:"granteeUserName,omitempty" tf:"grantee_user_name,omitempty"`
 
+	// reference/statements/grant#privileges.
 	// The privilege to grant, such as `CREATE DATABASE`, `SELECT`, etc. See https://clickhouse.com/docs/en/sql-reference/statements/grant#privileges.
 	// +kubebuilder:validation:Optional
 	PrivilegeName *string `json:"privilegeName,omitempty" tf:"privilege_name,omitempty"`
 
+	// (String) The name of the table to grant privilege on.
 	// The name of the table to grant privilege on.
 	// +kubebuilder:validation:Optional
 	TableName *string `json:"tableName,omitempty" tf:"table_name,omitempty"`

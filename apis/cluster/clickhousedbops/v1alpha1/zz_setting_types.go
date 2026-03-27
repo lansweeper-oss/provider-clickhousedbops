@@ -15,34 +15,47 @@ import (
 
 type SettingInitParameters struct {
 
+	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+	// This field must be left null when using a ClickHouse Cloud cluster.
+	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
+	// (String) Max Value for the setting
 	// Max Value for the setting
 	Max *string `json:"max,omitempty" tf:"max,omitempty"`
 
+	// (String) Min Value for the setting
 	// Min Value for the setting
 	Min *string `json:"min,omitempty" tf:"min,omitempty"`
 
+	// (String) Name of the setting
 	// Name of the setting
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
 
+	// (String) ID of the settings profile
 	// ID of the settings profile
 	SettingsProfileID *string `json:"settingsProfileId,omitempty" tf:"settings_profile_id,omitempty"`
 
+	// (Attributes) (see below for nested schema)
 	Timeouts *TimeoutsInitParameters `json:"timeouts,omitempty" tf:"timeouts,omitempty"`
 
+	// (String) Value for the setting
 	// Value for the setting
 	Value *string `json:"value,omitempty" tf:"value,omitempty"`
 
+	// (String) Writability attribute for the setting
 	// Writability attribute for the setting
 	Writability *string `json:"writability,omitempty" tf:"writability,omitempty"`
 }
 
 type SettingObservation struct {
 
+	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+	// This field must be left null when using a ClickHouse Cloud cluster.
+	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
@@ -50,58 +63,75 @@ type SettingObservation struct {
 
 	ID *string `json:"id,omitempty" tf:"id,omitempty"`
 
+	// (String) Max Value for the setting
 	// Max Value for the setting
 	Max *string `json:"max,omitempty" tf:"max,omitempty"`
 
+	// (String) Min Value for the setting
 	// Min Value for the setting
 	Min *string `json:"min,omitempty" tf:"min,omitempty"`
 
+	// (String) Name of the setting
 	// Name of the setting
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
 
+	// (String) ID of the settings profile
 	// ID of the settings profile
 	SettingsProfileID *string `json:"settingsProfileId,omitempty" tf:"settings_profile_id,omitempty"`
 
+	// (Attributes) (see below for nested schema)
 	Timeouts *TimeoutsObservation `json:"timeouts,omitempty" tf:"timeouts,omitempty"`
 
+	// (String) Value for the setting
 	// Value for the setting
 	Value *string `json:"value,omitempty" tf:"value,omitempty"`
 
+	// (String) Writability attribute for the setting
 	// Writability attribute for the setting
 	Writability *string `json:"writability,omitempty" tf:"writability,omitempty"`
 }
 
 type SettingParameters struct {
 
+	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+	// This field must be left null when using a ClickHouse Cloud cluster.
+	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// +kubebuilder:validation:Optional
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
+	// (String) Max Value for the setting
 	// Max Value for the setting
 	// +kubebuilder:validation:Optional
 	Max *string `json:"max,omitempty" tf:"max,omitempty"`
 
+	// (String) Min Value for the setting
 	// Min Value for the setting
 	// +kubebuilder:validation:Optional
 	Min *string `json:"min,omitempty" tf:"min,omitempty"`
 
+	// (String) Name of the setting
 	// Name of the setting
 	// +kubebuilder:validation:Optional
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
 
+	// (String) ID of the settings profile
 	// ID of the settings profile
 	// +kubebuilder:validation:Optional
 	SettingsProfileID *string `json:"settingsProfileId,omitempty" tf:"settings_profile_id,omitempty"`
 
+	// (Attributes) (see below for nested schema)
 	// +kubebuilder:validation:Optional
 	Timeouts *TimeoutsParameters `json:"timeouts,omitempty" tf:"timeouts,omitempty"`
 
+	// (String) Value for the setting
 	// Value for the setting
 	// +kubebuilder:validation:Optional
 	Value *string `json:"value,omitempty" tf:"value,omitempty"`
 
+	// (String) Writability attribute for the setting
 	// Writability attribute for the setting
 	// +kubebuilder:validation:Optional
 	Writability *string `json:"writability,omitempty" tf:"writability,omitempty"`
@@ -109,18 +139,21 @@ type SettingParameters struct {
 
 type TimeoutsInitParameters struct {
 
+	// (String) A string that can be parsed as a duration consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 	// A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 	Create *string `json:"create,omitempty" tf:"create,omitempty"`
 }
 
 type TimeoutsObservation struct {
 
+	// (String) A string that can be parsed as a duration consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 	// A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 	Create *string `json:"create,omitempty" tf:"create,omitempty"`
 }
 
 type TimeoutsParameters struct {
 
+	// (String) A string that can be parsed as a duration consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 	// A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 	// +kubebuilder:validation:Optional
 	Create *string `json:"create,omitempty" tf:"create,omitempty"`
