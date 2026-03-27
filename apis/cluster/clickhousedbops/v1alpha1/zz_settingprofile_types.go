@@ -15,62 +15,46 @@ import (
 
 type SettingProfileInitParameters struct {
 
-	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-	// This field must be left null when using a ClickHouse Cloud cluster.
-	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
-	// (List of String) List of setting profile names to inherit from
 	// List of setting profile names to inherit from
 	InheritFrom []*string `json:"inheritFrom,omitempty" tf:"inherit_from,omitempty"`
 
-	// (String) Name of the settings profile
 	// Name of the settings profile
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
 }
 
 type SettingProfileObservation struct {
 
-	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-	// This field must be left null when using a ClickHouse Cloud cluster.
-	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
-	// (String) ID of the settings profile
 	ID *string `json:"id,omitempty" tf:"id,omitempty"`
 
-	// (List of String) List of setting profile names to inherit from
 	// List of setting profile names to inherit from
 	InheritFrom []*string `json:"inheritFrom,omitempty" tf:"inherit_from,omitempty"`
 
-	// (String) Name of the settings profile
 	// Name of the settings profile
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
 }
 
 type SettingProfileParameters struct {
 
-	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-	// This field must be left null when using a ClickHouse Cloud cluster.
-	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// +kubebuilder:validation:Optional
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
-	// (List of String) List of setting profile names to inherit from
 	// List of setting profile names to inherit from
 	// +kubebuilder:validation:Optional
 	InheritFrom []*string `json:"inheritFrom,omitempty" tf:"inherit_from,omitempty"`
 
-	// (String) Name of the settings profile
 	// Name of the settings profile
 	// +kubebuilder:validation:Optional
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`

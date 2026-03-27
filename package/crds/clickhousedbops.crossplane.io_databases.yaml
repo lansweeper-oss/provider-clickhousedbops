@@ -78,21 +78,16 @@ spec:
                 properties:
                   clusterName:
                     description: |-
-                      (String) Name of the cluster to create the database into. If omitted, the database will be created on the replica hit by the query.
-                      This field must be left null when using a ClickHouse Cloud cluster.
-                      Should be set when hitting a cluster with more than one replica.
                       Name of the cluster to create the database into. If omitted, the database will be created on the replica hit by the query.
                       This field must be left null when using a ClickHouse Cloud cluster.
                       Should be set when hitting a cluster with more than one replica.
                     type: string
                   comment:
                     description: |-
-                      (String) Comment associated with the database
                       Comment associated with the database
                     type: string
                   name:
                     description: |-
-                      (String) Name of the database
                       Name of the database
                     type: string
                 type: object
@@ -111,21 +106,16 @@ spec:
                 properties:
                   clusterName:
                     description: |-
-                      (String) Name of the cluster to create the database into. If omitted, the database will be created on the replica hit by the query.
-                      This field must be left null when using a ClickHouse Cloud cluster.
-                      Should be set when hitting a cluster with more than one replica.
                       Name of the cluster to create the database into. If omitted, the database will be created on the replica hit by the query.
                       This field must be left null when using a ClickHouse Cloud cluster.
                       Should be set when hitting a cluster with more than one replica.
                     type: string
                   comment:
                     description: |-
-                      (String) Comment associated with the database
                       Comment associated with the database
                     type: string
                   name:
                     description: |-
-                      (String) Name of the database
                       Name of the database
                     type: string
                 type: object
@@ -227,28 +217,22 @@ spec:
                 properties:
                   clusterName:
                     description: |-
-                      (String) Name of the cluster to create the database into. If omitted, the database will be created on the replica hit by the query.
-                      This field must be left null when using a ClickHouse Cloud cluster.
-                      Should be set when hitting a cluster with more than one replica.
                       Name of the cluster to create the database into. If omitted, the database will be created on the replica hit by the query.
                       This field must be left null when using a ClickHouse Cloud cluster.
                       Should be set when hitting a cluster with more than one replica.
                     type: string
                   comment:
                     description: |-
-                      (String) Comment associated with the database
                       Comment associated with the database
                     type: string
                   id:
                     type: string
                   name:
                     description: |-
-                      (String) Name of the database
                       Name of the database
                     type: string
                   uuid:
                     description: |-
-                      assigned UUID for the database
                       The system-assigned UUID for the database
                     type: string
                 type: object

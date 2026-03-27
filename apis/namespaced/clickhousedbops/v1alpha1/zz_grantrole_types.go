@@ -16,87 +16,66 @@ import (
 
 type GrantRoleInitParameters struct {
 
-	// (Boolean) If true, the grantee will be able to grant role_name to other users or roles.
 	// If true, the grantee will be able to grant `role_name` to other `users` or `roles`.
 	AdminOption *bool `json:"adminOption,omitempty" tf:"admin_option,omitempty"`
 
-	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-	// This field must be left null when using a ClickHouse Cloud cluster.
-	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
-	// (String) Name of the role to grant role_name to.
 	// Name of the `role` to grant `role_name` to.
 	GranteeRoleName *string `json:"granteeRoleName,omitempty" tf:"grantee_role_name,omitempty"`
 
-	// (String) Name of the user to grant role_name to.
 	// Name of the `user` to grant `role_name` to.
 	GranteeUserName *string `json:"granteeUserName,omitempty" tf:"grantee_user_name,omitempty"`
 
-	// (String) Name of the role to be granted
 	// Name of the role to be granted
 	RoleName *string `json:"roleName,omitempty" tf:"role_name,omitempty"`
 }
 
 type GrantRoleObservation struct {
 
-	// (Boolean) If true, the grantee will be able to grant role_name to other users or roles.
 	// If true, the grantee will be able to grant `role_name` to other `users` or `roles`.
 	AdminOption *bool `json:"adminOption,omitempty" tf:"admin_option,omitempty"`
 
-	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-	// This field must be left null when using a ClickHouse Cloud cluster.
-	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
-	// (String) Name of the role to grant role_name to.
 	// Name of the `role` to grant `role_name` to.
 	GranteeRoleName *string `json:"granteeRoleName,omitempty" tf:"grantee_role_name,omitempty"`
 
-	// (String) Name of the user to grant role_name to.
 	// Name of the `user` to grant `role_name` to.
 	GranteeUserName *string `json:"granteeUserName,omitempty" tf:"grantee_user_name,omitempty"`
 
 	ID *string `json:"id,omitempty" tf:"id,omitempty"`
 
-	// (String) Name of the role to be granted
 	// Name of the role to be granted
 	RoleName *string `json:"roleName,omitempty" tf:"role_name,omitempty"`
 }
 
 type GrantRoleParameters struct {
 
-	// (Boolean) If true, the grantee will be able to grant role_name to other users or roles.
 	// If true, the grantee will be able to grant `role_name` to other `users` or `roles`.
 	// +kubebuilder:validation:Optional
 	AdminOption *bool `json:"adminOption,omitempty" tf:"admin_option,omitempty"`
 
-	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-	// This field must be left null when using a ClickHouse Cloud cluster.
-	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// +kubebuilder:validation:Optional
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
-	// (String) Name of the role to grant role_name to.
 	// Name of the `role` to grant `role_name` to.
 	// +kubebuilder:validation:Optional
 	GranteeRoleName *string `json:"granteeRoleName,omitempty" tf:"grantee_role_name,omitempty"`
 
-	// (String) Name of the user to grant role_name to.
 	// Name of the `user` to grant `role_name` to.
 	// +kubebuilder:validation:Optional
 	GranteeUserName *string `json:"granteeUserName,omitempty" tf:"grantee_user_name,omitempty"`
 
-	// (String) Name of the role to be granted
 	// Name of the role to be granted
 	// +kubebuilder:validation:Optional
 	RoleName *string `json:"roleName,omitempty" tf:"role_name,omitempty"`

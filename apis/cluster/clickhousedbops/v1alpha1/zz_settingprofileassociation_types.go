@@ -15,32 +15,23 @@ import (
 
 type SettingProfileAssociationInitParameters struct {
 
-	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-	// This field must be left null when using a ClickHouse Cloud cluster.
-	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
-	// (String) ID of the SettingsProfileAssociation to associate the Settings profile to
 	// ID of the SettingsProfileAssociation to associate the Settings profile to
 	RoleID *string `json:"roleId,omitempty" tf:"role_id,omitempty"`
 
-	// (String) ID of the settings profile to associate
 	// ID of the settings profile to associate
 	SettingsProfileID *string `json:"settingsProfileId,omitempty" tf:"settings_profile_id,omitempty"`
 
-	// (String) ID of the User to associate the Settings profile to
 	// ID of the User to associate the Settings profile to
 	UserID *string `json:"userId,omitempty" tf:"user_id,omitempty"`
 }
 
 type SettingProfileAssociationObservation struct {
 
-	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-	// This field must be left null when using a ClickHouse Cloud cluster.
-	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
@@ -48,41 +39,32 @@ type SettingProfileAssociationObservation struct {
 
 	ID *string `json:"id,omitempty" tf:"id,omitempty"`
 
-	// (String) ID of the SettingsProfileAssociation to associate the Settings profile to
 	// ID of the SettingsProfileAssociation to associate the Settings profile to
 	RoleID *string `json:"roleId,omitempty" tf:"role_id,omitempty"`
 
-	// (String) ID of the settings profile to associate
 	// ID of the settings profile to associate
 	SettingsProfileID *string `json:"settingsProfileId,omitempty" tf:"settings_profile_id,omitempty"`
 
-	// (String) ID of the User to associate the Settings profile to
 	// ID of the User to associate the Settings profile to
 	UserID *string `json:"userId,omitempty" tf:"user_id,omitempty"`
 }
 
 type SettingProfileAssociationParameters struct {
 
-	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-	// This field must be left null when using a ClickHouse Cloud cluster.
-	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// +kubebuilder:validation:Optional
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
-	// (String) ID of the SettingsProfileAssociation to associate the Settings profile to
 	// ID of the SettingsProfileAssociation to associate the Settings profile to
 	// +kubebuilder:validation:Optional
 	RoleID *string `json:"roleId,omitempty" tf:"role_id,omitempty"`
 
-	// (String) ID of the settings profile to associate
 	// ID of the settings profile to associate
 	// +kubebuilder:validation:Optional
 	SettingsProfileID *string `json:"settingsProfileId,omitempty" tf:"settings_profile_id,omitempty"`
 
-	// (String) ID of the User to associate the Settings profile to
 	// ID of the User to associate the Settings profile to
 	// +kubebuilder:validation:Optional
 	UserID *string `json:"userId,omitempty" tf:"user_id,omitempty"`

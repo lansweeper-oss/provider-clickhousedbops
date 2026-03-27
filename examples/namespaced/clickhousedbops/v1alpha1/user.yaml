@@ -11,7 +11,5 @@ spec:
   forProvider:
     clusterName: cluster
     name: jane
-    passwordSha256HashWoSecretRef:
-      key: example-key
-      name: example-secret
-    passwordSha256HashWoVersion: 4
+    password_sha256_hash_wo: ${sha256("test")}
+    password_sha256_hash_wo_version: 4

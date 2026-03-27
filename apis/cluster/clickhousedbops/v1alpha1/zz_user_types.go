@@ -15,47 +15,29 @@ import (
 
 type UserInitParameters struct {
 
-	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-	// This field must be left null when using a ClickHouse Cloud cluster.
-	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
-	// (Set of String) IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
 	// IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
 	// +listType=set
 	HostIps []*string `json:"hostIps,omitempty" tf:"host_ips,omitempty"`
 
-	// (String) Name of the user
 	// Name of the user
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
 
-	// (String, Sensitive, Deprecated) SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
 	// SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
 	PasswordSha256HashSecretRef *v1.SecretKeySelector `json:"passwordSha256HashSecretRef,omitempty" tf:"-"`
-
-	// and password_sha256_hash_wo_version
-	// SHA256 hash of the password to authenticate the user. If you set autoGeneratePassword to true, the Secret referenced here will be created or updated with the generated password if it does not already contain one.
-	PasswordSha256HashWoSecretRef *v1.SecretKeySelector `json:"passwordSha256HashWoSecretRef,omitempty" tf:"-"`
-
-	// to trigger password updates.
-	// Version of the password_sha256_hash_wo field. Bump this value to require a force update of the password on the user.
-	PasswordSha256HashWoVersion *float64 `json:"passwordSha256HashWoVersion,omitempty" tf:"password_sha256_hash_wo_version,omitempty"`
 }
 
 type UserObservation struct {
 
-	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-	// This field must be left null when using a ClickHouse Cloud cluster.
-	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
-	// (Set of String) IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
 	// IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
 	// +listType=set
 	HostIps []*string `json:"hostIps,omitempty" tf:"host_ips,omitempty"`
@@ -63,56 +45,35 @@ type UserObservation struct {
 	// assigned ID for the user
 	ID *string `json:"id,omitempty" tf:"id,omitempty"`
 
-	// (String) Name of the user
 	// Name of the user
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
-
-	// to trigger password updates.
-	// Version of the password_sha256_hash_wo field. Bump this value to require a force update of the password on the user.
-	PasswordSha256HashWoVersion *float64 `json:"passwordSha256HashWoVersion,omitempty" tf:"password_sha256_hash_wo_version,omitempty"`
 }
 
 type UserParameters struct {
 
-	// If true, the password will be auto-generated and stored in the Secret referenced by the passwordSecretRef field.
+	// If true, a password is auto-generated and stored in the secret referenced by writeConnectionSecretToRef under keys 'password' (plaintext) and 'hash' (SHA256). The passwordSha256HashSecretRef field is set automatically — no other password fields need to be configured.
 	// +upjet:crd:field:TFTag=-
 	// +kubebuilder:validation:Optional
 	AutoGeneratePassword *bool `json:"autoGeneratePassword,omitempty" tf:"-"`
 
-	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-	// This field must be left null when using a ClickHouse Cloud cluster.
-	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	// +kubebuilder:validation:Optional
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
-	// (Set of String) IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
 	// IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
 	// +kubebuilder:validation:Optional
 	// +listType=set
 	HostIps []*string `json:"hostIps,omitempty" tf:"host_ips,omitempty"`
 
-	// (String) Name of the user
 	// Name of the user
 	// +kubebuilder:validation:Optional
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
 
-	// (String, Sensitive, Deprecated) SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
 	// SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
 	// +kubebuilder:validation:Optional
 	PasswordSha256HashSecretRef *v1.SecretKeySelector `json:"passwordSha256HashSecretRef,omitempty" tf:"-"`
-
-	// and password_sha256_hash_wo_version
-	// SHA256 hash of the password to authenticate the user. If you set autoGeneratePassword to true, the Secret referenced here will be created or updated with the generated password if it does not already contain one.
-	// +kubebuilder:validation:Optional
-	PasswordSha256HashWoSecretRef *v1.SecretKeySelector `json:"passwordSha256HashWoSecretRef,omitempty" tf:"-"`
-
-	// to trigger password updates.
-	// Version of the password_sha256_hash_wo field. Bump this value to require a force update of the password on the user.
-	// +kubebuilder:validation:Optional
-	PasswordSha256HashWoVersion *float64 `json:"passwordSha256HashWoVersion,omitempty" tf:"password_sha256_hash_wo_version,omitempty"`
 }
 
 // UserSpec defines the desired state of User

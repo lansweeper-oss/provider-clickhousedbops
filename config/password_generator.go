@@ -4,11 +4,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 
-	v1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/fieldpath"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/password"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	xpresource "github.com/crossplane/crossplane-runtime/v2/pkg/resource"
@@ -18,128 +17,151 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// PasswordGenerator returns an InitializerFn that will generate a password
-// for a resource if the toggle field is set to true and the secret referenced
-// by the secretRefFieldPath is not found or does not have content corresponding
-// to the password key.
+const passwordHashKey = "hash"
+
+// PasswordGenerator returns an InitializerFn that generates a password when
+// toggleFieldPath resolves to true. The caller only needs to set
+// autoGeneratePassword: true and writeConnectionSecretToRef — no other
+// password fields are required.
 //
-// The SHA256 hash of the generated password is stored in the secret referenced
-// by secretRefFieldPath (for use by the Terraform provider), while the plaintext
-// password is stored in the managed resource's writeConnectionSecretToRef secret
-// (for use by applications connecting to the database).
-func PasswordGenerator(secretRefFieldPath, toggleFieldPath string) config.NewInitializerFn {
+// The initializer stores the plaintext password under key "password" and the
+// SHA256 hash under key "hash" in the secret referenced by
+// writeConnectionSecretToRef. It then auto-sets passwordSha256HashSecretRef
+// on the spec so the Terraform provider can read the hash, without the user
+// having to configure it manually.
+//
+// Both namespaced resources (LocalConnectionSecretWriterTo, namespace implicit
+// from the MR) and cluster-scoped resources (ConnectionSecretWriterTo,
+// namespace explicit in the ref) are supported.
+func PasswordGenerator(toggleFieldPath string) config.NewInitializerFn {
 	return func(c client.Client) managed.Initializer {
 		return managed.InitializerFn(func(ctx context.Context, mg xpresource.Managed) error {
-			sel, generate, err := shouldGeneratePassword(ctx, c, mg, secretRefFieldPath, toggleFieldPath)
-			if err != nil || !generate {
-				return err
+			paved, err := fieldpath.PaveObject(mg)
+			if err != nil {
+				return fmt.Errorf("cannot pave object: %w", err)
 			}
+
+			gen, err := paved.GetBool(toggleFieldPath)
+			if xpresource.Ignore(fieldpath.IsNotFound, err) != nil {
+				return fmt.Errorf("cannot get %s: %w", toggleFieldPath, err)
+			}
+			if !gen {
+				return nil
+			}
+
+			secretName, ns, ok := resolveConnectionSecretRef(mg)
+			if !ok {
+				return nil
+			}
+
+			// Check idempotency: if the hash is already stored, skip generation.
+			s := &corev1.Secret{}
+			err = c.Get(ctx, types.NamespacedName{Namespace: ns, Name: secretName}, s)
+			if xpresource.IgnoreNotFound(err) != nil {
+				return fmt.Errorf("cannot get connection secret: %w", err)
+			}
+			if err == nil && len(s.Data[passwordHashKey]) != 0 {
+				// Hash already present; just ensure the spec ref is set.
+				return setPasswordHashSecretRef(mg, secretName, ns, passwordHashKey)
+			}
+
 			pw, err := password.Generate()
 			if err != nil {
 				return fmt.Errorf("cannot generate password: %w", err)
 			}
-			if err := applyHashSecret(ctx, c, mg, sel, pw); err != nil {
+			if err := applyPasswordSecret(ctx, c, secretName, ns, pw); err != nil {
 				return err
 			}
-			return applyConnectionSecret(ctx, c, mg, pw)
+			return setPasswordHashSecretRef(mg, secretName, ns, passwordHashKey)
 		})
 	}
 }
 
-// shouldGeneratePassword returns the secret key selector and whether a new
-// password should be generated. Returns an error if any field lookup fails
-// unexpectedly.
-func shouldGeneratePassword(ctx context.Context, c client.Client, mg xpresource.Managed, secretRefFieldPath, toggleFieldPath string) (*v1.SecretKeySelector, bool, error) {
-	paved, err := fieldpath.PaveObject(mg)
-	if err != nil {
-		return nil, false, fmt.Errorf("cannot pave object: %w", err)
-	}
-	sel := &v1.SecretKeySelector{}
-	if err := paved.GetValueInto(secretRefFieldPath, sel); err != nil {
-		if xpresource.Ignore(fieldpath.IsNotFound, err) != nil {
-			return nil, false, fmt.Errorf("cannot unmarshal %s into a secret key selector: %w", secretRefFieldPath, err)
+// resolveConnectionSecretRef returns the connection secret name and namespace
+// for both namespaced (LocalConnectionSecretWriterTo) and cluster-scoped
+// (ConnectionSecretWriterTo) managed resources. Returns ok=false if the
+// resource does not implement either interface or the ref is nil.
+func resolveConnectionSecretRef(mg xpresource.Managed) (name, ns string, ok bool) {
+	if lw, ok := mg.(xpresource.LocalConnectionSecretWriterTo); ok {
+		ref := lw.GetWriteConnectionSecretToReference()
+		if ref == nil {
+			return "", "", false
 		}
-		return nil, false, nil
+		return ref.Name, mg.GetNamespace(), true
 	}
-	ns := sel.Namespace
-	if ns == "" {
-		ns = mg.GetNamespace()
+	if cw, ok := mg.(xpresource.ConnectionSecretWriterTo); ok {
+		ref := cw.GetWriteConnectionSecretToReference()
+		if ref == nil {
+			return "", "", false
+		}
+		return ref.Name, ref.Namespace, true
 	}
-	s := &corev1.Secret{}
-	err = c.Get(ctx, types.NamespacedName{Namespace: ns, Name: sel.Name}, s)
-	if xpresource.IgnoreNotFound(err) != nil {
-		return nil, false, fmt.Errorf("cannot get password secret: %w", err)
-	}
-	if err == nil && len(s.Data[sel.Key]) != 0 {
-		return nil, false, nil
-	}
-	gen, err := paved.GetBool(toggleFieldPath)
-	if xpresource.Ignore(fieldpath.IsNotFound, err) != nil {
-		return nil, false, fmt.Errorf("cannot get the value of %s: %w", toggleFieldPath, err)
-	}
-	return sel, gen, nil
+	return "", "", false
 }
 
-// applyHashSecret stores the SHA256 hash of pw in the secret referenced by sel.
-func applyHashSecret(ctx context.Context, c client.Client, mg xpresource.Managed, sel *v1.SecretKeySelector, pw string) error {
+// applyPasswordSecret writes the plaintext password under key "password" and
+// its SHA256 hash under key "hash" into the named secret.
+func applyPasswordSecret(ctx context.Context, c client.Client, secretName, ns, pw string) error {
 	sum := sha256.Sum256([]byte(pw))
 	hash := hex.EncodeToString(sum[:])
 
-	ns := sel.Namespace
-	if ns == "" {
-		ns = mg.GetNamespace()
-	}
 	s := &corev1.Secret{}
-	s.SetName(sel.Name)
+	s.SetName(secretName)
 	s.SetNamespace(ns)
-	if err := c.Get(ctx, types.NamespacedName{Namespace: ns, Name: sel.Name}, s); xpresource.IgnoreNotFound(err) != nil {
-		return fmt.Errorf("cannot get password secret: %w", err)
-	}
-	if !meta.WasCreated(s) {
-		// We don't want to own the Secret if it is created by someone
-		// else, otherwise the deletion of the managed resource will
-		// delete the Secret that we didn't create in the first place.
-		meta.AddOwnerReference(s, meta.AsOwner(meta.TypedReferenceTo(mg, mg.GetObjectKind().GroupVersionKind())))
+	s.Type = xpresource.SecretTypeConnection
+
+	if err := c.Get(ctx, types.NamespacedName{Namespace: ns, Name: secretName}, s); xpresource.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("cannot get connection secret: %w", err)
 	}
 	if s.Data == nil {
-		s.Data = make(map[string][]byte, 1)
+		s.Data = make(map[string][]byte, 2)
 	}
-	s.Data[sel.Key] = []byte(hash)
+	s.Data["password"] = []byte(pw)
+	s.Data[passwordHashKey] = []byte(hash)
+
 	if err := xpresource.NewAPIPatchingApplicator(c).Apply(ctx, s); err != nil {
-		return fmt.Errorf("cannot apply password secret: %w", err)
+		return fmt.Errorf("cannot apply connection secret: %w", err)
 	}
 	return nil
 }
 
-// applyConnectionSecret stores the plaintext pw in the managed resource's
-// writeConnectionSecretToRef secret under the "password" key.
-func applyConnectionSecret(ctx context.Context, c client.Client, mg xpresource.Managed, pw string) error {
-	connWriter, ok := mg.(xpresource.LocalConnectionSecretWriterTo)
+// setPasswordHashSecretRef sets spec.forProvider.passwordSha256HashSecretRef
+// on the managed resource so upjet passes the hash to the Terraform provider.
+// For cluster-scoped resources (namespace != "") the namespace is included in
+// the ref; for namespaced resources upjet fills it in from the MR namespace.
+// It uses a JSON round-trip to mutate the Go struct in place.
+func setPasswordHashSecretRef(mg xpresource.Managed, secretName, secretNamespace, key string) error {
+	data, err := json.Marshal(mg)
+	if err != nil {
+		return fmt.Errorf("cannot marshal managed resource: %w", err)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("cannot unmarshal managed resource: %w", err)
+	}
+
+	spec, ok := raw["spec"].(map[string]any)
 	if !ok {
-		return nil
+		return fmt.Errorf("spec field missing or not a map")
 	}
-	connRef := connWriter.GetWriteConnectionSecretToReference()
-	if connRef == nil {
-		return nil
+	forProvider, ok := spec["forProvider"].(map[string]any)
+	if !ok {
+		forProvider = make(map[string]any)
+		spec["forProvider"] = forProvider
 	}
-	connSecret := &corev1.Secret{}
-	connSecret.SetName(connRef.Name)
-	connSecret.SetNamespace(mg.GetNamespace())
-	if err := c.Get(ctx, types.NamespacedName{Namespace: mg.GetNamespace(), Name: connRef.Name}, connSecret); xpresource.IgnoreNotFound(err) != nil {
-		return fmt.Errorf("cannot get connection secret: %w", err)
+	ref := map[string]any{
+		"name": secretName,
+		"key":  key,
 	}
-	if !meta.WasCreated(connSecret) {
-		// We don't want to own the Secret if it is created by someone
-		// else, otherwise the deletion of the managed resource will
-		// delete the Secret that we didn't create in the first place.
-		meta.AddOwnerReference(connSecret, meta.AsOwner(meta.TypedReferenceTo(mg, mg.GetObjectKind().GroupVersionKind())))
+	if secretNamespace != "" {
+		ref["namespace"] = secretNamespace
 	}
-	if connSecret.Data == nil {
-		connSecret.Data = make(map[string][]byte, 1)
+	forProvider["passwordSha256HashSecretRef"] = ref
+
+	updated, err := json.Marshal(raw)
+	if err != nil {
+		return fmt.Errorf("cannot marshal updated resource: %w", err)
 	}
-	connSecret.Data["password"] = []byte(pw)
-	if err := xpresource.NewAPIPatchingApplicator(c).Apply(ctx, connSecret); err != nil {
-		return fmt.Errorf("cannot apply connection secret: %w", err)
-	}
-	return nil
+	return json.Unmarshal(updated, mg)
 }

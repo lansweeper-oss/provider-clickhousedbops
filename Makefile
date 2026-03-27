@@ -153,9 +153,14 @@ $(TERRAFORM_PROVIDER_SCHEMA:.json=.generated.lst): $(TERRAFORM_PROVIDER_SCHEMA)
 	@$(OK) generating resource list from provider schema
 
 generate.init: $(TERRAFORM_PROVIDER_SCHEMA) pull-docs
-generate.done: copy-examples
+generate.done: copy-examples clean-descriptions
 
-.PHONY: $(TERRAFORM_PROVIDER_SCHEMA) pull-docs check-terraform-version
+clean-descriptions:
+	@$(INFO) cleaning generated field descriptions
+	@python3 scripts/clean_descriptions.py apis/ package/crds/
+	@$(OK) cleaning generated field descriptions
+
+.PHONY: $(TERRAFORM_PROVIDER_SCHEMA) pull-docs check-terraform-version clean-descriptions
 # ====================================================================================
 # Targets
 
@@ -206,25 +211,23 @@ UPTEST_INPUT_MANIFESTS ?= $(shell find e2e/manifests -name '*.yaml' 2>/dev/null 
 # No external datasource needed for the local Kind-based tests.
 UPTEST_DATASOURCE_PATH ?= /dev/null
 
+UPTEST_ARGS += --default-conditions="Test"
 UPTEST_SETUP_SCRIPT = cluster/test/setup.sh
 
 -include build/makelib/local.xpkg.mk
 -include build/makelib/controlplane.mk
 -include build/makelib/uptest.mk
 
-uptest-e2e: $(UPTEST) $(KUBECTL) $(CHAINSAW) $(CROSSPLANE_CLI)
-	@$(INFO) running automated tests
-	@KUBECTL=$(KUBECTL) CHAINSAW=$(CHAINSAW) CROSSPLANE_CLI=$(CROSSPLANE_CLI) \
-	  CROSSPLANE_NAMESPACE=$(CROSSPLANE_NAMESPACE) \
-	  $(UPTEST) e2e "$(UPTEST_INPUT_MANIFESTS)" \
-	  --data-source="$(UPTEST_DATASOURCE_PATH)" \
-	  --setup-script=$(UPTEST_SETUP_SCRIPT) \
-	  --default-conditions="Test" || $(FAIL)
-	@$(OK) running automated tests
+chainsaw-e2e: $(CHAINSAW)
+	@if [ -d e2e/tests ] && [ -n "$$(find e2e/tests -name 'chainsaw-test.yaml' 2>/dev/null)" ]; then \
+	  $(INFO) running chainsaw tests; \
+	  $(CHAINSAW) test e2e/tests/ || $(FAIL); \
+	  $(OK) running chainsaw tests; \
+	fi
 
-uptest: uptest-e2e
+e2e: chainsaw-e2e
 
-local-deploy: build controlplane.up local.xpkg.deploy.provider.$(PROJECT_NAME)
+local-deploy: build.all controlplane.up local.xpkg.deploy.provider.$(PROJECT_NAME)
 	@$(INFO) running locally built provider
 	@$(KUBECTL) wait provider.pkg $(PROJECT_NAME) --for condition=Healthy --timeout 5m
 	@$(KUBECTL) -n crossplane-system wait --for=condition=Available deployment --all --timeout=5m
@@ -242,8 +245,6 @@ prune.stale.xpkg:
 		ls -t "$$dir"*.xpkg 2>/dev/null | tail -n +2 | xargs rm -f 2>/dev/null || true; \
 	done
 	@$(OK) pruning stale xpkg artifacts
-
-e2e: local-deploy uptest
 
 crddiff: $(UPTEST)
 	@$(INFO) Checking breaking CRD schema changes
