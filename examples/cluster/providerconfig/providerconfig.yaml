@@ -19,7 +19,7 @@ type: Opaque
 stringData:
   credentials: |
     {
-      "host": "clickhouse.example.com",
+      "host": "clickhouse.clickhouse.svc.cluster.local",
       "port": 9000,
       "protocol": "native",
       "auth_config": {

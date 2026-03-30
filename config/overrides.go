@@ -106,6 +106,12 @@ func Configure(p *config.Provider) {
 		// The "id" field still appears in status.atProvider because the provider
 		// populates it from its own TF state output after a successful read.
 		delete(r.TerraformResource.Schema, "id")
+
+		// Fully removed since those fields are TF>=1.11
+		r.ExternalName.OmittedFields = []string{
+			"password_sha256_hash_wo",
+			"password_sha256_hash_wo_version",
+		}
 		desc, _ := comments.New("If true, the password will be auto-generated and"+
 			" stored in the Secret referenced by the passwordSecretRef field.",
 			comments.WithTFTag("-"))
@@ -116,22 +122,17 @@ func Configure(p *config.Provider) {
 		}
 		r.InitializerFns = append(r.InitializerFns,
 			sentinelUUIDInitializer("id"),
-			PasswordGenerator(
-				"spec.forProvider.passwordSha256HashSecretRef",
-				"spec.forProvider.autoGeneratePassword",
-			))
-		r.TerraformResource.Schema["password_sha256_hash_wo"].Description = "SHA256 hash of the password to authenticate the user." +
-			" If you set autoGeneratePassword to true, the Secret referenced here will be" +
-			" created or updated with the generated password if it does not already contain one."
+			PasswordGenerator("spec.forProvider.passwordSha256HashSecretRef"),
+		)
 	})
 	p.AddResourceConfigurator("clickhousedbops_settings_profile", func(r *config.Resource) {
-		// Same hasTFID=false trick as for clickhousedbops_user — prevents name-based
+		// Same hasTFID=false trick as for clickhousedbops_user, prevents name-based
 		// id from being written to TF state on first reconcile, avoiding UUID parse errors.
 		delete(r.TerraformResource.Schema, "id")
 		r.InitializerFns = append(r.InitializerFns, sentinelUUIDInitializer("id"))
 	})
 	p.AddResourceConfigurator("clickhousedbops_role", func(r *config.Resource) {
-		// Same hasTFID=false trick — role lookup also uses UUID-based WHERE id=UUID(...).
+		// Same hasTFID=false trick, role lookup also uses UUID-based WHERE id=UUID(...).
 		delete(r.TerraformResource.Schema, "id")
 		r.InitializerFns = append(r.InitializerFns, sentinelUUIDInitializer("id"))
 	})

@@ -19,18 +19,18 @@ import (
 )
 
 // PasswordGenerator returns an InitializerFn that will generate a password
-// for a resource if the toggle field is set to true and the secret referenced
-// by the secretRefFieldPath is not found or does not have content corresponding
-// to the password key.
+// for a resource if told to do so (autoGeneratePassword: true) and the secret
+// referenced by the secretRefFieldPath is not found or does not have content
+// corresponding to the password key.
 //
 // The SHA256 hash of the generated password is stored in the secret referenced
 // by secretRefFieldPath (for use by the Terraform provider), while the plaintext
 // password is stored in the managed resource's writeConnectionSecretToRef secret
 // (for use by applications connecting to the database).
-func PasswordGenerator(secretRefFieldPath, toggleFieldPath string) config.NewInitializerFn {
+func PasswordGenerator(secretRefFieldPath string) config.NewInitializerFn {
 	return func(c client.Client) managed.Initializer {
 		return managed.InitializerFn(func(ctx context.Context, mg xpresource.Managed) error {
-			sel, generate, err := shouldGeneratePassword(ctx, c, mg, secretRefFieldPath, toggleFieldPath)
+			sel, generate, err := shouldGeneratePassword(ctx, c, mg, secretRefFieldPath)
 			if err != nil || !generate {
 				return err
 			}
@@ -47,9 +47,9 @@ func PasswordGenerator(secretRefFieldPath, toggleFieldPath string) config.NewIni
 }
 
 // shouldGeneratePassword returns the secret key selector and whether a new
-// password should be generated. Returns an error if any field lookup fails
-// unexpectedly.
-func shouldGeneratePassword(ctx context.Context, c client.Client, mg xpresource.Managed, secretRefFieldPath, toggleFieldPath string) (*v1.SecretKeySelector, bool, error) {
+// password should be generated.
+// Returns an error if any field lookup fails unexpectedly.
+func shouldGeneratePassword(ctx context.Context, c client.Client, mg xpresource.Managed, secretRefFieldPath string) (*v1.SecretKeySelector, bool, error) {
 	paved, err := fieldpath.PaveObject(mg)
 	if err != nil {
 		return nil, false, fmt.Errorf("cannot pave object: %w", err)
@@ -73,9 +73,9 @@ func shouldGeneratePassword(ctx context.Context, c client.Client, mg xpresource.
 	if err == nil && len(s.Data[sel.Key]) != 0 {
 		return nil, false, nil
 	}
-	gen, err := paved.GetBool(toggleFieldPath)
+	gen, err := paved.GetBool("spec.forProvider.autoGeneratePassword")
 	if xpresource.Ignore(fieldpath.IsNotFound, err) != nil {
-		return nil, false, fmt.Errorf("cannot get the value of %s: %w", toggleFieldPath, err)
+		return nil, false, fmt.Errorf("cannot get autoGeneratePassword value: %w", err)
 	}
 	return sel, gen, nil
 }
