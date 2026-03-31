@@ -10,8 +10,3 @@ spec:
   forProvider:
     clusterName: cluster
     name: jane
-    passwordSha256HashWoSecretRef:
-      key: example-key
-      name: example-secret
-      namespace: upbound-system
-    passwordSha256HashWoVersion: 4

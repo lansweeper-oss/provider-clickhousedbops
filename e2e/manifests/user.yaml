@@ -10,7 +10,6 @@ spec:
   forProvider:
     name: testuser
     autoGeneratePassword: true
-    passwordSha256HashSecretRef:
-      name: testuser-password-hash
-      namespace: crossplane-system
-      key: hash
+  writeConnectionSecretToRef:
+    name: testuser
+    namespace: crossplane-system

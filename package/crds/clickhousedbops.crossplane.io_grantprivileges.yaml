@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.0
+    controller-gen.kubebuilder.io/version: v0.20.1
   name: grantprivileges.clickhousedbops.crossplane.io
 spec:
   group: clickhousedbops.crossplane.io
@@ -90,46 +90,36 @@ spec:
                 properties:
                   clusterName:
                     description: |-
-                      (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-                      This field must be left null when using a ClickHouse Cloud cluster.
-                      When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                       Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
                       This field must be left null when using a ClickHouse Cloud cluster.
                       When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                     type: string
                   columnName:
                     description: |-
-                      (String) The name of the column in table_name to grant privilege on.
                       The name of the column in `table_name` to grant privilege on.
                     type: string
                   databaseName:
                     description: |-
-                      (String) The name of the database to grant privilege on. Defaults to all databases if left null
                       The name of the database to grant privilege on. Defaults to all databases if left null
                     type: string
                   grantOption:
                     description: |-
-                      (Boolean) If true, the grantee will be able to grant the same privileges to others.
                       If true, the grantee will be able to grant the same privileges to others.
                     type: boolean
                   granteeRoleName:
                     description: |-
-                      (String) Name of the role to grant privileges to.
                       Name of the `role` to grant privileges to.
                     type: string
                   granteeUserName:
                     description: |-
-                      (String) Name of the user to grant privileges to.
                       Name of the `user` to grant privileges to.
                     type: string
                   privilegeName:
                     description: |-
-                      reference/statements/grant#privileges.
                       The privilege to grant, such as `CREATE DATABASE`, `SELECT`, etc. See https://clickhouse.com/docs/en/sql-reference/statements/grant#privileges.
                     type: string
                   tableName:
                     description: |-
-                      (String) The name of the table to grant privilege on.
                       The name of the table to grant privilege on.
                     type: string
                 type: object
@@ -148,46 +138,36 @@ spec:
                 properties:
                   clusterName:
                     description: |-
-                      (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-                      This field must be left null when using a ClickHouse Cloud cluster.
-                      When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                       Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
                       This field must be left null when using a ClickHouse Cloud cluster.
                       When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                     type: string
                   columnName:
                     description: |-
-                      (String) The name of the column in table_name to grant privilege on.
                       The name of the column in `table_name` to grant privilege on.
                     type: string
                   databaseName:
                     description: |-
-                      (String) The name of the database to grant privilege on. Defaults to all databases if left null
                       The name of the database to grant privilege on. Defaults to all databases if left null
                     type: string
                   grantOption:
                     description: |-
-                      (Boolean) If true, the grantee will be able to grant the same privileges to others.
                       If true, the grantee will be able to grant the same privileges to others.
                     type: boolean
                   granteeRoleName:
                     description: |-
-                      (String) Name of the role to grant privileges to.
                       Name of the `role` to grant privileges to.
                     type: string
                   granteeUserName:
                     description: |-
-                      (String) Name of the user to grant privileges to.
                       Name of the `user` to grant privileges to.
                     type: string
                   privilegeName:
                     description: |-
-                      reference/statements/grant#privileges.
                       The privilege to grant, such as `CREATE DATABASE`, `SELECT`, etc. See https://clickhouse.com/docs/en/sql-reference/statements/grant#privileges.
                     type: string
                   tableName:
                     description: |-
-                      (String) The name of the table to grant privilege on.
                       The name of the table to grant privilege on.
                     type: string
                 type: object
@@ -289,48 +269,38 @@ spec:
                 properties:
                   clusterName:
                     description: |-
-                      (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-                      This field must be left null when using a ClickHouse Cloud cluster.
-                      When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                       Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
                       This field must be left null when using a ClickHouse Cloud cluster.
                       When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                     type: string
                   columnName:
                     description: |-
-                      (String) The name of the column in table_name to grant privilege on.
                       The name of the column in `table_name` to grant privilege on.
                     type: string
                   databaseName:
                     description: |-
-                      (String) The name of the database to grant privilege on. Defaults to all databases if left null
                       The name of the database to grant privilege on. Defaults to all databases if left null
                     type: string
                   grantOption:
                     description: |-
-                      (Boolean) If true, the grantee will be able to grant the same privileges to others.
                       If true, the grantee will be able to grant the same privileges to others.
                     type: boolean
                   granteeRoleName:
                     description: |-
-                      (String) Name of the role to grant privileges to.
                       Name of the `role` to grant privileges to.
                     type: string
                   granteeUserName:
                     description: |-
-                      (String) Name of the user to grant privileges to.
                       Name of the `user` to grant privileges to.
                     type: string
                   id:
                     type: string
                   privilegeName:
                     description: |-
-                      reference/statements/grant#privileges.
                       The privilege to grant, such as `CREATE DATABASE`, `SELECT`, etc. See https://clickhouse.com/docs/en/sql-reference/statements/grant#privileges.
                     type: string
                   tableName:
                     description: |-
-                      (String) The name of the table to grant privilege on.
                       The name of the table to grant privilege on.
                     type: string
                 type: object

@@ -106,8 +106,10 @@ func Configure(p *config.Provider) {
 		// The "id" field still appears in status.atProvider because the provider
 		// populates it from its own TF state output after a successful read.
 		delete(r.TerraformResource.Schema, "id")
-		desc, _ := comments.New("If true, the password will be auto-generated and"+
-			" stored in the Secret referenced by the passwordSecretRef field.",
+		desc, _ := comments.New("If true, a password is auto-generated and stored in"+
+			" the secret referenced by writeConnectionSecretToRef under keys"+
+			" 'password' (plaintext) and 'hash' (SHA256). The passwordSha256HashSecretRef"+
+			" field is set automatically — no other password fields need to be configured.",
 			comments.WithTFTag("-"))
 		r.TerraformResource.Schema["auto_generate_password"] = &tfschema.Schema{
 			Type:        tfschema.TypeBool,
@@ -116,13 +118,15 @@ func Configure(p *config.Provider) {
 		}
 		r.InitializerFns = append(r.InitializerFns,
 			sentinelUUIDInitializer("id"),
-			PasswordGenerator(
-				"spec.forProvider.passwordSha256HashSecretRef",
-				"spec.forProvider.autoGeneratePassword",
-			))
-		r.TerraformResource.Schema["password_sha256_hash_wo"].Description = "SHA256 hash of the password to authenticate the user." +
-			" If you set autoGeneratePassword to true, the Secret referenced here will be" +
-			" created or updated with the generated password if it does not already contain one."
+			PasswordGenerator("spec.forProvider.autoGeneratePassword"))
+
+		// Remove write-only fields that require Terraform >=1.11.
+		// This provider targets Terraform <=1.5; users must use
+		// passwordSha256HashSecretRef (or autoGeneratePassword) instead.
+		r.ExternalName.OmittedFields = []string{
+			"password_sha256_hash_wo",
+			"password_sha256_hash_wo_version",
+		}
 	})
 	p.AddResourceConfigurator("clickhousedbops_settings_profile", func(r *config.Resource) {
 		// Same hasTFID=false trick as for clickhousedbops_user — prevents name-based

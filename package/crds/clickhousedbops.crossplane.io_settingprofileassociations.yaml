@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.0
+    controller-gen.kubebuilder.io/version: v0.20.1
   name: settingprofileassociations.clickhousedbops.crossplane.io
 spec:
   group: clickhousedbops.crossplane.io
@@ -77,26 +77,20 @@ spec:
                 properties:
                   clusterName:
                     description: |-
-                      (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-                      This field must be left null when using a ClickHouse Cloud cluster.
-                      When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                       Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
                       This field must be left null when using a ClickHouse Cloud cluster.
                       When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                     type: string
                   roleId:
                     description: |-
-                      (String) ID of the SettingsProfileAssociation to associate the Settings profile to
                       ID of the SettingsProfileAssociation to associate the Settings profile to
                     type: string
                   settingsProfileId:
                     description: |-
-                      (String) ID of the settings profile to associate
                       ID of the settings profile to associate
                     type: string
                   userId:
                     description: |-
-                      (String) ID of the User to associate the Settings profile to
                       ID of the User to associate the Settings profile to
                     type: string
                 type: object
@@ -115,26 +109,20 @@ spec:
                 properties:
                   clusterName:
                     description: |-
-                      (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-                      This field must be left null when using a ClickHouse Cloud cluster.
-                      When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                       Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
                       This field must be left null when using a ClickHouse Cloud cluster.
                       When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                     type: string
                   roleId:
                     description: |-
-                      (String) ID of the SettingsProfileAssociation to associate the Settings profile to
                       ID of the SettingsProfileAssociation to associate the Settings profile to
                     type: string
                   settingsProfileId:
                     description: |-
-                      (String) ID of the settings profile to associate
                       ID of the settings profile to associate
                     type: string
                   userId:
                     description: |-
-                      (String) ID of the User to associate the Settings profile to
                       ID of the User to associate the Settings profile to
                     type: string
                 type: object
@@ -237,9 +225,6 @@ spec:
                 properties:
                   clusterName:
                     description: |-
-                      (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-                      This field must be left null when using a ClickHouse Cloud cluster.
-                      When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                       Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
                       This field must be left null when using a ClickHouse Cloud cluster.
                       When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
@@ -248,17 +233,14 @@ spec:
                     type: string
                   roleId:
                     description: |-
-                      (String) ID of the SettingsProfileAssociation to associate the Settings profile to
                       ID of the SettingsProfileAssociation to associate the Settings profile to
                     type: string
                   settingsProfileId:
                     description: |-
-                      (String) ID of the settings profile to associate
                       ID of the settings profile to associate
                     type: string
                   userId:
                     description: |-
-                      (String) ID of the User to associate the Settings profile to
                       ID of the User to associate the Settings profile to
                     type: string
                 type: object

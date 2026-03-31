@@ -36,14 +36,6 @@ type UserInitParameters struct {
 	// (String, Sensitive, Deprecated) SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
 	// SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
 	PasswordSha256HashSecretRef *v1.LocalSecretKeySelector `json:"passwordSha256HashSecretRef,omitempty" tf:"-"`
-
-	// and password_sha256_hash_wo_version
-	// SHA256 hash of the password to authenticate the user. If you set autoGeneratePassword to true, the Secret referenced here will be created or updated with the generated password if it does not already contain one.
-	PasswordSha256HashWoSecretRef *v1.LocalSecretKeySelector `json:"passwordSha256HashWoSecretRef,omitempty" tf:"-"`
-
-	// to trigger password updates.
-	// Version of the password_sha256_hash_wo field. Bump this value to require a force update of the password on the user.
-	PasswordSha256HashWoVersion *float64 `json:"passwordSha256HashWoVersion,omitempty" tf:"password_sha256_hash_wo_version,omitempty"`
 }
 
 type UserObservation struct {
@@ -67,15 +59,11 @@ type UserObservation struct {
 	// (String) Name of the user
 	// Name of the user
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
-
-	// to trigger password updates.
-	// Version of the password_sha256_hash_wo field. Bump this value to require a force update of the password on the user.
-	PasswordSha256HashWoVersion *float64 `json:"passwordSha256HashWoVersion,omitempty" tf:"password_sha256_hash_wo_version,omitempty"`
 }
 
 type UserParameters struct {
 
-	// If true, the password will be auto-generated and stored in the Secret referenced by the passwordSecretRef field.
+	// If true, a password is auto-generated and stored in the secret referenced by writeConnectionSecretToRef under keys 'password' (plaintext) and 'hash' (SHA256). The passwordSha256HashSecretRef field is set automatically — no other password fields need to be configured.
 	// +upjet:crd:field:TFTag=-
 	// +kubebuilder:validation:Optional
 	AutoGeneratePassword *bool `json:"autoGeneratePassword,omitempty" tf:"-"`
@@ -104,16 +92,6 @@ type UserParameters struct {
 	// SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
 	// +kubebuilder:validation:Optional
 	PasswordSha256HashSecretRef *v1.LocalSecretKeySelector `json:"passwordSha256HashSecretRef,omitempty" tf:"-"`
-
-	// and password_sha256_hash_wo_version
-	// SHA256 hash of the password to authenticate the user. If you set autoGeneratePassword to true, the Secret referenced here will be created or updated with the generated password if it does not already contain one.
-	// +kubebuilder:validation:Optional
-	PasswordSha256HashWoSecretRef *v1.LocalSecretKeySelector `json:"passwordSha256HashWoSecretRef,omitempty" tf:"-"`
-
-	// to trigger password updates.
-	// Version of the password_sha256_hash_wo field. Bump this value to require a force update of the password on the user.
-	// +kubebuilder:validation:Optional
-	PasswordSha256HashWoVersion *float64 `json:"passwordSha256HashWoVersion,omitempty" tf:"password_sha256_hash_wo_version,omitempty"`
 }
 
 // UserSpec defines the desired state of User

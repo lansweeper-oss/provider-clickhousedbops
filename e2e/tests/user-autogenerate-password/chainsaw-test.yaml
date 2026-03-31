@@ -1,0 +1,41 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: user-autogenerate-password
+spec:
+  steps:
+  - name: apply-user
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: testuser
+          spec:
+            forProvider:
+              name: testuser
+              autoGeneratePassword: true
+            writeConnectionSecretToRef:
+              name: testuser
+            providerConfigRef:
+              kind: ClusterProviderConfig
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: testuser
+
+  - name: assert-connection-secret
+    try:
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: testuser
+          (data.password != null): true
+          (data.hash != null): true

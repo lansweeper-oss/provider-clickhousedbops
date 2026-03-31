@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.0
+    controller-gen.kubebuilder.io/version: v0.20.1
   name: users.clickhousedbops.crossplane.io
 spec:
   group: clickhousedbops.crossplane.io
@@ -88,21 +88,20 @@ spec:
               forProvider:
                 properties:
                   autoGeneratePassword:
-                    description: If true, the password will be auto-generated and
-                      stored in the Secret referenced by the passwordSecretRef field.
+                    description: If true, a password is auto-generated and stored
+                      in the secret referenced by writeConnectionSecretToRef under
+                      keys 'password' (plaintext) and 'hash' (SHA256). The passwordSha256HashSecretRef
+                      field is set automatically — no other password fields need to
+                      be configured.
                     type: boolean
                   clusterName:
                     description: |-
-                      (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-                      This field must be left null when using a ClickHouse Cloud cluster.
-                      When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                       Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
                       This field must be left null when using a ClickHouse Cloud cluster.
                       When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                     type: string
                   hostIps:
                     description: |-
-                      (Set of String) IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
                       IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
                     items:
                       type: string
@@ -110,12 +109,10 @@ spec:
                     x-kubernetes-list-type: set
                   name:
                     description: |-
-                      (String) Name of the user
                       Name of the user
                     type: string
                   passwordSha256HashSecretRef:
                     description: |-
-                      (String, Sensitive, Deprecated) SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
                       SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
                     properties:
                       key:
@@ -132,30 +129,6 @@ spec:
                     - name
                     - namespace
                     type: object
-                  passwordSha256HashWoSecretRef:
-                    description: |-
-                      and password_sha256_hash_wo_version
-                      SHA256 hash of the password to authenticate the user. If you set autoGeneratePassword to true, the Secret referenced here will be created or updated with the generated password if it does not already contain one.
-                    properties:
-                      key:
-                        description: The key to select.
-                        type: string
-                      name:
-                        description: Name of the secret.
-                        type: string
-                      namespace:
-                        description: Namespace of the secret.
-                        type: string
-                    required:
-                    - key
-                    - name
-                    - namespace
-                    type: object
-                  passwordSha256HashWoVersion:
-                    description: |-
-                      to trigger password updates.
-                      Version of the password_sha256_hash_wo field. Bump this value to require a force update of the password on the user.
-                    type: number
                 type: object
               initProvider:
                 description: |-
@@ -172,16 +145,12 @@ spec:
                 properties:
                   clusterName:
                     description: |-
-                      (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-                      This field must be left null when using a ClickHouse Cloud cluster.
-                      When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                       Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
                       This field must be left null when using a ClickHouse Cloud cluster.
                       When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                     type: string
                   hostIps:
                     description: |-
-                      (Set of String) IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
                       IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
                     items:
                       type: string
@@ -189,12 +158,10 @@ spec:
                     x-kubernetes-list-type: set
                   name:
                     description: |-
-                      (String) Name of the user
                       Name of the user
                     type: string
                   passwordSha256HashSecretRef:
                     description: |-
-                      (String, Sensitive, Deprecated) SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
                       SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
                     properties:
                       key:
@@ -211,30 +178,6 @@ spec:
                     - name
                     - namespace
                     type: object
-                  passwordSha256HashWoSecretRef:
-                    description: |-
-                      and password_sha256_hash_wo_version
-                      SHA256 hash of the password to authenticate the user. If you set autoGeneratePassword to true, the Secret referenced here will be created or updated with the generated password if it does not already contain one.
-                    properties:
-                      key:
-                        description: The key to select.
-                        type: string
-                      name:
-                        description: Name of the secret.
-                        type: string
-                      namespace:
-                        description: Namespace of the secret.
-                        type: string
-                    required:
-                    - key
-                    - name
-                    - namespace
-                    type: object
-                  passwordSha256HashWoVersion:
-                    description: |-
-                      to trigger password updates.
-                      Version of the password_sha256_hash_wo field. Bump this value to require a force update of the password on the user.
-                    type: number
                 type: object
               managementPolicies:
                 default:
@@ -334,16 +277,12 @@ spec:
                 properties:
                   clusterName:
                     description: |-
-                      (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-                      This field must be left null when using a ClickHouse Cloud cluster.
-                      When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                       Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
                       This field must be left null when using a ClickHouse Cloud cluster.
                       When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                     type: string
                   hostIps:
                     description: |-
-                      (Set of String) IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
                       IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
                     items:
                       type: string
@@ -354,14 +293,8 @@ spec:
                     type: string
                   name:
                     description: |-
-                      (String) Name of the user
                       Name of the user
                     type: string
-                  passwordSha256HashWoVersion:
-                    description: |-
-                      to trigger password updates.
-                      Version of the password_sha256_hash_wo field. Bump this value to require a force update of the password on the user.
-                    type: number
                 type: object
               conditions:
                 description: Conditions of the resource.

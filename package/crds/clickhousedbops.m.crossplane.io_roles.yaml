@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.0
+    controller-gen.kubebuilder.io/version: v0.20.1
   name: roles.clickhousedbops.m.crossplane.io
 spec:
   group: clickhousedbops.m.crossplane.io
@@ -61,16 +61,12 @@ spec:
                 properties:
                   clusterName:
                     description: |-
-                      (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-                      This field must be left null when using a ClickHouse Cloud cluster.
-                      When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                       Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
                       This field must be left null when using a ClickHouse Cloud cluster.
                       When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                     type: string
                   name:
                     description: |-
-                      (String) Name of the role
                       Name of the role
                     type: string
                 type: object
@@ -89,16 +85,12 @@ spec:
                 properties:
                   clusterName:
                     description: |-
-                      (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-                      This field must be left null when using a ClickHouse Cloud cluster.
-                      When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                       Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
                       This field must be left null when using a ClickHouse Cloud cluster.
                       When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                     type: string
                   name:
                     description: |-
-                      (String) Name of the role
                       Name of the role
                     type: string
                 type: object
@@ -172,9 +164,6 @@ spec:
                 properties:
                   clusterName:
                     description: |-
-                      (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-                      This field must be left null when using a ClickHouse Cloud cluster.
-                      When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                       Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
                       This field must be left null when using a ClickHouse Cloud cluster.
                       When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
@@ -184,7 +173,6 @@ spec:
                     type: string
                   name:
                     description: |-
-                      (String) Name of the role
                       Name of the role
                     type: string
                 type: object

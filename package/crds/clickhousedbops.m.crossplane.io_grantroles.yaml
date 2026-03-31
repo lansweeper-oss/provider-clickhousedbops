@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.0
+    controller-gen.kubebuilder.io/version: v0.20.1
   name: grantroles.clickhousedbops.m.crossplane.io
 spec:
   group: clickhousedbops.m.crossplane.io
@@ -66,31 +66,24 @@ spec:
                 properties:
                   adminOption:
                     description: |-
-                      (Boolean) If true, the grantee will be able to grant role_name to other users or roles.
                       If true, the grantee will be able to grant `role_name` to other `users` or `roles`.
                     type: boolean
                   clusterName:
                     description: |-
-                      (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-                      This field must be left null when using a ClickHouse Cloud cluster.
-                      When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                       Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
                       This field must be left null when using a ClickHouse Cloud cluster.
                       When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                     type: string
                   granteeRoleName:
                     description: |-
-                      (String) Name of the role to grant role_name to.
                       Name of the `role` to grant `role_name` to.
                     type: string
                   granteeUserName:
                     description: |-
-                      (String) Name of the user to grant role_name to.
                       Name of the `user` to grant `role_name` to.
                     type: string
                   roleName:
                     description: |-
-                      (String) Name of the role to be granted
                       Name of the role to be granted
                     type: string
                 type: object
@@ -109,31 +102,24 @@ spec:
                 properties:
                   adminOption:
                     description: |-
-                      (Boolean) If true, the grantee will be able to grant role_name to other users or roles.
                       If true, the grantee will be able to grant `role_name` to other `users` or `roles`.
                     type: boolean
                   clusterName:
                     description: |-
-                      (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-                      This field must be left null when using a ClickHouse Cloud cluster.
-                      When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                       Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
                       This field must be left null when using a ClickHouse Cloud cluster.
                       When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                     type: string
                   granteeRoleName:
                     description: |-
-                      (String) Name of the role to grant role_name to.
                       Name of the `role` to grant `role_name` to.
                     type: string
                   granteeUserName:
                     description: |-
-                      (String) Name of the user to grant role_name to.
                       Name of the `user` to grant `role_name` to.
                     type: string
                   roleName:
                     description: |-
-                      (String) Name of the role to be granted
                       Name of the role to be granted
                     type: string
                 type: object
@@ -207,33 +193,26 @@ spec:
                 properties:
                   adminOption:
                     description: |-
-                      (Boolean) If true, the grantee will be able to grant role_name to other users or roles.
                       If true, the grantee will be able to grant `role_name` to other `users` or `roles`.
                     type: boolean
                   clusterName:
                     description: |-
-                      (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
-                      This field must be left null when using a ClickHouse Cloud cluster.
-                      When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                       Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
                       This field must be left null when using a ClickHouse Cloud cluster.
                       When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
                     type: string
                   granteeRoleName:
                     description: |-
-                      (String) Name of the role to grant role_name to.
                       Name of the `role` to grant `role_name` to.
                     type: string
                   granteeUserName:
                     description: |-
-                      (String) Name of the user to grant role_name to.
                       Name of the `user` to grant `role_name` to.
                     type: string
                   id:
                     type: string
                   roleName:
                     description: |-
-                      (String) Name of the role to be granted
                       Name of the role to be granted
                     type: string
                 type: object
