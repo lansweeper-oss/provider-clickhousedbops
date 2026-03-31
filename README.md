@@ -125,6 +125,13 @@ or (deploying in-cluster):
 make local-deploy
 ```
 
+Run e2e tests (locally in a KinD cluster):
+
+```console
+# UPTEST_SKIP_DELETE=true
+make e2e
+```
+
 Build, push, and install:
 
 ```console

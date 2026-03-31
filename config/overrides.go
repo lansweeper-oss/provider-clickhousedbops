@@ -118,7 +118,13 @@ func Configure(p *config.Provider) {
 		}
 		r.InitializerFns = append(r.InitializerFns,
 			sentinelUUIDInitializer("id"),
-			PasswordGenerator("spec.forProvider.autoGeneratePassword"))
+			PasswordGenerator("spec.forProvider.autoGeneratePassword"),
+		)
+		s, ok := r.TerraformResource.Schema["password_sha256_hash"]
+		if ok {
+			s.Description = "Reference to a secret containing the SHA256 hash of the password. " +
+				"This field is set automatically set."
+		}
 
 		// Remove write-only fields that require Terraform >=1.11.
 		// This provider targets Terraform <=1.5; users must use

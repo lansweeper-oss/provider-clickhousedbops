@@ -34,7 +34,7 @@ type UserInitParameters struct {
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
 
 	// (String, Sensitive, Deprecated) SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
-	// SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
+	// Reference to a secret containing the SHA256 hash of the password. This field is set automatically set.
 	PasswordSha256HashSecretRef *v1.LocalSecretKeySelector `json:"passwordSha256HashSecretRef,omitempty" tf:"-"`
 }
 
@@ -89,7 +89,7 @@ type UserParameters struct {
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
 
 	// (String, Sensitive, Deprecated) SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
-	// SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
+	// Reference to a secret containing the SHA256 hash of the password. This field is set automatically set.
 	// +kubebuilder:validation:Optional
 	PasswordSha256HashSecretRef *v1.LocalSecretKeySelector `json:"passwordSha256HashSecretRef,omitempty" tf:"-"`
 }
