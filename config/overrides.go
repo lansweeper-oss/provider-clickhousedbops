@@ -129,7 +129,7 @@ func Configure(p *config.Provider) {
 		s, ok := r.TerraformResource.Schema["password_sha256_hash"]
 		if ok {
 			s.Description = "Reference to a secret containing the SHA256 hash of the password. " +
-				"This field is set automatically set."
+				"This field is automatically set."
 		}
 
 		// Remove write-only fields that require Terraform >=1.11.
