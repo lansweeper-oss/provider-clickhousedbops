@@ -11,5 +11,3 @@ spec:
   forProvider:
     clusterName: cluster
     name: jane
-    password_sha256_hash_wo: ${sha256("test")}
-    password_sha256_hash_wo_version: 4

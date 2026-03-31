@@ -119,11 +119,14 @@ func Configure(p *config.Provider) {
 		r.InitializerFns = append(r.InitializerFns,
 			sentinelUUIDInitializer("id"),
 			PasswordGenerator("spec.forProvider.autoGeneratePassword"))
+
 		// Remove write-only fields that require Terraform >=1.11.
 		// This provider targets Terraform <=1.5; users must use
 		// passwordSha256HashSecretRef (or autoGeneratePassword) instead.
-		delete(r.TerraformResource.Schema, "password_sha256_hash_wo")
-		delete(r.TerraformResource.Schema, "password_sha256_hash_wo_version")
+		r.ExternalName.OmittedFields = []string{
+			"password_sha256_hash_wo",
+			"password_sha256_hash_wo_version",
+		}
 	})
 	p.AddResourceConfigurator("clickhousedbops_settings_profile", func(r *config.Resource) {
 		// Same hasTFID=false trick as for clickhousedbops_user — prevents name-based
