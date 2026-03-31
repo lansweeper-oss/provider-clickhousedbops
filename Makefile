@@ -200,7 +200,7 @@ run: go.build
 # End to End Testing
 CROSSPLANE_NAMESPACE = crossplane-system
 
-# Required by build/makelib/uptest.mk — tells the e2e target which make target
+# Required by build/makelib/uptest.mk - tells the e2e target which make target
 # deploys the provider into the local Kind cluster.
 UPTEST_LOCAL_DEPLOY_TARGET = local.xpkg.deploy.provider.$(PROJECT_NAME)
 

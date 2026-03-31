@@ -38,7 +38,7 @@ func sentinelUUIDInitializer(field string) config.NewInitializerFn {
 				return fmt.Errorf("cannot get observation for %s initializer: %w", field, err)
 			}
 			if val, _ := obs[field].(string); val != "" && val != sentinelUUID {
-				// Real UUID already set (post-creation) — leave it alone.
+				// Real UUID already set (post-creation) - leave it alone.
 				return nil
 			}
 			if obs == nil {
@@ -141,13 +141,13 @@ func Configure(p *config.Provider) {
 		}
 	})
 	p.AddResourceConfigurator("clickhousedbops_settings_profile", func(r *config.Resource) {
-		// Same hasTFID=false trick as for clickhousedbops_user — prevents name-based
+		// Same hasTFID=false trick as for clickhousedbops_user, prevents name-based
 		// id from being written to TF state on first reconcile, avoiding UUID parse errors.
 		delete(r.TerraformResource.Schema, "id")
 		r.InitializerFns = append(r.InitializerFns, sentinelUUIDInitializer("id"))
 	})
 	p.AddResourceConfigurator("clickhousedbops_role", func(r *config.Resource) {
-		// Same hasTFID=false trick — role lookup also uses UUID-based WHERE id=UUID(...).
+		// Same hasTFID=false trick, role lookup also uses UUID-based WHERE id=UUID(...).
 		delete(r.TerraformResource.Schema, "id")
 		r.InitializerFns = append(r.InitializerFns, sentinelUUIDInitializer("id"))
 	})

@@ -35,7 +35,7 @@ To import an existing ClickHouse resource into Crossplane, create a manifest wit
 2. `managementPolicies: ["Observe"]` so Crossplane reads the remote state without modifying it.
 3. A `providerConfigRef` pointing to valid ClickHouse credentials.
 
-You do **not** need to set the `crossplane.io/external-name` annotation — the provider
+You do **not** need to set the `crossplane.io/external-name` annotation, the provider
 builds it automatically from the identity parameters and updates it after the first
 successful observe.
 
