@@ -87,7 +87,7 @@ spec:
                     type: string
                   passwordSha256HashSecretRef:
                     description: |-
-                      Reference to a secret containing the SHA256 hash of the password. This field is set automatically set.
+                      Reference to a secret containing the SHA256 hash of the password. This field is automatically set.
                     properties:
                       key:
                         type: string
@@ -131,7 +131,7 @@ spec:
                     type: string
                   passwordSha256HashSecretRef:
                     description: |-
-                      Reference to a secret containing the SHA256 hash of the password. This field is set automatically set.
+                      Reference to a secret containing the SHA256 hash of the password. This field is automatically set.
                     properties:
                       key:
                         type: string
