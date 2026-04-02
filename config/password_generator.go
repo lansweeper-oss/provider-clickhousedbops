@@ -59,6 +59,85 @@ func PasswordValidator() config.NewInitializerFn {
 	}
 }
 
+// extractPasswordSecretRef extracts and validates the passwordSecretRef field from the managed resource.
+// Returns the secret name, key, namespace, and error (nil if not set).
+func extractPasswordSecretRef(mg xpresource.Managed) (name, key, namespace string, err error) {
+	paved, err := fieldpath.PaveObject(mg)
+	if err != nil {
+		return "", "", "", fmt.Errorf("cannot pave object: %w", err)
+	}
+
+	// Check if passwordSecretRef is set at all
+	_, err = paved.GetValue("spec.forProvider.passwordSecretRef")
+	if fieldpath.IsNotFound(err) {
+		return "", "", "", nil // Not set, nothing to do
+	}
+	if err != nil {
+		return "", "", "", fmt.Errorf("cannot get passwordSecretRef: %w", err)
+	}
+
+	// Extract and validate name
+	nameVal, _ := paved.GetValue("spec.forProvider.passwordSecretRef.name")
+	name, _ = nameVal.(string)
+	if name == "" {
+		return "", "", "", fmt.Errorf("passwordSecretRef.name is required and must be a string")
+	}
+
+	// Extract and validate key
+	keyVal, _ := paved.GetValue("spec.forProvider.passwordSecretRef.key")
+	key, _ = keyVal.(string)
+	if key == "" {
+		return "", "", "", fmt.Errorf("passwordSecretRef.key is required and must be a string")
+	}
+
+	// Extract namespace (optional, defaults to resource namespace)
+	nsVal, _ := paved.GetValue("spec.forProvider.passwordSecretRef.namespace")
+	namespace, _ = nsVal.(string)
+	if namespace == "" {
+		namespace = mg.GetNamespace()
+	}
+
+	return name, key, namespace, nil
+}
+
+// readPlaintextPassword reads the plaintext password from a secret.
+func readPlaintextPassword(ctx context.Context, c client.Client, secretNamespace, secretName, secretKey string) ([]byte, error) {
+	s := &corev1.Secret{}
+	if err := c.Get(ctx, types.NamespacedName{Namespace: secretNamespace, Name: secretName}, s); err != nil {
+		return nil, fmt.Errorf("cannot read passwordSecretRef: %w", err)
+	}
+
+	plaintext, ok := s.Data[secretKey]
+	if !ok {
+		return nil, fmt.Errorf("key %q not found in secret %s/%s", secretKey, secretNamespace, secretName)
+	}
+
+	return plaintext, nil
+}
+
+// updateSecretWithHash computes the SHA256 hash of the plaintext password
+// and writes it to the secret under passwordHashKey.
+func updateSecretWithHash(ctx context.Context, c client.Client, secretNamespace, secretName string, plaintext []byte) error {
+	s := &corev1.Secret{}
+	if err := c.Get(ctx, types.NamespacedName{Namespace: secretNamespace, Name: secretName}, s); err != nil {
+		return fmt.Errorf("cannot get secret for hash update: %w", err)
+	}
+
+	sum := sha256.Sum256(plaintext)
+	hash := hex.EncodeToString(sum[:])
+
+	if s.Data == nil {
+		s.Data = make(map[string][]byte)
+	}
+	s.Data[passwordHashKey] = []byte(hash)
+
+	if err := xpresource.NewAPIPatchingApplicator(c).Apply(ctx, s); err != nil {
+		return fmt.Errorf("cannot write hash to secret: %w", err)
+	}
+
+	return nil
+}
+
 // PasswordRefProcessor returns an InitializerFn that processes passwordSecretRef by
 // reading the plaintext password, computing its SHA256 hash, and writing the hash
 // to the same secret under key "hash". It then auto-sets passwordSha256HashSecretRef
@@ -66,80 +145,23 @@ func PasswordValidator() config.NewInitializerFn {
 func PasswordRefProcessor() config.NewInitializerFn {
 	return func(c client.Client) managed.Initializer {
 		return managed.InitializerFn(func(ctx context.Context, mg xpresource.Managed) error {
-			// Marshal to JSON to check for passwordSecretRef field
-			data, err := json.Marshal(mg)
+			secretName, secretKey, secretNamespace, err := extractPasswordSecretRef(mg)
 			if err != nil {
-				return fmt.Errorf("cannot marshal managed resource: %w", err)
+				return err
+			}
+			if secretName == "" {
+				return nil // passwordSecretRef not set, nothing to do
 			}
 
-			var raw map[string]any
-			if err := json.Unmarshal(data, &raw); err != nil {
-				return fmt.Errorf("cannot unmarshal managed resource: %w", err)
-			}
-
-			spec, ok := raw["spec"].(map[string]any)
-			if !ok {
-				return nil // No spec, nothing to do
-			}
-
-			forProvider, ok := spec["forProvider"].(map[string]any)
-			if !ok {
-				return nil // No forProvider, nothing to do
-			}
-
-			// Check if passwordSecretRef is set
-			refVal, ok := forProvider["passwordSecretRef"]
-			if !ok {
-				return nil // Not set, nothing to do
-			}
-
-			refMap, ok := refVal.(map[string]any)
-			if !ok {
-				return fmt.Errorf("passwordSecretRef is not a map")
-			}
-
-			secretName, ok := refMap["name"].(string)
-			if !ok || secretName == "" {
-				return fmt.Errorf("passwordSecretRef.name is required and must be a string")
-			}
-
-			secretKey, ok := refMap["key"].(string)
-			if !ok || secretKey == "" {
-				return fmt.Errorf("passwordSecretRef.key is required and must be a string")
-			}
-
-			secretNamespace, _ := refMap["namespace"].(string)
-			// For namespaced resources, use the MR namespace if not specified
-			if secretNamespace == "" {
-				secretNamespace = mg.GetNamespace()
-			}
-
-			// Read the plaintext password from the referenced secret
-			s := &corev1.Secret{}
-			err = c.Get(ctx, types.NamespacedName{Namespace: secretNamespace, Name: secretName}, s)
+			plaintext, err := readPlaintextPassword(ctx, c, secretNamespace, secretName, secretKey)
 			if err != nil {
-				return fmt.Errorf("cannot read passwordSecretRef: %w", err)
+				return err
 			}
 
-			plaintext, ok := s.Data[secretKey]
-			if !ok {
-				return fmt.Errorf("key %q not found in secret %s/%s", secretKey, secretNamespace, secretName)
+			if err := updateSecretWithHash(ctx, c, secretNamespace, secretName, plaintext); err != nil {
+				return err
 			}
 
-			// Compute SHA256 hash and write to the same secret under passwordHashKey
-			sum := sha256.Sum256(plaintext)
-			hash := hex.EncodeToString(sum[:])
-
-			if s.Data == nil {
-				s.Data = make(map[string][]byte)
-			}
-			s.Data[passwordHashKey] = []byte(hash)
-
-			if err := xpresource.NewAPIPatchingApplicator(c).Apply(ctx, s); err != nil {
-				return fmt.Errorf("cannot write hash to secret: %w", err)
-			}
-
-			// Auto-set passwordSha256HashSecretRef to point to the same secret
 			return setPasswordHashSecretRef(mg, secretName, secretNamespace, passwordHashKey)
 		})
 	}
