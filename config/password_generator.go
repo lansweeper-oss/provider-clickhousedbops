@@ -147,7 +147,7 @@ func PasswordRefProcessor() config.NewInitializerFn {
 
 // PasswordGenerator returns an InitializerFn that generates a password when
 // toggleFieldPath resolves to true. The caller only needs to set
-// autoGeneratePassword: true and writeConnectionSecretToRef — no other
+// autoGeneratePassword: true and writeConnectionSecretToRef - no other
 // password fields are required.
 //
 // The initializer stores the plaintext password under key "password" and the
