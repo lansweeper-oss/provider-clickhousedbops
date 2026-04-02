@@ -106,6 +106,88 @@ See the full examples in [`examples/namespaced/providerconfig/`](examples/namesp
 See [docs/import.md](docs/import.md) for a full reference of the identity parameters needed
 to import each resource type into Crossplane.
 
+## Configuring User Passwords
+
+When creating a User resource, you must configure the password using one of three mutually exclusive methods:
+
+### 1. Auto-generate Password
+
+Let the provider generate a secure random password and store it in a Kubernetes Secret:
+
+```yaml
+apiVersion: clickhousedbops.crossplane.io/v1alpha1
+kind: User
+metadata:
+  name: myuser
+  namespace: default
+spec:
+  forProvider:
+    name: myuser
+    autoGeneratePassword: true
+  writeConnectionSecretToRef:
+    name: myuser-credentials
+    namespace: default
+  providerConfigRef:
+    name: default
+```
+
+The generated secret will contain:
+- `password`: plaintext password
+- `hash`: SHA256 hash of the password
+
+### 2. Reference Existing Plaintext Secret
+
+Point to a Kubernetes Secret containing a plaintext password.
+The controller will automatically compute the SHA256 hash and store it in the same secret:
+
+```yaml
+apiVersion: clickhousedbops.crossplane.io/v1alpha1
+kind: User
+metadata:
+  name: myuser
+  namespace: default
+spec:
+  forProvider:
+    name: myuser
+    passwordSecretRef:
+      name: my-password-secret
+      key: password
+      # namespace: default <-- optional, defaults to resource namespace
+  providerConfigRef:
+    name: default
+```
+
+The secret must exist and contain the plaintext password at the specified key.
+The controller will add a `hash` key with the computed SHA256 hash.
+
+### 3. Reference Existing Hash Secret
+
+Provide a reference to a secret that already contains the SHA256 hash:
+
+```yaml
+apiVersion: clickhousedbops.crossplane.io/v1alpha1
+kind: User
+metadata:
+  name: myuser
+  namespace: default
+spec:
+  forProvider:
+    name: myuser
+    passwordSha256HashSecretRef:
+      name: my-password-hash-secret
+      key: hash
+      namespace: default
+  providerConfigRef:
+    name: default
+```
+
+The secret must exist and contain the SHA256 hash at the specified key.
+
+### Mutual Exclusivity
+
+Only one of `autoGeneratePassword`, `passwordSecretRef`, or `passwordSha256HashSecretRef` may be set.
+The provider will fail immediately if multiple methods are configured.
+
 ## Developing
 
 Run code-generation pipeline:

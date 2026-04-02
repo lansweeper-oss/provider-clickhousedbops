@@ -116,7 +116,24 @@ func Configure(p *config.Provider) {
 			Optional:    true,
 			Description: desc.String(),
 		}
+
+		descSecretRef, _ := comments.New("Reference to a secret containing the plaintext password."+
+			" The controller will compute the SHA256 hash and store it in the same secret under key 'hash'."+
+			" The passwordSha256HashSecretRef field is set automatically."+
+			" This field is mutually exclusive with autoGeneratePassword and passwordSha256HashSecretRef.",
+			comments.WithTFTag("-"))
+		r.TerraformResource.Schema["password_secret_ref"] = &tfschema.Schema{
+			Type:        tfschema.TypeMap,
+			Optional:    true,
+			Description: descSecretRef.String(),
+			Elem: &tfschema.Schema{
+				Type: tfschema.TypeString,
+			},
+		}
+
 		r.InitializerFns = append(r.InitializerFns,
+			PasswordValidator(),
+			PasswordRefProcessor(),
 			sentinelUUIDInitializer("id"),
 			PasswordGenerator("spec.forProvider.autoGeneratePassword"))
 

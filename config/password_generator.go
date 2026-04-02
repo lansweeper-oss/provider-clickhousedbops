@@ -19,6 +19,132 @@ import (
 
 const passwordHashKey = "hash"
 
+// PasswordValidator returns an InitializerFn that enforces mutual exclusivity of
+// password configuration methods: only one of autoGeneratePassword, passwordSecretRef,
+// or passwordSha256HashSecretRef may be set.
+func PasswordValidator() config.NewInitializerFn {
+	return func(_ client.Client) managed.Initializer {
+		return managed.InitializerFn(func(_ context.Context, mg xpresource.Managed) error {
+			paved, err := fieldpath.PaveObject(mg)
+			if err != nil {
+				return fmt.Errorf("cannot pave object: %w", err)
+			}
+
+			count := 0
+
+			autoGen, err := paved.GetBool("spec.forProvider.autoGeneratePassword")
+			if err == nil && autoGen {
+				count++
+			}
+
+			_, err = paved.GetValue("spec.forProvider.passwordSecretRef")
+			if err == nil {
+				count++
+			}
+
+			_, err = paved.GetValue("spec.forProvider.passwordSha256HashSecretRef")
+			if err == nil {
+				count++
+			}
+
+			if count > 1 {
+				return fmt.Errorf("autoGeneratePassword, passwordSecretRef, and passwordSha256HashSecretRef are mutually exclusive - only one may be set")
+			}
+			if count == 0 {
+				return fmt.Errorf("one of autoGeneratePassword, passwordSecretRef, or passwordSha256HashSecretRef must be set")
+			}
+
+			return nil
+		})
+	}
+}
+
+// PasswordRefProcessor returns an InitializerFn that processes passwordSecretRef by
+// reading the plaintext password, computing its SHA256 hash, and writing the hash
+// to the same secret under key "hash". It then auto-sets passwordSha256HashSecretRef
+// to point to that secret so the Terraform provider can read the hash.
+func PasswordRefProcessor() config.NewInitializerFn {
+	return func(c client.Client) managed.Initializer {
+		return managed.InitializerFn(func(ctx context.Context, mg xpresource.Managed) error {
+			// Marshal to JSON to check for passwordSecretRef field
+			data, err := json.Marshal(mg)
+			if err != nil {
+				return fmt.Errorf("cannot marshal managed resource: %w", err)
+			}
+
+			var raw map[string]any
+			if err := json.Unmarshal(data, &raw); err != nil {
+				return fmt.Errorf("cannot unmarshal managed resource: %w", err)
+			}
+
+			spec, ok := raw["spec"].(map[string]any)
+			if !ok {
+				return nil // No spec, nothing to do
+			}
+
+			forProvider, ok := spec["forProvider"].(map[string]any)
+			if !ok {
+				return nil // No forProvider, nothing to do
+			}
+
+			// Check if passwordSecretRef is set
+			refVal, ok := forProvider["passwordSecretRef"]
+			if !ok {
+				return nil // Not set, nothing to do
+			}
+
+			refMap, ok := refVal.(map[string]any)
+			if !ok {
+				return fmt.Errorf("passwordSecretRef is not a map")
+			}
+
+			secretName, ok := refMap["name"].(string)
+			if !ok || secretName == "" {
+				return fmt.Errorf("passwordSecretRef.name is required and must be a string")
+			}
+
+			secretKey, ok := refMap["key"].(string)
+			if !ok || secretKey == "" {
+				return fmt.Errorf("passwordSecretRef.key is required and must be a string")
+			}
+
+			secretNamespace, _ := refMap["namespace"].(string)
+			// For namespaced resources, use the MR namespace if not specified
+			if secretNamespace == "" {
+				secretNamespace = mg.GetNamespace()
+			}
+
+			// Read the plaintext password from the referenced secret
+			s := &corev1.Secret{}
+			err = c.Get(ctx, types.NamespacedName{Namespace: secretNamespace, Name: secretName}, s)
+			if err != nil {
+				return fmt.Errorf("cannot read passwordSecretRef: %w", err)
+			}
+
+			plaintext, ok := s.Data[secretKey]
+			if !ok {
+				return fmt.Errorf("key %q not found in secret %s/%s", secretKey, secretNamespace, secretName)
+			}
+
+			// Compute SHA256 hash and write to the same secret under passwordHashKey
+			sum := sha256.Sum256(plaintext)
+			hash := hex.EncodeToString(sum[:])
+
+			if s.Data == nil {
+				s.Data = make(map[string][]byte)
+			}
+			s.Data[passwordHashKey] = []byte(hash)
+
+			if err := xpresource.NewAPIPatchingApplicator(c).Apply(ctx, s); err != nil {
+				return fmt.Errorf("cannot write hash to secret: %w", err)
+			}
+
+			// Auto-set passwordSha256HashSecretRef to point to the same secret
+			return setPasswordHashSecretRef(mg, secretName, secretNamespace, passwordHashKey)
+		})
+	}
+}
+
 // PasswordGenerator returns an InitializerFn that generates a password when
 // toggleFieldPath resolves to true. The caller only needs to set
 // autoGeneratePassword: true and writeConnectionSecretToRef — no other
