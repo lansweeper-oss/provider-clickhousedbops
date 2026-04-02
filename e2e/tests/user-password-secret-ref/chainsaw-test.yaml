@@ -1,0 +1,53 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: user-password-secret-ref
+spec:
+  steps:
+  - name: create-plaintext-secret
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: my-password
+          type: Opaque
+          stringData:
+            password: "my-secure-password-123"
+
+  - name: apply-user-with-password-ref
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: testuser-secretref
+          spec:
+            forProvider:
+              name: testuser-secretref
+              passwordSecretRef:
+                name: my-password
+                key: password
+            providerConfigRef:
+              kind: ClusterProviderConfig
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: testuser-secretref
+
+  - name: assert-hash-computed
+    try:
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: my-password
+          (data.password != null): true
+          (data.hash != null): true

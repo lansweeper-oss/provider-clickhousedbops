@@ -1,0 +1,121 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: user-password-mutual-exclusivity
+spec:
+  steps:
+  - name: create-plaintext-secret
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: test-password
+          type: Opaque
+          stringData:
+            password: "test-password"
+
+  - name: attempt-autogen-and-secretref
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: testuser-conflict1
+          spec:
+            forProvider:
+              name: testuser-conflict1
+              autoGeneratePassword: true
+              passwordSecretRef:
+                name: test-password
+                key: password
+            writeConnectionSecretToRef:
+              name: testuser-conflict1
+            providerConfigRef:
+              kind: ClusterProviderConfig
+              name: default
+    - error:
+        kind: 'User'
+        message: 'autoGeneratePassword, passwordSecretRef, and passwordSha256HashSecretRef are mutually exclusive'
+
+  - name: create-hash-secret
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: password-hash
+          type: Opaque
+          stringData:
+            hash: "4b9bb80853f2d4b5d1a3e2c1f3c8b9e2f3c1d8e9f3a2b1c0d9e8f7a6b5c4d"
+
+  - name: attempt-autogen-and-hash-ref
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: testuser-conflict2
+          spec:
+            forProvider:
+              name: testuser-conflict2
+              autoGeneratePassword: true
+              passwordSha256HashSecretRef:
+                name: password-hash
+                key: hash
+                namespace: default
+            writeConnectionSecretToRef:
+              name: testuser-conflict2
+            providerConfigRef:
+              kind: ClusterProviderConfig
+              name: default
+    - error:
+        kind: 'User'
+        message: 'autoGeneratePassword, passwordSecretRef, and passwordSha256HashSecretRef are mutually exclusive'
+
+  - name: attempt-secretref-and-hash-ref
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: testuser-conflict3
+          spec:
+            forProvider:
+              name: testuser-conflict3
+              passwordSecretRef:
+                name: test-password
+                key: password
+              passwordSha256HashSecretRef:
+                name: password-hash
+                key: hash
+                namespace: default
+            providerConfigRef:
+              kind: ClusterProviderConfig
+              name: default
+    - error:
+        kind: 'User'
+        message: 'autoGeneratePassword, passwordSecretRef, and passwordSha256HashSecretRef are mutually exclusive'
+
+  - name: attempt-no-password-method
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: testuser-no-password
+          spec:
+            forProvider:
+              name: testuser-no-password
+            providerConfigRef:
+              kind: ClusterProviderConfig
+              name: default
+    - error:
+        kind: 'User'
+        message: 'one of autoGeneratePassword, passwordSecretRef, or passwordSha256HashSecretRef must be set'
