@@ -249,6 +249,8 @@ func resolveConnectionSecretRef(mg xpresource.Managed) (name, ns string, ok bool
 
 // applyPasswordSecret writes the plaintext password under key "password" and
 // its SHA256 hash under key "hash" into the named secret.
+// We should **never** call this method when coming from passwordSecretRef, since that would
+// potentially exfiltrate any secret in the cluster which the provider has access to.
 func applyPasswordSecret(ctx context.Context, c client.Client, secretName, ns, pw string) error {
 	sum := sha256.Sum256([]byte(pw))
 	hash := hex.EncodeToString(sum[:])
