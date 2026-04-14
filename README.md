@@ -151,4 +151,4 @@ open an [issue](https://github.com/lansweeper-oss/provider-clickhousedbops/issue
 
 ## Licensing
 
-`provider-mongodbatlas` is under the Apache 2.0 [license](LICENSE).
+`provider-clickhousedbops` is under the Apache 2.0 [license](LICENSE).
