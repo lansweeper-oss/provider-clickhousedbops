@@ -121,22 +121,24 @@ func Configure(p *config.Provider) {
 			Description: desc.String(),
 		}
 
-		descSecretPasswordKey, _ := comments.New("Key in the secret referenced by writeConnectionSecretToRef"+
-			" that contains the plaintext password. Defaults to \"password\"."+
-			" Only used when autoGeneratePassword is false.",
+		descSecretRef, _ := comments.New("Reference to a user-owned secret containing the plaintext password."+
+			" The controller reads the plaintext, computes its SHA256 hash, and writes the hash back"+
+			" to the same secret under key 'hash'. Supports password rotation: updating the plaintext"+
+			" triggers a hash update on the next reconcile, which causes the Terraform provider to update ClickHouse."+
+			" This field is mutually exclusive with autoGeneratePassword.",
 			comments.WithTFTag("-"))
-		r.TerraformResource.Schema["secret_password_key"] = &tfschema.Schema{
-			Type:        tfschema.TypeString,
+		r.TerraformResource.Schema["password_secret_ref"] = &tfschema.Schema{
+			Type:        tfschema.TypeMap,
 			Optional:    true,
-			Description: descSecretPasswordKey.String(),
+			Description: descSecretRef.String(),
+			Elem: &tfschema.Schema{
+				Type: tfschema.TypeString,
+			},
 		}
 
 		r.InitializerFns = append(r.InitializerFns,
-			// PasswordUserProvided must run before PasswordValidator: on the first BYOP reconcile,
-			// passwordSha256HashSecretRef is not yet set — PasswordUserProvided sets it, then the
-			// validator can confirm exactly one method is configured.
-			PasswordUserProvided(),
 			PasswordValidator(),
+			PasswordRefProcessor(),
 			sentinelUUIDInitializer("id"),
 			PasswordGenerator("spec.forProvider.autoGeneratePassword"),
 		)

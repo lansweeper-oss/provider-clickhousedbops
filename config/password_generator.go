@@ -19,10 +19,13 @@ import (
 
 const passwordHashKey = "hash"
 
-// PasswordValidator returns an InitializerFn that enforces mutual exclusivity of
-// password configuration methods: either autoGeneratePassword OR passwordSha256HashSecretRef
-// may be set, but not both. User-provided plaintext is detected at reconcile time from
-// writeConnectionSecretToRef.
+// PasswordValidator enforces mutual exclusivity:
+//   - autoGeneratePassword and passwordSecretRef are mutually exclusive
+//   - at least one of autoGeneratePassword, passwordSecretRef, or passwordSha256HashSecretRef must be set
+//
+// passwordSha256HashSecretRef is auto-set by PasswordRefProcessor and PasswordGenerator after the
+// first reconcile, so it is intentionally allowed alongside passwordSecretRef (not treated as a
+// user-facing method choice).
 func PasswordValidator() config.NewInitializerFn {
 	return func(_ client.Client) managed.Initializer {
 		return managed.InitializerFn(func(_ context.Context, mg xpresource.Managed) error {
@@ -37,14 +40,17 @@ func PasswordValidator() config.NewInitializerFn {
 			}
 			autoGenSet := err == nil && autoGen
 
+			_, err = paved.GetValue("spec.forProvider.passwordSecretRef")
+			secretRefSet := err == nil
+
 			_, err = paved.GetValue("spec.forProvider.passwordSha256HashSecretRef")
 			hashRefSet := err == nil
 
-			if autoGenSet && hashRefSet {
-				return fmt.Errorf("autoGeneratePassword and passwordSha256HashSecretRef are mutually exclusive - only one may be set")
+			if autoGenSet && secretRefSet {
+				return fmt.Errorf("autoGeneratePassword and passwordSecretRef are mutually exclusive - only one may be set")
 			}
-			if !autoGenSet && !hashRefSet {
-				return fmt.Errorf("either autoGeneratePassword or passwordSha256HashSecretRef must be set")
+			if !autoGenSet && !secretRefSet && !hashRefSet {
+				return fmt.Errorf("one of autoGeneratePassword or passwordSecretRef must be set")
 			}
 
 			return nil
@@ -52,82 +58,100 @@ func PasswordValidator() config.NewInitializerFn {
 	}
 }
 
-// updateSecretWithHash computes the SHA256 hash of the plaintext password
-// and writes it to the secret under passwordHashKey.
-func updateSecretWithHash(ctx context.Context, c client.Client, secretNamespace, secretName string, plaintext []byte) error {
-	s := &corev1.Secret{}
-	if err := c.Get(ctx, types.NamespacedName{Namespace: secretNamespace, Name: secretName}, s); err != nil {
-		return fmt.Errorf("cannot get secret for hash update: %w", err)
+// extractPasswordSecretRef extracts name, key, and namespace from spec.forProvider.passwordSecretRef.
+// Returns empty name if the field is not set.
+func extractPasswordSecretRef(mg xpresource.Managed) (name, key, namespace string, err error) {
+	paved, err := fieldpath.PaveObject(mg)
+	if err != nil {
+		return "", "", "", fmt.Errorf("cannot pave object: %w", err)
 	}
 
-	sum := sha256.Sum256(plaintext)
-	hash := hex.EncodeToString(sum[:])
-
-	if s.Data == nil {
-		s.Data = make(map[string][]byte)
+	_, err = paved.GetValue("spec.forProvider.passwordSecretRef")
+	if fieldpath.IsNotFound(err) {
+		return "", "", "", nil
 	}
-	s.Data[passwordHashKey] = []byte(hash)
-
-	if err := xpresource.NewAPIPatchingApplicator(c).Apply(ctx, s); err != nil {
-		return fmt.Errorf("cannot write hash to secret: %w", err)
+	if err != nil {
+		return "", "", "", fmt.Errorf("cannot get passwordSecretRef: %w", err)
 	}
 
-	return nil
+	nameVal, _ := paved.GetValue("spec.forProvider.passwordSecretRef.name")
+	name, _ = nameVal.(string)
+	if name == "" {
+		return "", "", "", fmt.Errorf("passwordSecretRef.name is required and must be a string")
+	}
+
+	keyVal, _ := paved.GetValue("spec.forProvider.passwordSecretRef.key")
+	key, _ = keyVal.(string)
+	if key == "" {
+		return "", "", "", fmt.Errorf("passwordSecretRef.key is required and must be a string")
+	}
+
+	nsVal, _ := paved.GetValue("spec.forProvider.passwordSecretRef.namespace")
+	namespace, _ = nsVal.(string)
+	if namespace == "" {
+		namespace = mg.GetNamespace()
+	}
+
+	return name, key, namespace, nil
 }
 
-const defaultPasswordKey = "password"
+// readPlaintextPassword reads the plaintext password from a Kubernetes secret.
+func readPlaintextPassword(ctx context.Context, c client.Client, secretNamespace, secretName, secretKey string) ([]byte, error) {
+	s := &corev1.Secret{}
+	if err := c.Get(ctx, types.NamespacedName{Namespace: secretNamespace, Name: secretName}, s); err != nil {
+		return nil, fmt.Errorf("cannot read passwordSecretRef secret %s/%s: %w", secretNamespace, secretName, err)
+	}
 
-// PasswordUserProvided returns an InitializerFn that processes user-provided plaintext
-// passwords. The key to read from the secret is taken from spec.forProvider.secretPasswordKey
-// (defaults to "password"). The secret is the one referenced by writeConnectionSecretToRef.
-// Controller reads the plaintext, computes SHA256 hash, writes it under "hash" in the same
-// secret, and auto-sets passwordSha256HashSecretRef.
-func PasswordUserProvided() config.NewInitializerFn {
+	plaintext, ok := s.Data[secretKey]
+	if !ok {
+		return nil, fmt.Errorf("key %q not found in secret %s/%s", secretKey, secretNamespace, secretName)
+	}
+
+	return plaintext, nil
+}
+
+// PasswordRefProcessor reads the plaintext password from the user-owned secret referenced by
+// passwordSecretRef, computes its SHA256 hash, and writes the hash back to the same secret
+// under key "hash". It then auto-sets passwordSha256HashSecretRef pointing to that secret
+// so the Terraform provider can read the hash. writeConnectionSecretToRef is not required
+// when using this method.
+//
+// Supports password rotation: on every reconcile the hash is recomputed from the current
+// plaintext and compared to the existing hash. A mismatch triggers a hash update, which
+// causes the Terraform provider to update the ClickHouse user.
+func PasswordRefProcessor() config.NewInitializerFn {
 	return func(c client.Client) managed.Initializer {
 		return managed.InitializerFn(func(ctx context.Context, mg xpresource.Managed) error {
-			paved, err := fieldpath.PaveObject(mg)
+			secretName, secretKey, secretNamespace, err := extractPasswordSecretRef(mg)
 			if err != nil {
-				return fmt.Errorf("cannot pave object: %w", err)
+				return err
+			}
+			if secretName == "" {
+				return nil // passwordSecretRef not set, nothing to do
 			}
 
-			passwordKey, err := paved.GetString("spec.forProvider.secretPasswordKey")
-			if fieldpath.IsNotFound(err) || passwordKey == "" {
-				passwordKey = defaultPasswordKey
-			} else if err != nil {
-				return fmt.Errorf("cannot get secretPasswordKey: %w", err)
-			}
-
-			secretName, ns, ok := resolveConnectionSecretRef(mg)
-			if !ok {
-				return nil // No writeConnectionSecretToRef, nothing to do
-			}
-
-			s := &corev1.Secret{}
-			err = c.Get(ctx, types.NamespacedName{Namespace: ns, Name: secretName}, s)
-			if xpresource.IgnoreNotFound(err) != nil {
-				return fmt.Errorf("cannot get connection secret: %w", err)
-			}
-
-			// If secret doesn't exist or no plaintext under the configured key, nothing to do
-			if err != nil || len(s.Data[passwordKey]) == 0 {
-				return nil
-			}
-
-			// Always recompute hash from plaintext to support password rotation.
-			// If hash matches current plaintext, updateSecretWithHash is still called but
-			// the Apply is a no-op from Kubernetes' perspective (same data).
-			plaintext := s.Data[passwordKey]
-			sum := sha256.Sum256(plaintext)
-			newHash := hex.EncodeToString(sum[:])
-			if string(s.Data[passwordHashKey]) == newHash {
-				return setPasswordHashSecretRef(mg, secretName, ns, passwordHashKey)
-			}
-
-			if err := updateSecretWithHash(ctx, c, ns, secretName, plaintext); err != nil {
+			plaintext, err := readPlaintextPassword(ctx, c, secretNamespace, secretName, secretKey)
+			if err != nil {
 				return err
 			}
 
-			return setPasswordHashSecretRef(mg, secretName, ns, passwordHashKey)
+			sum := sha256.Sum256(plaintext)
+			newHash := hex.EncodeToString(sum[:])
+
+			// Check existing hash in the same secret — skip write if unchanged (idempotent + rotation).
+			s := &corev1.Secret{}
+			if err := c.Get(ctx, types.NamespacedName{Namespace: secretNamespace, Name: secretName}, s); err != nil {
+				return fmt.Errorf("cannot get passwordSecretRef secret: %w", err)
+			}
+			if string(s.Data[passwordHashKey]) == newHash {
+				return setPasswordHashSecretRef(mg, secretName, secretNamespace, passwordHashKey)
+			}
+
+			if err := applyHashSecret(ctx, c, secretName, secretNamespace, newHash); err != nil {
+				return err
+			}
+
+			return setPasswordHashSecretRef(mg, secretName, secretNamespace, passwordHashKey)
 		})
 	}
 }
@@ -210,6 +234,27 @@ func resolveConnectionSecretRef(mg xpresource.Managed) (name, ns string, ok bool
 		return ref.Name, ref.Namespace, true
 	}
 	return "", "", false
+}
+
+// applyHashSecret writes the SHA256 hash into the named secret.
+func applyHashSecret(ctx context.Context, c client.Client, secretName, ns, hash string) error {
+	s := &corev1.Secret{}
+	s.SetName(secretName)
+	s.SetNamespace(ns)
+	s.Type = xpresource.SecretTypeConnection
+
+	if err := c.Get(ctx, types.NamespacedName{Namespace: ns, Name: secretName}, s); xpresource.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("cannot get connection secret: %w", err)
+	}
+	if s.Data == nil {
+		s.Data = make(map[string][]byte, 1)
+	}
+	s.Data[passwordHashKey] = []byte(hash)
+
+	if err := xpresource.NewAPIPatchingApplicator(c).Apply(ctx, s); err != nil {
+		return fmt.Errorf("cannot apply connection secret: %w", err)
+	}
+	return nil
 }
 
 // applyPasswordSecret writes the plaintext password under key "password" and
