@@ -99,16 +99,6 @@ spec:
                     description: |-
                       Name of the user
                     type: string
-                  passwordSecretRef:
-                    additionalProperties:
-                      type: string
-                    description: Reference to a secret containing the plaintext password.
-                      The controller will compute the SHA256 hash and store it in
-                      the same secret under key 'hash'. The passwordSha256HashSecretRef
-                      field is set automatically. This field is mutually exclusive
-                      with autoGeneratePassword and passwordSha256HashSecretRef.
-                    type: object
-                    x-kubernetes-map-type: granular
                   passwordSha256HashSecretRef:
                     description: |-
                       Reference to a secret containing the SHA256 hash of the password. This field is automatically set.
@@ -127,6 +117,11 @@ spec:
                     - name
                     - namespace
                     type: object
+                  secretPasswordKey:
+                    description: Key in the secret referenced by writeConnectionSecretToRef
+                      that contains the plaintext password. Defaults to "password".
+                      Only used when autoGeneratePassword is false.
+                    type: string
                 type: object
               initProvider:
                 description: |-

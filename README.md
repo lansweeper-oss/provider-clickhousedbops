@@ -114,6 +114,7 @@ For detailed information on configuring passwords for User resources, including 
 ## Developing
 
 Run code-generation pipeline:
+
 ```console
 go run cmd/generator/main.go "$PWD"
 ```

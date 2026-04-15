@@ -121,23 +121,22 @@ func Configure(p *config.Provider) {
 			Description: desc.String(),
 		}
 
-		descSecretRef, _ := comments.New("Reference to a secret containing the plaintext password."+
-			" The controller will compute the SHA256 hash and store it in the same secret under key 'hash'."+
-			" The passwordSha256HashSecretRef field is set automatically."+
-			" This field is mutually exclusive with autoGeneratePassword and passwordSha256HashSecretRef.",
+		descSecretPasswordKey, _ := comments.New("Key in the secret referenced by writeConnectionSecretToRef"+
+			" that contains the plaintext password. Defaults to \"password\"."+
+			" Only used when autoGeneratePassword is false.",
 			comments.WithTFTag("-"))
-		r.TerraformResource.Schema["password_secret_ref"] = &tfschema.Schema{
-			Type:        tfschema.TypeMap,
+		r.TerraformResource.Schema["secret_password_key"] = &tfschema.Schema{
+			Type:        tfschema.TypeString,
 			Optional:    true,
-			Description: descSecretRef.String(),
-			Elem: &tfschema.Schema{
-				Type: tfschema.TypeString,
-			},
+			Description: descSecretPasswordKey.String(),
 		}
 
 		r.InitializerFns = append(r.InitializerFns,
+			// PasswordUserProvided must run before PasswordValidator: on the first BYOP reconcile,
+			// passwordSha256HashSecretRef is not yet set — PasswordUserProvided sets it, then the
+			// validator can confirm exactly one method is configured.
+			PasswordUserProvided(),
 			PasswordValidator(),
-			PasswordRefProcessor(),
 			sentinelUUIDInitializer("id"),
 			PasswordGenerator("spec.forProvider.autoGeneratePassword"),
 		)

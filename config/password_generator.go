@@ -20,8 +20,9 @@ import (
 const passwordHashKey = "hash"
 
 // PasswordValidator returns an InitializerFn that enforces mutual exclusivity of
-// password configuration methods: only one of autoGeneratePassword, passwordSecretRef,
-// or passwordSha256HashSecretRef may be set.
+// password configuration methods: either autoGeneratePassword OR passwordSha256HashSecretRef
+// may be set, but not both. User-provided plaintext is detected at reconcile time from
+// writeConnectionSecretToRef.
 func PasswordValidator() config.NewInitializerFn {
 	return func(_ client.Client) managed.Initializer {
 		return managed.InitializerFn(func(_ context.Context, mg xpresource.Managed) error {
@@ -30,89 +31,25 @@ func PasswordValidator() config.NewInitializerFn {
 				return fmt.Errorf("cannot pave object: %w", err)
 			}
 
-			count := 0
-
 			autoGen, err := paved.GetBool("spec.forProvider.autoGeneratePassword")
-			if err == nil && autoGen {
-				count++
+			if err != nil && !fieldpath.IsNotFound(err) {
+				return fmt.Errorf("cannot get autoGeneratePassword: %w", err)
 			}
-
-			_, err = paved.GetValue("spec.forProvider.passwordSecretRef")
-			if err == nil {
-				count++
-			}
+			autoGenSet := err == nil && autoGen
 
 			_, err = paved.GetValue("spec.forProvider.passwordSha256HashSecretRef")
-			if err == nil {
-				count++
-			}
+			hashRefSet := err == nil
 
-			if count > 1 {
-				return fmt.Errorf("autoGeneratePassword, passwordSecretRef, and passwordSha256HashSecretRef are mutually exclusive - only one may be set")
+			if autoGenSet && hashRefSet {
+				return fmt.Errorf("autoGeneratePassword and passwordSha256HashSecretRef are mutually exclusive - only one may be set")
 			}
-			if count == 0 {
-				return fmt.Errorf("one of autoGeneratePassword, passwordSecretRef, or passwordSha256HashSecretRef must be set")
+			if !autoGenSet && !hashRefSet {
+				return fmt.Errorf("either autoGeneratePassword or passwordSha256HashSecretRef must be set")
 			}
 
 			return nil
 		})
 	}
-}
-
-// extractPasswordSecretRef extracts and validates the passwordSecretRef field from the managed resource.
-// Returns the secret name, key, namespace, and error (nil if not set).
-func extractPasswordSecretRef(mg xpresource.Managed) (name, key, namespace string, err error) {
-	paved, err := fieldpath.PaveObject(mg)
-	if err != nil {
-		return "", "", "", fmt.Errorf("cannot pave object: %w", err)
-	}
-
-	// Check if passwordSecretRef is set at all
-	_, err = paved.GetValue("spec.forProvider.passwordSecretRef")
-	if fieldpath.IsNotFound(err) {
-		return "", "", "", nil // Not set, nothing to do
-	}
-	if err != nil {
-		return "", "", "", fmt.Errorf("cannot get passwordSecretRef: %w", err)
-	}
-
-	// Extract and validate name
-	nameVal, _ := paved.GetValue("spec.forProvider.passwordSecretRef.name")
-	name, _ = nameVal.(string)
-	if name == "" {
-		return "", "", "", fmt.Errorf("passwordSecretRef.name is required and must be a string")
-	}
-
-	// Extract and validate key
-	keyVal, _ := paved.GetValue("spec.forProvider.passwordSecretRef.key")
-	key, _ = keyVal.(string)
-	if key == "" {
-		return "", "", "", fmt.Errorf("passwordSecretRef.key is required and must be a string")
-	}
-
-	// Extract namespace (optional, defaults to resource namespace)
-	nsVal, _ := paved.GetValue("spec.forProvider.passwordSecretRef.namespace")
-	namespace, _ = nsVal.(string)
-	if namespace == "" {
-		namespace = mg.GetNamespace()
-	}
-
-	return name, key, namespace, nil
-}
-
-// readPlaintextPassword reads the plaintext password from a secret.
-func readPlaintextPassword(ctx context.Context, c client.Client, secretNamespace, secretName, secretKey string) ([]byte, error) {
-	s := &corev1.Secret{}
-	if err := c.Get(ctx, types.NamespacedName{Namespace: secretNamespace, Name: secretName}, s); err != nil {
-		return nil, fmt.Errorf("cannot read passwordSecretRef: %w", err)
-	}
-
-	plaintext, ok := s.Data[secretKey]
-	if !ok {
-		return nil, fmt.Errorf("key %q not found in secret %s/%s", secretKey, secretNamespace, secretName)
-	}
-
-	return plaintext, nil
 }
 
 // updateSecretWithHash computes the SHA256 hash of the plaintext password
@@ -138,31 +75,59 @@ func updateSecretWithHash(ctx context.Context, c client.Client, secretNamespace,
 	return nil
 }
 
-// PasswordRefProcessor returns an InitializerFn that processes passwordSecretRef by
-// reading the plaintext password, computing its SHA256 hash, and writing the hash
-// to the same secret under key "hash". It then auto-sets passwordSha256HashSecretRef
-// to point to that secret so the Terraform provider can read the hash.
-func PasswordRefProcessor() config.NewInitializerFn {
+const defaultPasswordKey = "password"
+
+// PasswordUserProvided returns an InitializerFn that processes user-provided plaintext
+// passwords. The key to read from the secret is taken from spec.forProvider.secretPasswordKey
+// (defaults to "password"). The secret is the one referenced by writeConnectionSecretToRef.
+// Controller reads the plaintext, computes SHA256 hash, writes it under "hash" in the same
+// secret, and auto-sets passwordSha256HashSecretRef.
+func PasswordUserProvided() config.NewInitializerFn {
 	return func(c client.Client) managed.Initializer {
 		return managed.InitializerFn(func(ctx context.Context, mg xpresource.Managed) error {
-			secretName, secretKey, secretNamespace, err := extractPasswordSecretRef(mg)
+			paved, err := fieldpath.PaveObject(mg)
 			if err != nil {
-				return err
-			}
-			if secretName == "" {
-				return nil // passwordSecretRef not set, nothing to do
+				return fmt.Errorf("cannot pave object: %w", err)
 			}
 
-			plaintext, err := readPlaintextPassword(ctx, c, secretNamespace, secretName, secretKey)
-			if err != nil {
+			passwordKey, err := paved.GetString("spec.forProvider.secretPasswordKey")
+			if fieldpath.IsNotFound(err) || passwordKey == "" {
+				passwordKey = defaultPasswordKey
+			} else if err != nil {
+				return fmt.Errorf("cannot get secretPasswordKey: %w", err)
+			}
+
+			secretName, ns, ok := resolveConnectionSecretRef(mg)
+			if !ok {
+				return nil // No writeConnectionSecretToRef, nothing to do
+			}
+
+			s := &corev1.Secret{}
+			err = c.Get(ctx, types.NamespacedName{Namespace: ns, Name: secretName}, s)
+			if xpresource.IgnoreNotFound(err) != nil {
+				return fmt.Errorf("cannot get connection secret: %w", err)
+			}
+
+			// If secret doesn't exist or no plaintext under the configured key, nothing to do
+			if err != nil || len(s.Data[passwordKey]) == 0 {
+				return nil
+			}
+
+			// Always recompute hash from plaintext to support password rotation.
+			// If hash matches current plaintext, updateSecretWithHash is still called but
+			// the Apply is a no-op from Kubernetes' perspective (same data).
+			plaintext := s.Data[passwordKey]
+			sum := sha256.Sum256(plaintext)
+			newHash := hex.EncodeToString(sum[:])
+			if string(s.Data[passwordHashKey]) == newHash {
+				return setPasswordHashSecretRef(mg, secretName, ns, passwordHashKey)
+			}
+
+			if err := updateSecretWithHash(ctx, c, ns, secretName, plaintext); err != nil {
 				return err
 			}
 
-			if err := updateSecretWithHash(ctx, c, secretNamespace, secretName, plaintext); err != nil {
-				return err
-			}
-
-			return setPasswordHashSecretRef(mg, secretName, secretNamespace, passwordHashKey)
+			return setPasswordHashSecretRef(mg, secretName, ns, passwordHashKey)
 		})
 	}
 }
