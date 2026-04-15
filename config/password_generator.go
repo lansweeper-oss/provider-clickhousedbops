@@ -144,14 +144,14 @@ func PasswordRefProcessor() config.NewInitializerFn {
 				return fmt.Errorf("cannot get passwordSecretRef secret: %w", err)
 			}
 			if string(s.Data[passwordHashKey]) == newHash {
-				return setPasswordHashSecretRef(mg, secretName, secretNamespace, passwordHashKey)
+				return setPasswordHashSecretRef(mg, secretName, secretNamespace)
 			}
 
 			if err := applyHashSecret(ctx, c, secretName, secretNamespace, newHash); err != nil {
 				return err
 			}
 
-			return setPasswordHashSecretRef(mg, secretName, secretNamespace, passwordHashKey)
+			return setPasswordHashSecretRef(mg, secretName, secretNamespace)
 		})
 	}
 }
@@ -199,7 +199,7 @@ func PasswordGenerator(toggleFieldPath string) config.NewInitializerFn {
 			}
 			if err == nil && len(s.Data[passwordHashKey]) != 0 {
 				// Hash already present; just ensure the spec ref is set.
-				return setPasswordHashSecretRef(mg, secretName, ns, passwordHashKey)
+				return setPasswordHashSecretRef(mg, secretName, ns)
 			}
 
 			pw, err := password.Generate()
@@ -209,7 +209,7 @@ func PasswordGenerator(toggleFieldPath string) config.NewInitializerFn {
 			if err := applyPasswordSecret(ctx, c, secretName, ns, pw); err != nil {
 				return err
 			}
-			return setPasswordHashSecretRef(mg, secretName, ns, passwordHashKey)
+			return setPasswordHashSecretRef(mg, secretName, ns)
 		})
 	}
 }
@@ -290,7 +290,8 @@ func applyPasswordSecret(ctx context.Context, c client.Client, secretName, ns, p
 // For cluster-scoped resources (namespace != "") the namespace is included in
 // the ref; for namespaced resources upjet fills it in from the MR namespace.
 // It uses a JSON round-trip to mutate the Go struct in place.
-func setPasswordHashSecretRef(mg xpresource.Managed, secretName, secretNamespace, key string) error {
+func setPasswordHashSecretRef(mg xpresource.Managed, secretName, secretNamespace string) error {
+	key := passwordHashKey
 	data, err := json.Marshal(mg)
 	if err != nil {
 		return fmt.Errorf("cannot marshal managed resource: %w", err)

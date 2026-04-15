@@ -87,7 +87,7 @@ type UserParameters struct {
 	// +kubebuilder:validation:Optional
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
 
-	// Reference to a user-owned secret containing the plaintext password. The controller reads the plaintext, computes its SHA256 hash, and writes the hash to the secret referenced by writeConnectionSecretToRef. The plaintext is never written to the connection secret. This field is mutually exclusive with autoGeneratePassword.
+	// Reference to a user-owned secret containing the plaintext password. The controller reads the plaintext, computes its SHA256 hash, and writes the hash back to the same secret under key 'hash'. This field is mutually exclusive with autoGeneratePassword.
 	// +upjet:crd:field:TFTag=-
 	// +kubebuilder:validation:Optional
 	// +mapType=granular
