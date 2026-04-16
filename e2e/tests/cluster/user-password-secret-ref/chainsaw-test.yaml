@@ -30,6 +30,7 @@ spec:
               passwordSecretRef:
                 name: my-password
                 key: password
+                namespace: ($namespace)
             providerConfigRef:
               kind: ClusterProviderConfig
               name: default
@@ -44,6 +45,7 @@ spec:
   - name: assert-hash-computed
     try:
     - assert:
+        timeout: 5m
         resource:
           apiVersion: v1
           kind: Secret
@@ -57,11 +59,11 @@ spec:
     - script:
         timeout: 2m
         content: |
-          old_hash=$(${KUBECTL} get secret my-password -n ${NAMESPACE} -o jsonpath='{.data.hash}')
-          ${KUBECTL} patch secret my-password -n ${NAMESPACE} \
+          old_hash=$(kubectl get secret my-password -n ${NAMESPACE} -o jsonpath='{.data.hash}')
+          kubectl patch secret my-password -n ${NAMESPACE} \
             --type=merge -p '{"stringData":{"password":"rotated-password-456"}}'
           for i in $(seq 1 60); do
-            new_hash=$(${KUBECTL} get secret my-password -n ${NAMESPACE} -o jsonpath='{.data.hash}')
+            new_hash=$(kubectl get secret my-password -n ${NAMESPACE} -o jsonpath='{.data.hash}')
             if [ -n "${new_hash}" ] && [ "${new_hash}" != "${old_hash}" ]; then
               echo "Hash rotated successfully"
               exit 0

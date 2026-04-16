@@ -18,6 +18,7 @@ spec:
               autoGeneratePassword: true
             writeConnectionSecretToRef:
               name: testuser
+              namespace: ($namespace)
             providerConfigRef:
               kind: ClusterProviderConfig
               name: default
@@ -32,6 +33,7 @@ spec:
   - name: assert-connection-secret
     try:
     - assert:
+        timeout: 5m
         resource:
           apiVersion: v1
           kind: Secret
