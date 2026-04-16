@@ -75,6 +75,9 @@ spec:
     kind: ClusterProviderConfig
 ```
 
+Further information about strategies when importing Users might be found in its
+[dedicated document](user-import-workflow.md).
+
 After applying, Crossplane will:
 - Set `crossplane.io/external-name` to the username (`jane`).
 - Populate `status.atProvider` with the full remote state.
