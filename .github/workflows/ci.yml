@@ -5,7 +5,7 @@ on:
     branches:
       - release-*
   pull_request:
-      branches:
+    branches:
       - main
   workflow_dispatch: {}
 
@@ -15,9 +15,9 @@ concurrency:
 
 env:
   # Common versions
-  GO_VERSION: '1.26'
-  GOLANGCI_VERSION: 'v2.11.4'
-  DOCKER_BUILDX_VERSION: 'v0.32.1'
+  GO_VERSION: "1.26"
+  GOLANGCI_VERSION: "v2.11.4"
+  DOCKER_BUILDX_VERSION: "v0.33.1"
 
 jobs:
   detect-noop:
@@ -66,7 +66,6 @@ jobs:
         run: |
           make schema-version-diff
 
-
   lint:
     runs-on: ubuntu-24.04
     needs: detect-noop
@@ -98,7 +97,6 @@ jobs:
 
       - name: Check Diff
         run: make check-diff
-
 
   e2e:
     runs-on: ubuntu-24.04
