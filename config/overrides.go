@@ -121,7 +121,24 @@ func Configure(p *config.Provider) {
 			Description: desc.String(),
 		}
 
+		descSecretRef, _ := comments.New("Reference to a user-owned secret containing the plaintext password."+
+			" The controller reads the plaintext, computes its SHA256 hash, and writes the hash back"+
+			" to the same secret under key 'hash'. Supports password rotation: updating the plaintext"+
+			" triggers a hash update on the next reconcile, which causes the Terraform provider to update ClickHouse."+
+			" This field is mutually exclusive with autoGeneratePassword.",
+			comments.WithTFTag("-"))
+		r.TerraformResource.Schema["password_secret_ref"] = &tfschema.Schema{
+			Type:        tfschema.TypeMap,
+			Optional:    true,
+			Description: descSecretRef.String(),
+			Elem: &tfschema.Schema{
+				Type: tfschema.TypeString,
+			},
+		}
+
 		r.InitializerFns = append(r.InitializerFns,
+			PasswordValidator(),
+			PasswordRefProcessor(),
 			sentinelUUIDInitializer("id"),
 			PasswordGenerator("spec.forProvider.autoGeneratePassword"),
 		)

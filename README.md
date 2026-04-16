@@ -106,9 +106,15 @@ See the full examples in [`examples/namespaced/providerconfig/`](examples/namesp
 See [docs/import.md](docs/import.md) for a full reference of the identity parameters needed
 to import each resource type into Crossplane.
 
+## Configuring User Passwords
+
+For detailed information on configuring passwords for User resources, including three mutually exclusive methods
+(auto-generate, plaintext secret reference, and hash secret reference), see [docs/password-configuration.md](docs/password-configuration.md).
+
 ## Developing
 
 Run code-generation pipeline:
+
 ```console
 go run cmd/generator/main.go "$PWD"
 ```

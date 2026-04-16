@@ -14,10 +14,12 @@ updates:
     allow:
       - dependency-name: "k8s.io/*"
       - dependency-name: "sigs.k8s.io/*"
+      - dependency-type: "direct"
     ignore:
       # k8s.io/client-go switched to semver; ignore >= 1.0 to avoid old tags
       - dependency-name: "k8s.io/client-go"
-        versions: [">=1.0.0"]
+        versions:
+          - ">=1.0.0"
     groups:
       # Single PR for all patch/digest bumps of kubernetes-related deps
       kubernetes-patches:

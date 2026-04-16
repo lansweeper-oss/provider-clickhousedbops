@@ -8,7 +8,7 @@ spec:
     try:
     - apply:
         resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
           kind: User
           metadata:
             name: testuser
@@ -18,13 +18,13 @@ spec:
               autoGeneratePassword: true
             writeConnectionSecretToRef:
               name: testuser
+              namespace: ($namespace)
             providerConfigRef:
-              kind: ClusterProviderConfig
               name: default
     - assert:
         timeout: 5m
         resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
           kind: User
           metadata:
             name: testuser
@@ -32,6 +32,7 @@ spec:
   - name: assert-connection-secret
     try:
     - assert:
+        timeout: 5m
         resource:
           apiVersion: v1
           kind: Secret

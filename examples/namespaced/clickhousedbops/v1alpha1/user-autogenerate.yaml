@@ -1,0 +1,29 @@
+apiVersion: clickhousedbops.crossplane.io/v1alpha1
+kind: User
+metadata:
+  name: app-user-autogen
+  namespace: default
+spec:
+  forProvider:
+    name: app_user
+    hostIps:
+      - "10.0.0.0/8"
+    # Password is auto-generated and stored in the secret referenced below
+    # Both plaintext and SHA256 hash are available in the secret
+    autoGeneratePassword: true
+  writeConnectionSecretToRef:
+    name: app-user-credentials
+    namespace: default
+  providerConfigRef:
+    name: default
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-user-credentials
+  namespace: default
+type: Opaque
+stringData:
+  # These will be populated by the provider:
+  password: "" # plaintext password (auto-generated)
+  hash: ""     # SHA256 hash (auto-generated)

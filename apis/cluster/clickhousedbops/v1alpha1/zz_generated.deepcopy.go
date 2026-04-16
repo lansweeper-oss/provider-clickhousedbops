@@ -1769,6 +1769,22 @@ func (in *UserParameters) DeepCopyInto(out *UserParameters) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.PasswordSecretRef != nil {
+		in, out := &in.PasswordSecretRef, &out.PasswordSecretRef
+		*out = make(map[string]*string, len(*in))
+		for key, val := range *in {
+			var outVal *string
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				inVal := (*in)[key]
+				in, out := &inVal, &outVal
+				*out = new(string)
+				**out = **in
+			}
+			(*out)[key] = outVal
+		}
+	}
 	if in.PasswordSha256HashSecretRef != nil {
 		in, out := &in.PasswordSha256HashSecretRef, &out.PasswordSha256HashSecretRef
 		*out = new(v1.SecretKeySelector)

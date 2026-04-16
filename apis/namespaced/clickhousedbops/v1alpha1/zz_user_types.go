@@ -88,6 +88,12 @@ type UserParameters struct {
 	// +kubebuilder:validation:Optional
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
 
+	// Reference to a user-owned secret containing the plaintext password. The controller reads the plaintext, computes its SHA256 hash, and writes the hash back to the same secret under key 'hash'. This field is mutually exclusive with autoGeneratePassword.
+	// +upjet:crd:field:TFTag=-
+	// +kubebuilder:validation:Optional
+	// +mapType=granular
+	PasswordSecretRef map[string]*string `json:"passwordSecretRef,omitempty" tf:"-"`
+
 	// (String, Sensitive, Deprecated) SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
 	// Reference to a secret containing the SHA256 hash of the password. This field is automatically set.
 	// +kubebuilder:validation:Optional
