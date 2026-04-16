@@ -1,0 +1,75 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: user-password-mutual-exclusivity
+spec:
+  steps:
+  - name: create-plaintext-secret
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: test-password
+          type: Opaque
+          stringData:
+            password: "test-password"
+
+  - name: attempt-autogen-and-secretref
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: testuser-conflict1
+          spec:
+            forProvider:
+              name: testuser-conflict1
+              autoGeneratePassword: true
+              passwordSecretRef:
+                name: test-password
+                key: password
+            writeConnectionSecretToRef:
+              name: testuser-conflict1
+            providerConfigRef:
+              kind: ClusterProviderConfig
+              name: default
+    - assert:
+        timeout: 2m
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: testuser-conflict1
+          status:
+            conditions:
+            - type: Synced
+              status: "False"
+
+  - name: attempt-no-password-method
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: testuser-no-password
+          spec:
+            forProvider:
+              name: testuser-no-password
+            providerConfigRef:
+              kind: ClusterProviderConfig
+              name: default
+    - assert:
+        timeout: 2m
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: testuser-no-password
+          status:
+            conditions:
+            - type: Synced
+              status: "False"

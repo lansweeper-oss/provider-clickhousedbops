@@ -95,21 +95,6 @@ func extractPasswordSecretRef(mg xpresource.Managed) (name, key, namespace strin
 	return name, key, namespace, nil
 }
 
-// readPlaintextPassword reads the plaintext password from a Kubernetes secret.
-func readPlaintextPassword(ctx context.Context, c client.Client, secretNamespace, secretName, secretKey string) ([]byte, error) {
-	s := &corev1.Secret{}
-	if err := c.Get(ctx, types.NamespacedName{Namespace: secretNamespace, Name: secretName}, s); err != nil {
-		return nil, fmt.Errorf("cannot read passwordSecretRef secret %s/%s: %w", secretNamespace, secretName, err)
-	}
-
-	plaintext, ok := s.Data[secretKey]
-	if !ok {
-		return nil, fmt.Errorf("key %q not found in secret %s/%s", secretKey, secretNamespace, secretName)
-	}
-
-	return plaintext, nil
-}
-
 // PasswordRefProcessor reads the plaintext password from the user-owned secret referenced by
 // passwordSecretRef, computes its SHA256 hash, and writes the hash back to the same secret
 // under key "hash". It then auto-sets passwordSha256HashSecretRef pointing to that secret
@@ -130,24 +115,25 @@ func PasswordRefProcessor() config.NewInitializerFn {
 				return nil // passwordSecretRef not set, nothing to do
 			}
 
-			plaintext, err := readPlaintextPassword(ctx, c, secretNamespace, secretName, secretKey)
-			if err != nil {
-				return err
+			// Single fetch: extract both plaintext and existing hash.
+			s := &corev1.Secret{}
+			if err := c.Get(ctx, types.NamespacedName{Namespace: secretNamespace, Name: secretName}, s); err != nil {
+				return fmt.Errorf("cannot read passwordSecretRef secret %s/%s: %w", secretNamespace, secretName, err)
+			}
+
+			plaintext, ok := s.Data[secretKey]
+			if !ok {
+				return fmt.Errorf("key %q not found in secret %s/%s", secretKey, secretNamespace, secretName)
 			}
 
 			sum := sha256.Sum256(plaintext)
 			newHash := hex.EncodeToString(sum[:])
 
-			// Check existing hash in the same secret — skip write if unchanged (idempotent + rotation).
-			s := &corev1.Secret{}
-			if err := c.Get(ctx, types.NamespacedName{Namespace: secretNamespace, Name: secretName}, s); err != nil {
-				return fmt.Errorf("cannot get passwordSecretRef secret: %w", err)
-			}
 			if string(s.Data[passwordHashKey]) == newHash {
 				return setPasswordHashSecretRef(mg, secretName, secretNamespace)
 			}
 
-			if err := applyHashSecret(ctx, c, secretName, secretNamespace, newHash); err != nil {
+			if err := applyHashSecret(ctx, c, s, newHash); err != nil {
 				return err
 			}
 
@@ -236,23 +222,16 @@ func resolveConnectionSecretRef(mg xpresource.Managed) (name, ns string, ok bool
 	return "", "", false
 }
 
-// applyHashSecret writes the SHA256 hash into the named secret.
-func applyHashSecret(ctx context.Context, c client.Client, secretName, ns, hash string) error {
-	s := &corev1.Secret{}
-	s.SetName(secretName)
-	s.SetNamespace(ns)
-	s.Type = xpresource.SecretTypeConnection
-
-	if err := c.Get(ctx, types.NamespacedName{Namespace: ns, Name: secretName}, s); xpresource.IgnoreNotFound(err) != nil {
-		return fmt.Errorf("cannot get connection secret: %w", err)
-	}
+// applyHashSecret writes the SHA256 hash into input secret. Caller must have already fetched s.
+// Does not overwrite s.Type — preserves the existing secret type (e.g. Opaque for user-owned secrets).
+func applyHashSecret(ctx context.Context, c client.Client, s *corev1.Secret, hash string) error {
 	if s.Data == nil {
 		s.Data = make(map[string][]byte, 1)
 	}
 	s.Data[passwordHashKey] = []byte(hash)
 
 	if err := xpresource.NewAPIPatchingApplicator(c).Apply(ctx, s); err != nil {
-		return fmt.Errorf("cannot apply connection secret: %w", err)
+		return fmt.Errorf("cannot apply secret: %w", err)
 	}
 	return nil
 }

@@ -7,9 +7,9 @@ spec:
     name: app_user
     hostIps:
       - "10.0.0.0/8"
-  # Password is auto-generated and stored in the secret referenced below
-  # Both plaintext and SHA256 hash are available in the secret
-  autoGeneratePassword: true
+    # Password is auto-generated and stored in the secret referenced below
+    # Both plaintext and SHA256 hash are available in the secret
+    autoGeneratePassword: true
   writeConnectionSecretToRef:
     name: app-user-credentials
     namespace: crossplane-system

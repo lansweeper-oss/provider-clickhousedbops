@@ -1,0 +1,71 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: user-password-secret-ref
+spec:
+  steps:
+  - name: create-plaintext-secret
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: my-password
+          type: Opaque
+          stringData:
+            password: "my-secure-password-123"
+
+  - name: apply-user-with-password-ref
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: testuser-secretref
+          spec:
+            forProvider:
+              name: testuser-secretref
+              passwordSecretRef:
+                name: my-password
+                key: password
+            providerConfigRef:
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: testuser-secretref
+
+  - name: assert-hash-computed
+    try:
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: my-password
+          (data.password != null): true
+          (data.hash != null): true
+
+  - name: rotate-password
+    try:
+    - script:
+        timeout: 2m
+        content: |
+          old_hash=$(${KUBECTL} get secret my-password -n ${NAMESPACE} -o jsonpath='{.data.hash}')
+          ${KUBECTL} patch secret my-password -n ${NAMESPACE} \
+            --type=merge -p '{"stringData":{"password":"rotated-password-456"}}'
+          for i in $(seq 1 60); do
+            new_hash=$(${KUBECTL} get secret my-password -n ${NAMESPACE} -o jsonpath='{.data.hash}')
+            if [ -n "${new_hash}" ] && [ "${new_hash}" != "${old_hash}" ]; then
+              echo "Hash rotated successfully"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Timeout: hash did not rotate after password update"
+          exit 1

@@ -51,3 +51,22 @@ spec:
             name: my-password
           (data.password != null): true
           (data.hash != null): true
+
+  - name: rotate-password
+    try:
+    - script:
+        timeout: 2m
+        content: |
+          old_hash=$(${KUBECTL} get secret my-password -n ${NAMESPACE} -o jsonpath='{.data.hash}')
+          ${KUBECTL} patch secret my-password -n ${NAMESPACE} \
+            --type=merge -p '{"stringData":{"password":"rotated-password-456"}}'
+          for i in $(seq 1 60); do
+            new_hash=$(${KUBECTL} get secret my-password -n ${NAMESPACE} -o jsonpath='{.data.hash}')
+            if [ -n "${new_hash}" ] && [ "${new_hash}" != "${old_hash}" ]; then
+              echo "Hash rotated successfully"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Timeout: hash did not rotate after password update"
+          exit 1
