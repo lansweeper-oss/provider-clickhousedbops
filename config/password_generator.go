@@ -19,6 +19,29 @@ import (
 
 const passwordHashKey = "hash"
 
+// isObserveOnly checks if management policy is observe-only.
+func isObserveOnly(mg xpresource.Managed) bool {
+	policies := mg.GetManagementPolicies()
+	return len(policies) == 1 && string(policies[0]) == "Observe"
+}
+
+// passwordFieldsSet checks which password fields are set on the resource.
+func passwordFieldsSet(paved *fieldpath.Paved) (autoGen, secretRef, hashRef bool, err error) {
+	autoGenVal, err := paved.GetBool("spec.forProvider.autoGeneratePassword")
+	if err != nil && !fieldpath.IsNotFound(err) {
+		return false, false, false, fmt.Errorf("cannot get autoGeneratePassword: %w", err)
+	}
+	autoGen = err == nil && autoGenVal
+
+	_, err = paved.GetValue("spec.forProvider.passwordSecretRef")
+	secretRef = err == nil
+
+	_, err = paved.GetValue("spec.forProvider.passwordSha256HashSecretRef")
+	hashRef = err == nil
+
+	return autoGen, secretRef, hashRef, nil
+}
+
 // PasswordValidator enforces mutual exclusivity:
 //   - autoGeneratePassword and passwordSecretRef are mutually exclusive
 //   - at least one of autoGeneratePassword, passwordSecretRef, or passwordSha256HashSecretRef must be set
@@ -26,30 +49,29 @@ const passwordHashKey = "hash"
 // passwordSha256HashSecretRef is auto-set by PasswordRefProcessor and PasswordGenerator after the
 // first reconcile, so it is intentionally allowed alongside passwordSecretRef (not treated as a
 // user-facing method choice).
+//
+// For observe-only management policy, skips validation since no password management is needed.
 func PasswordValidator() config.NewInitializerFn {
 	return func(_ client.Client) managed.Initializer {
 		return managed.InitializerFn(func(_ context.Context, mg xpresource.Managed) error {
+			if isObserveOnly(mg) {
+				return nil
+			}
+
 			paved, err := fieldpath.PaveObject(mg)
 			if err != nil {
 				return fmt.Errorf("cannot pave object: %w", err)
 			}
 
-			autoGen, err := paved.GetBool("spec.forProvider.autoGeneratePassword")
-			if err != nil && !fieldpath.IsNotFound(err) {
-				return fmt.Errorf("cannot get autoGeneratePassword: %w", err)
+			autoGen, secretRef, hashRef, err := passwordFieldsSet(paved)
+			if err != nil {
+				return err
 			}
-			autoGenSet := err == nil && autoGen
 
-			_, err = paved.GetValue("spec.forProvider.passwordSecretRef")
-			secretRefSet := err == nil
-
-			_, err = paved.GetValue("spec.forProvider.passwordSha256HashSecretRef")
-			hashRefSet := err == nil
-
-			if autoGenSet && secretRefSet {
+			if autoGen && secretRef {
 				return fmt.Errorf("autoGeneratePassword and passwordSecretRef are mutually exclusive - only one may be set")
 			}
-			if !autoGenSet && !secretRefSet && !hashRefSet {
+			if !autoGen && !secretRef && !hashRef {
 				return fmt.Errorf("one of autoGeneratePassword or passwordSecretRef must be set")
 			}
 
@@ -104,9 +126,15 @@ func extractPasswordSecretRef(mg xpresource.Managed) (name, key, namespace strin
 // Supports password rotation: on every reconcile the hash is recomputed from the current
 // plaintext and compared to the existing hash. A mismatch triggers a hash update, which
 // causes the Terraform provider to update the ClickHouse user.
+//
+// For observe-only management policy, skips processing since no password management is needed.
 func PasswordRefProcessor() config.NewInitializerFn {
 	return func(c client.Client) managed.Initializer {
 		return managed.InitializerFn(func(ctx context.Context, mg xpresource.Managed) error {
+			if isObserveOnly(mg) {
+				return nil
+			}
+
 			secretName, secretKey, secretNamespace, err := extractPasswordSecretRef(mg)
 			if err != nil {
 				return err
@@ -156,9 +184,15 @@ func PasswordRefProcessor() config.NewInitializerFn {
 // Both namespaced resources (LocalConnectionSecretWriterTo, namespace implicit
 // from the MR) and cluster-scoped resources (ConnectionSecretWriterTo,
 // namespace explicit in the ref) are supported.
+//
+// For observe-only management policy, skips generation since no password management is needed.
 func PasswordGenerator(toggleFieldPath string) config.NewInitializerFn {
 	return func(c client.Client) managed.Initializer {
 		return managed.InitializerFn(func(ctx context.Context, mg xpresource.Managed) error {
+			if isObserveOnly(mg) {
+				return nil
+			}
+
 			paved, err := fieldpath.PaveObject(mg)
 			if err != nil {
 				return fmt.Errorf("cannot pave object: %w", err)
@@ -178,12 +212,11 @@ func PasswordGenerator(toggleFieldPath string) config.NewInitializerFn {
 			}
 
 			// Check idempotency: if the hash is already stored, skip generation.
-			s := &corev1.Secret{}
-			err = c.Get(ctx, types.NamespacedName{Namespace: ns, Name: secretName}, s)
-			if xpresource.IgnoreNotFound(err) != nil {
-				return fmt.Errorf("cannot get connection secret: %w", err)
+			hashSet, err := isPasswordHashAlreadySet(ctx, c, secretName, ns)
+			if err != nil {
+				return err
 			}
-			if err == nil && len(s.Data[passwordHashKey]) != 0 {
+			if hashSet {
 				// Hash already present; just ensure the spec ref is set.
 				return setPasswordHashSecretRef(mg, secretName, ns)
 			}
@@ -220,6 +253,16 @@ func resolveConnectionSecretRef(mg xpresource.Managed) (name, ns string, ok bool
 		return ref.Name, ref.Namespace, true
 	}
 	return "", "", false
+}
+
+// isPasswordHashAlreadySet checks if a password hash exists in the secret.
+func isPasswordHashAlreadySet(ctx context.Context, c client.Client, secretName, ns string) (bool, error) {
+	s := &corev1.Secret{}
+	err := c.Get(ctx, types.NamespacedName{Namespace: ns, Name: secretName}, s)
+	if xpresource.IgnoreNotFound(err) != nil {
+		return false, fmt.Errorf("cannot get connection secret: %w", err)
+	}
+	return err == nil && len(s.Data[passwordHashKey]) != 0, nil
 }
 
 // applyHashSecret writes the SHA256 hash into input secret. Caller must have already fetched s.
