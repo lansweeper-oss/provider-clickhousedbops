@@ -30,6 +30,7 @@ spec:
               passwordSecretRef:
                 name: my-password
                 key: password
+                namespace: ($namespace)
             providerConfigRef:
               name: default
     - assert:

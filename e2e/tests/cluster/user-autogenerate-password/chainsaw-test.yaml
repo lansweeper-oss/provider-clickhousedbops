@@ -18,7 +18,6 @@ spec:
               autoGeneratePassword: true
             writeConnectionSecretToRef:
               name: testuser
-              namespace: ($namespace)
             providerConfigRef:
               kind: ClusterProviderConfig
               name: default
