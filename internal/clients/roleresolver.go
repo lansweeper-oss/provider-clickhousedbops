@@ -13,11 +13,8 @@ import (
 	"github.com/lansweeper-oss/provider-clickhousedbops/config"
 )
 
-// NewRoleUUIDResolver returns a config.RoleUUIDResolver that looks a role up by
-// name in ClickHouse, using the connection parameters from the ProviderConfig
-// referenced by the managed resource. It lives here (not in config) so the
-// ClickHouse client and the apis packages stay out of the code generator's
-// import graph.
+// Lives here, not in config, so the ClickHouse client and apis packages stay out of the
+// code generator's import graph.
 func NewRoleUUIDResolver(kube client.Client) config.RoleUUIDResolver {
 	return func(ctx context.Context, mg xpresource.Managed) (string, bool, error) {
 		paved, err := fieldpath.PaveObject(mg)
@@ -38,8 +35,6 @@ func NewRoleUUIDResolver(kube client.Client) config.RoleUUIDResolver {
 	}
 }
 
-// findRoleUUIDByName opens a direct ClickHouse connection and returns the UUID of
-// the role with the given name, or found=false when no such role exists.
 func findRoleUUIDByName(ctx context.Context, params ConnParams, name string) (string, bool, error) {
 	opts := &clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", params.Host, params.Port)},
@@ -50,7 +45,6 @@ func findRoleUUIDByName(ctx context.Context, params ConnParams, name string) (st
 		},
 	}
 	if params.Protocol == "nativesecure" {
-		// Default verification, matching the provider's nativesecure connection.
 		opts.TLS = &tls.Config{MinVersion: tls.VersionTLS12}
 	}
 
@@ -70,7 +64,6 @@ func findRoleUUIDByName(ctx context.Context, params ConnParams, name string) (st
 		if err := rows.Err(); err != nil {
 			return "", false, fmt.Errorf("error iterating system.roles: %w", err)
 		}
-		// No role with that name.
 		return "", false, nil
 	}
 

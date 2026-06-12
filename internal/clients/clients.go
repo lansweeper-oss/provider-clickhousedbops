@@ -26,10 +26,6 @@ const (
 	errUnmarshalCredentials = "cannot unmarshal clickhousedbops credentials as JSON"
 )
 
-// ConnParams holds the ClickHouse connection parameters extracted from a
-// ProviderConfig's credentials secret. It mirrors the subset of the Terraform
-// provider configuration needed to open a direct connection (e.g. to look up an
-// existing resource by name before the Terraform observe cycle).
 type ConnParams struct {
 	Host     string
 	Port     uint16
@@ -38,11 +34,7 @@ type ConnParams struct {
 	Password string //nolint:gosec // G117 false positive: in-memory connection parameter, never serialized.
 }
 
-// ResolveConnParams resolves the ClickHouse connection parameters for the
-// ProviderConfig referenced by mg, using the same credential extraction as
-// TerraformSetupBuilder. It is used by initializers that must talk to ClickHouse
-// directly, since the controller's Terraform client is not available during the
-// Initialize phase.
+// Needed by initializers, which run before the controller's Terraform client exists.
 func ResolveConnParams(ctx context.Context, crClient client.Client, mg resource.Managed) (ConnParams, error) {
 	pcSpec, err := resolveProviderConfig(ctx, crClient, mg)
 	if err != nil {
@@ -73,9 +65,7 @@ func ResolveConnParams(ctx context.Context, crClient client.Client, mg resource.
 	return p, nil
 }
 
-// parsePort tolerates the port being encoded as a JSON number, json.Number or
-// string in the credentials secret. It returns 0 for values outside the valid
-// TCP port range, which ResolveConnParams treats as a missing parameter.
+// The credentials secret may encode port as a number, json.Number or string.
 func parsePort(v any) uint16 {
 	var n int64
 	switch t := v.(type) {
