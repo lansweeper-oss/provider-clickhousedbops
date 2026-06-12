@@ -29,14 +29,6 @@ func (f *fakeManaged) SetObservation(o map[string]any) error {
 	return nil
 }
 
-func staticResolver(uuid string, found bool, err error) func(client.Client) roleUUIDResolver {
-	return func(_ client.Client) roleUUIDResolver {
-		return func(_ context.Context, _ xpresource.Managed) (string, bool, error) {
-			return uuid, found, err
-		}
-	}
-}
-
 func TestRoleImportInitializer(t *testing.T) {
 	const realUUID = "11111111-2222-3333-4444-555555555555"
 

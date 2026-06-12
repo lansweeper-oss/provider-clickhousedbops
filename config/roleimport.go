@@ -114,13 +114,13 @@ func findRoleUUIDByName(ctx context.Context, params clients.ConnParams, name str
 	if err != nil {
 		return "", false, fmt.Errorf("cannot open clickhouse connection: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	rows, err := conn.Query(ctx, "SELECT toString(id) AS id FROM system.roles WHERE name = ?", name)
 	if err != nil {
 		return "", false, fmt.Errorf("error querying system.roles: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	if !rows.Next() {
 		if err := rows.Err(); err != nil {

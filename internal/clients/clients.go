@@ -35,7 +35,7 @@ type ConnParams struct {
 	Port     uint16
 	Protocol string
 	Username string
-	Password string
+	Password string //nolint:gosec // G117 false positive: in-memory connection parameter, never serialized.
 }
 
 // ResolveConnParams resolves the ClickHouse connection parameters for the
@@ -74,20 +74,29 @@ func ResolveConnParams(ctx context.Context, crClient client.Client, mg resource.
 }
 
 // parsePort tolerates the port being encoded as a JSON number, json.Number or
-// string in the credentials secret.
+// string in the credentials secret. It returns 0 for values outside the valid
+// TCP port range, which ResolveConnParams treats as a missing parameter.
 func parsePort(v any) uint16 {
+	var n int64
 	switch t := v.(type) {
 	case float64:
-		return uint16(t)
+		n = int64(t)
 	case json.Number:
-		n, _ := t.Int64()
-		return uint16(n)
+		n, _ = t.Int64()
 	case string:
-		n, _ := strconv.Atoi(t)
-		return uint16(n)
+		p, err := strconv.Atoi(t)
+		if err != nil {
+			return 0
+		}
+		n = int64(p)
 	default:
 		return 0
 	}
+
+	if n <= 0 || n > 65535 {
+		return 0
+	}
+	return uint16(n)
 }
 
 // TerraformSetupBuilder builds Terraform a terraform.SetupFn function which
