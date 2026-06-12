@@ -159,6 +159,12 @@ func main() {
 	ctx.FatalIfErrorf(apiextensionsv1.AddToScheme(mgr.GetScheme()), "Cannot add api-extensions APIs to scheme")
 	ctx.FatalIfErrorf(authv1.AddToScheme(mgr.GetScheme()), "Cannot add k8s authorization APIs to scheme")
 
+	// Wire the ClickHouse-backed role resolver so roles that already exist (e.g.
+	// after a backup restore) are adopted instead of re-created. Kept out of the
+	// config package to keep the ClickHouse client off the code generator's
+	// import path.
+	config.SetRoleResolverFactory(clients.NewRoleUUIDResolver)
+
 	metricRecorder := managed.NewMRMetricRecorder()
 	stateMetrics := statemetrics.NewMRStateMetrics()
 

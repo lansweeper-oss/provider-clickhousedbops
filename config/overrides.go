@@ -172,6 +172,6 @@ func Configure(p *config.Provider) {
 		// "already exists in `replicated`". roleImportInitializer looks the role up
 		// by name and seeds its real UUID when found, so upjet imports instead of
 		// re-creating; it falls back to the sentinel (force-create) when absent.
-		r.InitializerFns = append(r.InitializerFns, roleImportInitializer(newRoleUUIDResolver))
+		r.InitializerFns = append(r.InitializerFns, roleImportInitializer())
 	})
 }

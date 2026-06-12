@@ -34,6 +34,7 @@ func TestRoleImportInitializer(t *testing.T) {
 
 	cases := map[string]struct {
 		startID    string // "" means key absent
+		noResolver bool   // simulate code generation / no injection
 		resolveID  string
 		resolveOK  bool
 		resolveErr error
@@ -77,17 +78,28 @@ func TestRoleImportInitializer(t *testing.T) {
 			resolveErr: errors.New("clickhouse unreachable"),
 			wantErr:    true,
 		},
+		"SeedsSentinelWhenNoResolverWired": {
+			// Code generation / no injection: preserve the force-create behavior.
+			startID:    "",
+			noResolver: true,
+			wantID:     sentinelUUID,
+		},
 	}
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			resolved := false
-			mk := func(kube client.Client) roleUUIDResolver {
-				return func(ctx context.Context, mg xpresource.Managed) (string, bool, error) {
-					resolved = true
-					return tc.resolveID, tc.resolveOK, tc.resolveErr
-				}
+			if tc.noResolver {
+				SetRoleResolverFactory(nil)
+			} else {
+				SetRoleResolverFactory(func(_ client.Client) RoleUUIDResolver {
+					return func(_ context.Context, _ xpresource.Managed) (string, bool, error) {
+						resolved = true
+						return tc.resolveID, tc.resolveOK, tc.resolveErr
+					}
+				})
 			}
+			t.Cleanup(func() { SetRoleResolverFactory(nil) })
 
 			obs := map[string]any{}
 			if tc.startID != "" {
@@ -95,7 +107,7 @@ func TestRoleImportInitializer(t *testing.T) {
 			}
 			mg := &fakeManaged{Managed: &fake.Managed{}, obs: obs}
 
-			init := roleImportInitializer(mk)(nil)
+			init := roleImportInitializer()(nil)
 			err := init.Initialize(context.Background(), mg)
 
 			if tc.wantErr {
