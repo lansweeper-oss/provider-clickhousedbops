@@ -166,6 +166,12 @@ func Configure(p *config.Provider) {
 	p.AddResourceConfigurator("clickhousedbops_role", func(r *config.Resource) {
 		// Same hasTFID=false trick, role lookup also uses UUID-based WHERE id=UUID(...).
 		delete(r.TerraformResource.Schema, "id")
-		r.InitializerFns = append(r.InitializerFns, sentinelUUIDInitializer("id"))
+		// Unlike the sentinel-only initializer used elsewhere, roles must be
+		// adoptable: after a backup restore the role already exists in ClickHouse
+		// and CREATE ROLE (which is not idempotent) fails with
+		// "already exists in `replicated`". roleImportInitializer looks the role up
+		// by name and seeds its real UUID when found, so upjet imports instead of
+		// re-creating; it falls back to the sentinel (force-create) when absent.
+		r.InitializerFns = append(r.InitializerFns, roleImportInitializer())
 	})
 }

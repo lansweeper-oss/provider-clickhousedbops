@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
@@ -24,6 +25,69 @@ const (
 	errExtractCredentials   = "cannot extract credentials"
 	errUnmarshalCredentials = "cannot unmarshal clickhousedbops credentials as JSON"
 )
+
+type ConnParams struct {
+	Host     string
+	Port     uint16
+	Protocol string
+	Username string
+	Password string //nolint:gosec // G117 false positive: in-memory connection parameter, never serialized.
+}
+
+// Needed by initializers, which run before the controller's Terraform client exists.
+func ResolveConnParams(ctx context.Context, crClient client.Client, mg resource.Managed) (ConnParams, error) {
+	pcSpec, err := resolveProviderConfig(ctx, crClient, mg)
+	if err != nil {
+		return ConnParams{}, fmt.Errorf("cannot resolve provider config: %w", err)
+	}
+
+	data, err := resource.CommonCredentialExtractor(ctx, pcSpec.Credentials.Source, crClient, pcSpec.Credentials.CommonCredentialSelectors)
+	if err != nil {
+		return ConnParams{}, fmt.Errorf(errExtractCredentials+": %w", err)
+	}
+	creds := map[string]any{}
+	if err := json.Unmarshal(data, &creds); err != nil {
+		return ConnParams{}, fmt.Errorf(errUnmarshalCredentials+": %w", err)
+	}
+
+	p := ConnParams{}
+	p.Host, _ = creds["host"].(string)
+	p.Protocol, _ = creds["protocol"].(string)
+	p.Port = parsePort(creds["port"])
+	if ac, ok := creds["auth_config"].(map[string]any); ok {
+		p.Username, _ = ac["username"].(string)
+		p.Password, _ = ac["password"].(string)
+	}
+
+	if p.Host == "" || p.Port == 0 || p.Username == "" {
+		return ConnParams{}, errors.New("incomplete clickhouse connection parameters in credentials")
+	}
+	return p, nil
+}
+
+// The credentials secret may encode port as a number, json.Number or string.
+func parsePort(v any) uint16 {
+	var n int64
+	switch t := v.(type) {
+	case float64:
+		n = int64(t)
+	case json.Number:
+		n, _ = t.Int64()
+	case string:
+		p, err := strconv.Atoi(t)
+		if err != nil {
+			return 0
+		}
+		n = int64(p)
+	default:
+		return 0
+	}
+
+	if n <= 0 || n > 65535 {
+		return 0
+	}
+	return uint16(n)
+}
 
 // TerraformSetupBuilder builds Terraform a terraform.SetupFn function which
 // returns Terraform provider setup configuration
