@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
@@ -24,6 +25,70 @@ const (
 	errExtractCredentials   = "cannot extract credentials"
 	errUnmarshalCredentials = "cannot unmarshal clickhousedbops credentials as JSON"
 )
+
+// ConnParams holds the ClickHouse connection parameters extracted from a
+// ProviderConfig's credentials secret. It mirrors the subset of the Terraform
+// provider configuration needed to open a direct connection (e.g. to look up an
+// existing resource by name before the Terraform observe cycle).
+type ConnParams struct {
+	Host     string
+	Port     uint16
+	Protocol string
+	Username string
+	Password string
+}
+
+// ResolveConnParams resolves the ClickHouse connection parameters for the
+// ProviderConfig referenced by mg, using the same credential extraction as
+// TerraformSetupBuilder. It is used by initializers that must talk to ClickHouse
+// directly, since the controller's Terraform client is not available during the
+// Initialize phase.
+func ResolveConnParams(ctx context.Context, crClient client.Client, mg resource.Managed) (ConnParams, error) {
+	pcSpec, err := resolveProviderConfig(ctx, crClient, mg)
+	if err != nil {
+		return ConnParams{}, fmt.Errorf("cannot resolve provider config: %w", err)
+	}
+
+	data, err := resource.CommonCredentialExtractor(ctx, pcSpec.Credentials.Source, crClient, pcSpec.Credentials.CommonCredentialSelectors)
+	if err != nil {
+		return ConnParams{}, fmt.Errorf(errExtractCredentials+": %w", err)
+	}
+	creds := map[string]any{}
+	if err := json.Unmarshal(data, &creds); err != nil {
+		return ConnParams{}, fmt.Errorf(errUnmarshalCredentials+": %w", err)
+	}
+
+	p := ConnParams{}
+	p.Host, _ = creds["host"].(string)
+	p.Protocol, _ = creds["protocol"].(string)
+	p.Port = parsePort(creds["port"])
+	if ac, ok := creds["auth_config"].(map[string]any); ok {
+		p.Username, _ = ac["username"].(string)
+		p.Password, _ = ac["password"].(string)
+	}
+
+	if p.Host == "" || p.Port == 0 || p.Username == "" {
+		return ConnParams{}, errors.New("incomplete clickhouse connection parameters in credentials")
+	}
+	return p, nil
+}
+
+// parsePort tolerates the port being encoded as a JSON number, json.Number or
+// string in the credentials secret.
+func parsePort(v any) uint16 {
+	switch t := v.(type) {
+	case float64:
+		return uint16(t)
+	case json.Number:
+		n, _ := t.Int64()
+		return uint16(n)
+	case string:
+		n, _ := strconv.Atoi(t)
+		return uint16(n)
+	default:
+		return 0
+	}
+}
 
 // TerraformSetupBuilder builds Terraform a terraform.SetupFn function which
 // returns Terraform provider setup configuration
