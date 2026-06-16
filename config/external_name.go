@@ -57,26 +57,21 @@ func ExternalNameConfigurations() config.ResourceOption {
 
 func idWithClusterName() config.ExternalName {
 	e := config.IdentifierFromProvider
-	e.GetIDFn = func(_ context.Context, externalName string, parameters map[string]any, _ map[string]any) (string, error) {
-		nameVal := parameters["name"]
-		name, _ := nameVal.(string)
-		// Fall back to the resource name when no provider-assigned ID exists yet.
-		// Unlike databases (which use UUID-based lookup), users/roles/profiles
-		// support import by name, so using the name here works for both the
-		// initial observe (finds the existing resource) and the pre-creation
-		// observe (returns "not found", triggering creation).
-		id := externalName
-		if id == "" {
-			id = name
-		}
-		if clusterVal, ok := parameters["cluster_name"]; ok {
-			cluster, ok := clusterVal.(string)
-			if ok && cluster != "" {
-				return cluster + sep + id, nil
-			}
-		}
-		return id, nil
-	}
+	// Role/user/settings_profile are identified by a provider-assigned UUID
+	// (tfstate["id"]). GetIDFn and GetExternalNameFn MUST agree on that UUID on
+	// every observe, otherwise the external-name flaps between the UUID and the
+	// role name and the resource never reaches Available.
+	//
+	// We deliberately do NOT fall back to parameters["name"] here. A name-based
+	// fallback makes upjet run `terraform import <addr> <name>` (these resources
+	// are importable by name), which writes id=<name> into tfstate; a later
+	// refresh canonicalises id back to the UUID, so the external-name computed by
+	// ExternalNameFromClusterName alternates name<->UUID across reconciles.
+	// Mirroring the database path, we fall back to sentinelUUID instead: it
+	// matches no real row, so the provider reports "not found" pre-create
+	// (triggering creation), while restore-adopt still works because the
+	// initializer seeds the real UUID into status.atProvider.id.
+	e.GetIDFn = IDFromClusterName(sep)
 	e.GetExternalNameFn = ExternalNameFromClusterName(sep)
 	return e
 }
