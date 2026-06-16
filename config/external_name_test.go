@@ -5,24 +5,19 @@ import (
 	"testing"
 )
 
-// realUUID is a representative provider-assigned role UUID.
+// realRoleUUID is a representative provider-assigned role UUID.
 const realRoleUUID = "01499c10-0000-4000-8000-000000000000"
 
-// TestRoleExternalNameNoFlap is the explicit regression test for the bug where
-// crossplane.io/external-name for a null-cluster_name role alternated between the
-// role UUID and the role NAME across reconciles, pinning Ready at Creating.
-//
-// Root cause: GetIDFn fell back to parameters["name"], which made upjet import the
-// role by name (id=<name> in tfstate); a later refresh canonicalised id to the
-// UUID. GetExternalNameFn reads tfstate["id"], so the computed external-name
-// flapped name<->UUID. The fix removes the name fallback (sentinel instead), so
-// the name can never enter the identity.
-func TestRoleExternalNameNoFlap(t *testing.T) {
+// TestRoleExternalNameIsStableUUID asserts the role identity stays the
+// provider-assigned UUID across repeated computes and never resolves to the role
+// NAME. A non-deterministic external-name (name vs UUID) prevented the resource
+// from ever reaching Available.
+func TestRoleExternalNameIsStableUUID(t *testing.T) {
 	e := idWithClusterName()
 	params := map[string]any{"name": "tst_db_basic_ddl"}
 
-	// Pre-create: external-name is empty (or defaulted to the k8s/param name).
-	// GetIDFn must NEVER yield the role name; it must yield the sentinel so the
+	// Pre-create: external-name is empty (or defaulted to the param name).
+	// GetIDFn must never yield the role name; it must yield the sentinel so the
 	// provider reports "not found" and creation proceeds.
 	for _, externalName := range []string{"", "tst_db_basic_ddl"} {
 		id, err := e.GetIDFn(context.Background(), externalName, params, nil)
@@ -30,7 +25,7 @@ func TestRoleExternalNameNoFlap(t *testing.T) {
 			t.Fatalf("GetIDFn(%q) unexpected error: %v", externalName, err)
 		}
 		if id == "tst_db_basic_ddl" {
-			t.Fatalf("GetIDFn(%q) returned the role NAME %q; this reintroduces the import-by-name flap", externalName, id)
+			t.Fatalf("GetIDFn(%q) returned the role NAME %q; identity must never be the name", externalName, id)
 		}
 		if id != sentinelUUID {
 			t.Fatalf("GetIDFn(%q) = %q, want sentinel %q", externalName, id, sentinelUUID)
@@ -48,7 +43,7 @@ func TestRoleExternalNameNoFlap(t *testing.T) {
 	}
 
 	// GetExternalNameFn reads tfstate["id"] and must return the same UUID
-	// deterministically on every observe (the value that flapped before).
+	// deterministically on every observe.
 	tfstate := map[string]any{"id": realRoleUUID, "name": "tst_db_basic_ddl"}
 	for i := range 3 {
 		got, err := e.GetExternalNameFn(tfstate)
@@ -111,7 +106,7 @@ func TestRoleIDAndExternalNameAgree(t *testing.T) {
 }
 
 // TestRoleClusterQualifiedFreshCreate ensures the cluster-qualified pre-create
-// path still produces cluster:sentinel (not cluster:name).
+// path produces cluster:sentinel (not cluster:name).
 func TestRoleClusterQualifiedFreshCreate(t *testing.T) {
 	e := idWithClusterName()
 	params := map[string]any{"name": "tst_db_basic_ddl", "cluster_name": "my_cluster"}
@@ -126,9 +121,8 @@ func TestRoleClusterQualifiedFreshCreate(t *testing.T) {
 	}
 }
 
-// TestSharedConfigResources documents that the fix generalises: role, user and
-// settings_profile all share idWithClusterName() and therefore the same
-// non-flapping identity behaviour.
+// TestSharedConfigResources documents that role, user and settings_profile all
+// share idWithClusterName() and therefore the same UUID-only identity behaviour.
 func TestSharedConfigResources(t *testing.T) {
 	for _, name := range []string{"clickhousedbops_role", "clickhousedbops_user", "clickhousedbops_settings_profile"} {
 		cfg, ok := ExternalNameConfigs[name]
@@ -143,5 +137,28 @@ func TestSharedConfigResources(t *testing.T) {
 		if id != sentinelUUID {
 			t.Fatalf("%s GetIDFn pre-create = %q, want sentinel %q", name, id, sentinelUUID)
 		}
+	}
+}
+
+func TestIsUUID(t *testing.T) {
+	cases := map[string]struct {
+		in   string
+		want bool
+	}{
+		"realUUID":      {realRoleUUID, true},
+		"sentinelUUID":  {sentinelUUID, true},
+		"uppercaseHex":  {"01499C10-0000-4000-8000-00000000000A", true},
+		"roleName":      {"tst_db_basic_ddl", false},
+		"empty":         {"", false},
+		"tooShort":      {"01499c10-0000-4000-8000", false},
+		"badSeparators": {"01499c10x0000x4000x8000x000000000000", false},
+		"nonHex":        {"zzzzzzzz-0000-4000-8000-000000000000", false},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			if got := isUUID(tc.in); got != tc.want {
+				t.Fatalf("isUUID(%q) = %v, want %v", tc.in, got, tc.want)
+			}
+		})
 	}
 }

@@ -159,8 +159,11 @@ func main() {
 	ctx.FatalIfErrorf(apiextensionsv1.AddToScheme(mgr.GetScheme()), "Cannot add api-extensions APIs to scheme")
 	ctx.FatalIfErrorf(authv1.AddToScheme(mgr.GetScheme()), "Cannot add k8s authorization APIs to scheme")
 
-	// So roles that already exist (e.g. after a restore) are adopted, not re-created.
-	config.SetRoleResolverFactory(clients.NewRoleUUIDResolver)
+	// So objects that already exist (e.g. after a restore) are adopted by their
+	// real UUID, not re-created (CREATE ROLE/USER/SETTINGS PROFILE are not idempotent).
+	config.SetUUIDResolverFactory("clickhousedbops_role", clients.NewRoleUUIDResolver)
+	config.SetUUIDResolverFactory("clickhousedbops_user", clients.NewUserUUIDResolver)
+	config.SetUUIDResolverFactory("clickhousedbops_settings_profile", clients.NewSettingsProfileUUIDResolver)
 
 	metricRecorder := managed.NewMRMetricRecorder()
 	stateMetrics := statemetrics.NewMRStateMetrics()

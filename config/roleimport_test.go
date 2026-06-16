@@ -72,6 +72,16 @@ func TestRoleImportInitializer(t *testing.T) {
 			wantID:      realUUID,
 			wantResolve: false,
 		},
+		"ReResolvesWhenIDIsObjectName": {
+			// A name-keyed refresh can leak the role NAME into the id slot. That is
+			// not a valid UUID, so the initializer must re-resolve to the real UUID
+			// instead of trusting it, keeping the provider lookup keyed by UUID.
+			startID:     "tst_db_basic_ddl",
+			resolveID:   realUUID,
+			resolveOK:   true,
+			wantID:      realUUID,
+			wantResolve: true,
+		},
 		"ReturnsErrorForRetryOnLookupFailure": {
 			// Must surface the error so the reconcile retries, never force-create.
 			startID:    "",

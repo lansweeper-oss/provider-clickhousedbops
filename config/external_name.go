@@ -3,10 +3,14 @@ package config
 import (
 	"context"
 	"errors"
+	"regexp"
 	"strings"
 
 	"github.com/crossplane/upjet/v2/pkg/config"
 )
+
+// uuidRegexp matches a canonical 8-4-4-4-12 hex UUID.
+var uuidRegexp = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 const (
 	// sentinelUUID is used as a placeholder Terraform ID for resources that have not yet been
@@ -58,19 +62,16 @@ func ExternalNameConfigurations() config.ResourceOption {
 func idWithClusterName() config.ExternalName {
 	e := config.IdentifierFromProvider
 	// Role/user/settings_profile are identified by a provider-assigned UUID
-	// (tfstate["id"]). GetIDFn and GetExternalNameFn MUST agree on that UUID on
-	// every observe, otherwise the external-name flaps between the UUID and the
-	// role name and the resource never reaches Available.
+	// (tfstate["id"]). GetIDFn and GetExternalNameFn must agree on that UUID on
+	// every observe so the external-name stays stable and the resource can reach
+	// Available.
 	//
 	// We deliberately do NOT fall back to parameters["name"] here. A name-based
-	// fallback makes upjet run `terraform import <addr> <name>` (these resources
-	// are importable by name), which writes id=<name> into tfstate; a later
-	// refresh canonicalises id back to the UUID, so the external-name computed by
-	// ExternalNameFromClusterName alternates name<->UUID across reconciles.
-	// Mirroring the database path, we fall back to sentinelUUID instead: it
-	// matches no real row, so the provider reports "not found" pre-create
-	// (triggering creation), while restore-adopt still works because the
-	// initializer seeds the real UUID into status.atProvider.id.
+	// fallback makes upjet run `terraform import <addr> <name>`, writing the name
+	// into the id slot. Mirroring the database path, we fall back to sentinelUUID
+	// instead: it matches no real row, so the provider reports "not found"
+	// pre-create (triggering creation), while restore-adopt still works because
+	// the initializer seeds the real UUID into status.atProvider.id.
 	e.GetIDFn = IDFromClusterName(sep)
 	e.GetExternalNameFn = ExternalNameFromClusterName(sep)
 	return e
@@ -115,6 +116,14 @@ func idWithStub() config.ExternalName {
 		return en, nil
 	}
 	return e
+}
+
+// isUUID reports whether s is a canonical 8-4-4-4-12 hex UUID. The role/user/
+// settings_profile identity is a provider-assigned UUID; the object NAME must
+// never be mistaken for it. Note: sentinelUUID passes this check too, so callers
+// that must reject the sentinel have to test for it separately.
+func isUUID(s string) bool {
+	return uuidRegexp.MatchString(s)
 }
 
 func ExtractIDFromState(tfstate map[string]any) (string, error) {

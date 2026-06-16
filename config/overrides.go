@@ -139,7 +139,9 @@ func Configure(p *config.Provider) {
 		r.InitializerFns = append(r.InitializerFns,
 			PasswordValidator(),
 			PasswordRefProcessor(),
-			sentinelUUIDInitializer("id"),
+			// Adopt an already-existing user by its real UUID and keep the
+			// external-name stable on the UUID (CREATE USER is not idempotent).
+			uuidImportInitializer("clickhousedbops_user"),
 			PasswordGenerator("spec.forProvider.autoGeneratePassword"),
 		)
 
@@ -161,7 +163,9 @@ func Configure(p *config.Provider) {
 		// Same hasTFID=false trick as for clickhousedbops_user, prevents name-based
 		// id from being written to TF state on first reconcile, avoiding UUID parse errors.
 		delete(r.TerraformResource.Schema, "id")
-		r.InitializerFns = append(r.InitializerFns, sentinelUUIDInitializer("id"))
+		// Adopt an existing profile by its real UUID and keep external-name stable
+		// on the UUID (CREATE SETTINGS PROFILE is not idempotent).
+		r.InitializerFns = append(r.InitializerFns, uuidImportInitializer("clickhousedbops_settings_profile"))
 	})
 	p.AddResourceConfigurator("clickhousedbops_role", func(r *config.Resource) {
 		// Same hasTFID=false trick, role lookup also uses UUID-based WHERE id=UUID(...).
