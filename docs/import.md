@@ -1,4 +1,4 @@
-# Resource Identity Reference
+# Resource import
 
 This document describes the minimum parameters needed to import `provider-clickhousedbops` resources.
 
