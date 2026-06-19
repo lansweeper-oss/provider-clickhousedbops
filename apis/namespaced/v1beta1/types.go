@@ -11,6 +11,31 @@ import (
 type ProviderConfigSpec struct {
 	// Credentials required to authenticate to this provider.
 	Credentials ProviderCredentials `json:"credentials"`
+
+	// ConnectionSecretKeys optionally overrides the key names written into the
+	// connection secret referenced by writeConnectionSecretToRef. Any field left
+	// empty keeps its clickhouse_* default.
+	// +optional
+	ConnectionSecretKeys *ConnectionSecretKeys `json:"connectionSecretKeys,omitempty"`
+}
+
+// ConnectionSecretKeys overrides the connection-secret key names. Empty fields
+// keep the clickhouse_* defaults (e.g. clickhouse_host, clickhouse_password).
+type ConnectionSecretKeys struct {
+	// +optional
+	Username string `json:"username,omitempty"`
+	// +optional
+	Host string `json:"host,omitempty"`
+	// +optional
+	Port string `json:"port,omitempty"`
+	// +optional
+	Protocol string `json:"protocol,omitempty"`
+	// +optional
+	Password string `json:"password,omitempty"`
+	// +optional
+	PasswordEncoded string `json:"passwordEncoded,omitempty"`
+	// +optional
+	PasswordSha256 string `json:"passwordSha256,omitempty"`
 }
 
 // ProviderCredentials required to authenticate.

@@ -162,6 +162,9 @@ func main() {
 	// So roles that already exist (e.g. after a restore) are adopted, not re-created.
 	config.SetRoleResolverFactory(clients.NewRoleUUIDResolver)
 
+	// So the connection secret carries host/port/protocol read from the ProviderConfig.
+	config.SetConnParamsResolverFactory(clients.NewConnParamsResolver)
+
 	metricRecorder := managed.NewMRMetricRecorder()
 	stateMetrics := statemetrics.NewMRStateMetrics()
 

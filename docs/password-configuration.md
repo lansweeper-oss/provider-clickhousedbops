@@ -24,11 +24,14 @@ Let the provider generate a secure random password.
 
 1. Set `autoGeneratePassword: true`.
 2. Controller generates a cryptographically secure random password.
-3. Writes to the secret referenced by `writeConnectionSecretToRef`:
-   - `password`: plaintext password.
-   - `hash`: SHA256 hash.
-4. Auto-sets `passwordSha256HashSecretRef` pointing to that secret.
-5. Idempotent: if `hash` already exists in the secret, skips generation.
+3. Writes the full ClickHouse connection shape to the secret referenced by `writeConnectionSecretToRef`:
+   - `clickhouse_username`: the user name.
+   - `clickhouse_host`, `clickhouse_port`, `clickhouse_protocol`: read from the ProviderConfig.
+   - `clickhouse_password`: plaintext password.
+   - `clickhouse_password_encoded`: URL-encoded password.
+   - `clickhouse_password_sha256`: SHA256 hash.
+4. Auto-sets `passwordSha256HashSecretRef` pointing to that secret's `clickhouse_password_sha256` key.
+5. Idempotent: if `clickhouse_password_sha256` already exists in the secret, skips generation.
   **The hash is not recomputed or compared against the plaintext**; existence alone is the signal
   that the controller has already run.
 
@@ -55,9 +58,41 @@ Resulting `myuser-credentials` secret:
 
 ```yaml
 data:
-  password: <base64-plaintext>
-  hash: <base64-sha256-hash>
+  clickhouse_username: <base64>
+  clickhouse_host: <base64>
+  clickhouse_port: <base64>
+  clickhouse_protocol: <base64>
+  clickhouse_password: <base64-plaintext>
+  clickhouse_password_encoded: <base64-url-encoded>
+  clickhouse_password_sha256: <base64-sha256-hash>
 ```
+
+### Overriding connection-secret key names
+
+The `clickhouse_*` key names are defaults. Override any of them per ProviderConfig
+via `spec.connectionSecretKeys`; any field left empty keeps its default. The same
+shape (and overrides) applies to both Method 1 and Method 2.
+
+```yaml
+apiVersion: clickhousedbops.crossplane.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      name: clickhouse-creds
+      namespace: crossplane-system
+      key: credentials
+  connectionSecretKeys:
+    username: db_user
+    password: db_password
+    # host/port/protocol/passwordEncoded/passwordSha256 omitted -> clickhouse_* defaults
+```
+
+> The `passwordSha256` key doubles as the Terraform hash source for
+> `autoGeneratePassword`; renaming it is handled automatically.
 
 ### Password rotation
 

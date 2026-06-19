@@ -32,6 +32,9 @@ type ConnParams struct {
 	Protocol string
 	Username string
 	Password string //nolint:gosec // G117 false positive: in-memory connection parameter, never serialized.
+	// SecretKeys carries optional connection-secret key-name overrides from the
+	// ProviderConfig. Nil when the user did not configure any.
+	SecretKeys *namespacedv1beta1.ConnectionSecretKeys
 }
 
 // Needed by initializers, which run before the controller's Terraform client exists.
@@ -50,7 +53,7 @@ func ResolveConnParams(ctx context.Context, crClient client.Client, mg resource.
 		return ConnParams{}, fmt.Errorf(errUnmarshalCredentials+": %w", err)
 	}
 
-	p := ConnParams{}
+	p := ConnParams{SecretKeys: pcSpec.ConnectionSecretKeys}
 	p.Host, _ = creds["host"].(string)
 	p.Protocol, _ = creds["protocol"].(string)
 	p.Port = parsePort(creds["port"])

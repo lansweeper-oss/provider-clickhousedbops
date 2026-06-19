@@ -51,6 +51,27 @@ spec:
           spec:
             description: A ProviderConfigSpec defines the desired state of a ProviderConfig.
             properties:
+              connectionSecretKeys:
+                description: |-
+                  ConnectionSecretKeys optionally overrides the key names written into the
+                  connection secret referenced by writeConnectionSecretToRef. Any field left
+                  empty keeps its clickhouse_* default.
+                properties:
+                  host:
+                    type: string
+                  password:
+                    type: string
+                  passwordEncoded:
+                    type: string
+                  passwordSha256:
+                    type: string
+                  port:
+                    type: string
+                  protocol:
+                    type: string
+                  username:
+                    type: string
+                type: object
               credentials:
                 description: Credentials required to authenticate to this provider.
                 properties:

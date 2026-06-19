@@ -111,8 +111,10 @@ func Configure(p *config.Provider) {
 			"Changing the password will cause the database user to be deleted and recreated")
 
 		desc, _ := comments.New("If true, a password is auto-generated and stored in"+
-			" the secret referenced by writeConnectionSecretToRef under keys"+
-			" 'password' (plaintext) and 'hash' (SHA256). The passwordSha256HashSecretRef"+
+			" the secret referenced by writeConnectionSecretToRef as a full ClickHouse"+
+			" connection shape: clickhouse_username, clickhouse_host, clickhouse_port,"+
+			" clickhouse_protocol, clickhouse_password (plaintext), clickhouse_password_encoded"+
+			" (URL-encoded) and clickhouse_password_sha256. The passwordSha256HashSecretRef"+
 			" field is set automatically - no other password fields need to be configured.",
 			comments.WithTFTag("-"))
 		r.TerraformResource.Schema["auto_generate_password"] = &tfschema.Schema{
@@ -123,7 +125,10 @@ func Configure(p *config.Provider) {
 
 		descSecretRef, _ := comments.New("Reference to a user-owned secret containing the plaintext password."+
 			" The controller reads the plaintext, computes its SHA256 hash, and writes the hash back"+
-			" to the same secret under key 'hash'. Supports password rotation: updating the plaintext"+
+			" to the same secret under key 'hash'. When writeConnectionSecretToRef is set, the full"+
+			" ClickHouse connection shape (incl. clickhouse_password) is also written there so the"+
+			" connection secret remains self-sufficient after the source secret is deleted."+
+			" Supports password rotation: updating the plaintext"+
 			" triggers a hash update on the next reconcile, which causes the Terraform provider to update ClickHouse."+
 			" This field is mutually exclusive with autoGeneratePassword.",
 			comments.WithTFTag("-"))

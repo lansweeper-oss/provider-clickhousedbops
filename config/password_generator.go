@@ -157,15 +157,28 @@ func PasswordRefProcessor() config.NewInitializerFn {
 			sum := sha256.Sum256(plaintext)
 			newHash := hex.EncodeToString(sum[:])
 
-			if string(s.Data[passwordHashKey]) == newHash {
-				return setPasswordHashSecretRef(mg, secretName, secretNamespace)
+			// Plumb the hash into the user's own secret so the Terraform provider
+			// can read it via passwordSha256HashSecretRef.
+			if string(s.Data[passwordHashKey]) != newHash {
+				if err := applyHashSecret(ctx, c, s, newHash); err != nil {
+					return err
+				}
 			}
-
-			if err := applyHashSecret(ctx, c, s, newHash); err != nil {
+			if err := setPasswordHashSecretRef(mg, secretName, secretNamespace, passwordHashKey); err != nil {
 				return err
 			}
 
-			return setPasswordHashSecretRef(mg, secretName, secretNamespace)
+			// Mirror the full connection shape into writeConnectionSecretToRef when set.
+			// Bring-your-own password must live here too: the user deletes the source
+			// secret after import, so the connection secret has to be self-sufficient.
+			if cn, cns, ok := resolveConnectionSecretRef(mg); ok {
+				info, err := resolveConnInfo(ctx, c, mg)
+				if err != nil {
+					return err
+				}
+				return writeConnectionSecret(ctx, c, mg, cn, cns, string(plaintext), newHash, info)
+			}
+			return nil
 		})
 	}
 }
@@ -175,11 +188,12 @@ func PasswordRefProcessor() config.NewInitializerFn {
 // autoGeneratePassword: true and writeConnectionSecretToRef - no other
 // password fields are required.
 //
-// The initializer stores the plaintext password under key "password" and the
-// SHA256 hash under key "hash" in the secret referenced by
-// writeConnectionSecretToRef. It then auto-sets passwordSha256HashSecretRef
-// on the spec so the Terraform provider can read the hash, without the user
-// having to configure it manually.
+// The initializer writes the full clickhouse_* connection shape (username,
+// host, port, protocol, password, password_encoded, password_sha256) into the
+// secret referenced by writeConnectionSecretToRef. It then auto-sets
+// passwordSha256HashSecretRef on the spec, pointing at the clickhouse_password_sha256
+// key, so the Terraform provider can read the hash without the user having to
+// configure it manually.
 //
 // Both namespaced resources (LocalConnectionSecretWriterTo, namespace implicit
 // from the MR) and cluster-scoped resources (ConnectionSecretWriterTo,
@@ -211,24 +225,30 @@ func PasswordGenerator(toggleFieldPath string) config.NewInitializerFn {
 				return nil
 			}
 
+			info, err := resolveConnInfo(ctx, c, mg)
+			if err != nil {
+				return err
+			}
+			shaKey := sha256KeyName(info)
+
 			// Check idempotency: if the hash is already stored, skip generation.
-			hashSet, err := isPasswordHashAlreadySet(ctx, c, secretName, ns)
+			hashSet, err := isPasswordHashAlreadySet(ctx, c, secretName, ns, shaKey)
 			if err != nil {
 				return err
 			}
 			if hashSet {
 				// Hash already present; just ensure the spec ref is set.
-				return setPasswordHashSecretRef(mg, secretName, ns)
+				return setPasswordHashSecretRef(mg, secretName, ns, shaKey)
 			}
 
 			pw, err := password.Generate()
 			if err != nil {
 				return fmt.Errorf("cannot generate password: %w", err)
 			}
-			if err := applyPasswordSecret(ctx, c, secretName, ns, pw); err != nil {
+			if err := writeConnectionSecret(ctx, c, mg, secretName, ns, pw, "", info); err != nil {
 				return err
 			}
-			return setPasswordHashSecretRef(mg, secretName, ns)
+			return setPasswordHashSecretRef(mg, secretName, ns, shaKey)
 		})
 	}
 }
@@ -255,14 +275,15 @@ func resolveConnectionSecretRef(mg xpresource.Managed) (name, ns string, ok bool
 	return "", "", false
 }
 
-// isPasswordHashAlreadySet checks if a password hash exists in the secret.
-func isPasswordHashAlreadySet(ctx context.Context, c client.Client, secretName, ns string) (bool, error) {
+// isPasswordHashAlreadySet checks if a password hash exists in the secret under
+// the given (override-aware) key.
+func isPasswordHashAlreadySet(ctx context.Context, c client.Client, secretName, ns, shaKey string) (bool, error) {
 	s := &corev1.Secret{}
 	err := c.Get(ctx, types.NamespacedName{Namespace: ns, Name: secretName}, s)
 	if xpresource.IgnoreNotFound(err) != nil {
 		return false, fmt.Errorf("cannot get connection secret: %w", err)
 	}
-	return err == nil && len(s.Data[passwordHashKey]) != 0, nil
+	return err == nil && len(s.Data[shaKey]) != 0, nil
 }
 
 // applyHashSecret writes the SHA256 hash into input secret. Caller must have already fetched s.
@@ -279,41 +300,12 @@ func applyHashSecret(ctx context.Context, c client.Client, s *corev1.Secret, has
 	return nil
 }
 
-// applyPasswordSecret writes the plaintext password under key "password" and
-// its SHA256 hash under key "hash" into the named secret.
-// We should **never** call this method when coming from passwordSecretRef, since that would
-// potentially exfiltrate any secret in the cluster which the provider has access to.
-func applyPasswordSecret(ctx context.Context, c client.Client, secretName, ns, pw string) error {
-	sum := sha256.Sum256([]byte(pw))
-	hash := hex.EncodeToString(sum[:])
-
-	s := &corev1.Secret{}
-	s.SetName(secretName)
-	s.SetNamespace(ns)
-	s.Type = xpresource.SecretTypeConnection
-
-	if err := c.Get(ctx, types.NamespacedName{Namespace: ns, Name: secretName}, s); xpresource.IgnoreNotFound(err) != nil {
-		return fmt.Errorf("cannot get connection secret: %w", err)
-	}
-	if s.Data == nil {
-		s.Data = make(map[string][]byte, 2)
-	}
-	s.Data["password"] = []byte(pw)
-	s.Data[passwordHashKey] = []byte(hash)
-
-	if err := xpresource.NewAPIPatchingApplicator(c).Apply(ctx, s); err != nil {
-		return fmt.Errorf("cannot apply connection secret: %w", err)
-	}
-	return nil
-}
-
 // setPasswordHashSecretRef sets spec.forProvider.passwordSha256HashSecretRef
 // on the managed resource so upjet passes the hash to the Terraform provider.
 // For cluster-scoped resources (namespace != "") the namespace is included in
 // the ref; for namespaced resources upjet fills it in from the MR namespace.
 // It uses a JSON round-trip to mutate the Go struct in place.
-func setPasswordHashSecretRef(mg xpresource.Managed, secretName, secretNamespace string) error {
-	key := passwordHashKey
+func setPasswordHashSecretRef(mg xpresource.Managed, secretName, secretNamespace, key string) error {
 	data, err := json.Marshal(mg)
 	if err != nil {
 		return fmt.Errorf("cannot marshal managed resource: %w", err)
