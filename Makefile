@@ -199,6 +199,7 @@ run: go.build
 # ====================================================================================
 # End to End Testing
 CROSSPLANE_NAMESPACE = crossplane-system
+DRC_FILE = cluster/test/drc.yaml
 
 # Required by build/makelib/uptest.mk - tells the e2e target which make target
 # deploys the provider into the local Kind cluster.
