@@ -6,7 +6,7 @@ generation tools and exposes XRM-conformant managed resources for the
 ClickHouse API.
 
 ff
-[![Upstream Terraform Provider](https://img.shields.io/badge/upstream_terraform_provider-v1.10.0-blue?logo=terraform)](https://github.com/ClickHouse/terraform-provider-clickhousedbops/tree/v1.10.0)
+[![Upstream Terraform Provider](https://img.shields.io/badge/upstream_terraform_provider-v${TERRAFORM_PROVIDER_VERSION}-blue?logo=terraform)](${TERRAFORM_PROVIDER_REPO}/tree/v${TERRAFORM_PROVIDER_VERSION})
 
 ## Getting Started
 
@@ -119,7 +119,7 @@ For detailed information on configuring passwords for User resources, including 
 Run code-generation pipeline:
 
 ```console
-go run cmd/generator/main.go "/home/jesus-fernandez/repos/provider-clickhousedbops"
+go run cmd/generator/main.go "$PWD"
 ```
 
 Run against a Kubernetes cluster (out of cluster):
