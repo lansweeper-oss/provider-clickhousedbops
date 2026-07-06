@@ -5,7 +5,6 @@ that is built using [Upjet](https://github.com/crossplane/upjet) code
 generation tools and exposes XRM-conformant managed resources for the
 ClickHouse API.
 
-ff
 [![Upstream Terraform Provider](https://img.shields.io/badge/upstream_terraform_provider-v1.10.0-blue?logo=terraform)](https://github.com/ClickHouse/terraform-provider-clickhousedbops/tree/v1.10.0)
 
 ## Getting Started
