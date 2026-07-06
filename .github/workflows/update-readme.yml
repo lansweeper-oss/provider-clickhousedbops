@@ -1,0 +1,33 @@
+name: Update README
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Render README
+        run: make readme
+
+      - name: Commit README if changed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -n "$(git status --porcelain README.md)" ]; then
+            gh api graphql \
+            -F githubRepository=${{ github.repository }} \
+            -F branchName=${{ github.ref_name }} \
+            -F expectedHeadOid=$(git rev-parse HEAD) \
+            -F commitMessage="docs: update README.md" \
+            -F files[][path]="README.md" -F files[][contents]=$(base64 -w0 README.md) \
+            -F 'query=@.github/api/createCommitOnBranch.gql'
+          fi

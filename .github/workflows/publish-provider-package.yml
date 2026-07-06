@@ -91,8 +91,6 @@ jobs:
       - publish-provider-package
       - mirror-to-upbound
     runs-on: ubuntu-24.04
-    permissions:
-      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -108,21 +106,3 @@ jobs:
 
       - name: Append extensions
         run: make xpkg.append VERSION=${{ github.event.inputs.version }}
-
-      - name: Commit README if changed
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [[ "${{ github.ref_type }}" != "branch" || "${{ github.ref_name }}" != "main" ]]; then
-            echo "Skipping README commit (only runs on main branch)"
-            exit 0
-          fi
-          if [ -n "$(git status --porcelain README.md)" ]; then
-            gh api graphql \
-            -F githubRepository=${{ github.repository }} \
-            -F branchName=${{ github.ref_name }} \
-            -F expectedHeadOid=$(git rev-parse HEAD) \
-            -F commitMessage="docs: update README.md" \
-            -F files[][path]="README.md" -F files[][contents]=$(base64 -w0 README.md) \
-            -F 'query=@.github/api/createCommitOnBranch.gql'
-          fi
