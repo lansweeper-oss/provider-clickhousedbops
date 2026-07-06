@@ -237,6 +237,8 @@ local-deploy: build.all controlplane.up local.xpkg.deploy.provider.$(PROJECT_NAM
 # Without this, local.xpkg.sync picks up old xpkg files alphabetically (e.g. v7 > v22)
 # and installs outdated CRDs in the local Kind cluster.
 local.xpkg.sync: prune.stale.xpkg
+# https://github.com/crossplane/build/issues/56
+local.xpkg.deploy.provider.$(PROJECT_NAME): $(YQ)
 
 prune.stale.xpkg:
 	@$(INFO) pruning stale xpkg artifacts
