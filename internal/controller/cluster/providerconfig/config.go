@@ -41,3 +41,8 @@ func SetupGated(mgr ctrl.Manager, o controller.Options) error {
 	}, v1beta1.ProviderConfigGroupVersionKind, v1beta1.ProviderConfigUsageGroupVersionKind)
 	return nil
 }
+
+// SetupWebhookWithManager is a no-op for ProviderConfig - no conversion webhook needed.
+func SetupWebhookWithManager(_ ctrl.Manager) error {
+	return nil
+}
