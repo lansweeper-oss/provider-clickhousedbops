@@ -5,7 +5,9 @@ metadata:
     meta.crossplane.io/maintainer: Lansweeper <PlatformTeam@lansweeper.com>
     meta.crossplane.io/source: github.com/lansweeper-oss/provider-clickhousedbops
     meta.crossplane.io/license: Apache-2.0
-    meta.crossplane.io/description: An Upjet-based Crossplane provider for managing ClickHouse database operations (databases, users, roles, and grants).
+    meta.crossplane.io/description: >-
+      An Upjet-based Crossplane provider for managing ClickHouse database operations
+      (databases, users, roles, and grants).
     meta.crossplane.io/readme: |
       `provider-clickhousedbops` is an Upjet-based Crossplane provider built on the
       ClickHouse database operations Terraform provider. It enables declarative

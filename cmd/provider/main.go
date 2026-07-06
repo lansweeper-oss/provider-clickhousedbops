@@ -63,13 +63,13 @@ var cli struct {
 	Debug          bool `help:"Run with debug logging" short:"d"`
 	LeaderElection bool `help:"Use leader election for the controller manager" short:"l" default:"false" env:"LEADER_ELECTION"`
 
-	SyncPeriod              time.Duration `help:"Controller manager sync period such as 300ms, 1.5h, or 2h45m" short:"s" default:"1h"`
-	PollInterval            time.Duration `help:"How often individual resources will be checked for drift from the desired state" default:"1m"`
-	PollStateMetricInterval time.Duration `help:"State metric recording interval" default:"5s"`
+	SyncPeriod              time.Duration `name:"sync" help:"Controller manager sync period such as 300ms, 1.5h, or 2h45m" short:"s" default:"1h"`
+	PollInterval            time.Duration `name:"poll" help:"Poll interval controls how often an individual resource should be checked for drift." default:"10m"`
+	PollStateMetricInterval time.Duration `name:"poll-state-metric" help:"State metric recording interval" default:"5s"`
 
-	MaxReconcileRate         int    `help:"The global maximum rate per second at which resources may checked for drift from the desired state." default:"10"`
+	MaxReconcileRate         int    `help:"The global maximum rate per second at which resources may be checked for drift from the desired state." default:"10"`
 	EnableManagementPolicies bool   `help:"Enable support for Management Policies" default:"true" env:"ENABLE_MANAGEMENT_POLICIES"`
-	EnableChangeLogs         bool   `help:"Enable support for capturing change logs during reconciliation" default:"false" env:"ENABLE_CHANGE_LOGS"`
+	EnableChangeLogs         bool   `name:"enable-changelogs" help:"Enable support for capturing change logs during reconciliation" default:"false" env:"ENABLE_CHANGE_LOGS"`
 	ChangelogsSocketPath     string `help:"Path for changelogs socket (if enabled)" default:"/var/run/changelogs/changelogs.sock" env:"CHANGELOGS_SOCKET_PATH"`
 
 	WebhookPort        int    `help:"The port the webhook listens on" default:"9443" env:"WEBHOOK_PORT"`

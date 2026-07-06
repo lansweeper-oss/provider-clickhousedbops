@@ -44,8 +44,8 @@ NPROCS ?= 1
 # to half the number of CPU cores.
 GO_TEST_PARALLEL := $(shell echo $$(( $(NPROCS) / 2 )))
 
-GO_REQUIRED_VERSION ?= 1.26
-GOLANGCILINT_VERSION ?= 2.11.4
+GO_REQUIRED_VERSION ?= $(shell grep '^go ' go.mod | awk '{print $$2}')
+GOLANGCILINT_VERSION ?= 2.12.2
 GO_STATIC_PACKAGES = $(GO_PROJECT)/cmd/provider $(GO_PROJECT)/cmd/generator
 GO_LDFLAGS += -X $(GO_PROJECT)/internal/version.Version=$(VERSION)
 GO_SUBDIRS += cmd internal apis
@@ -54,12 +54,12 @@ GO_SUBDIRS += cmd internal apis
 # ====================================================================================
 # Setup Kubernetes tools
 
-KIND_VERSION = v0.31.0
+KIND_VERSION = v0.32.0
 UPTEST_VERSION = v2.2.0
 CRDDIFF_VERSION = v0.12.1
-CROSSPLANE_CLI_VERSION = v2.2.0
+CROSSPLANE_CLI_VERSION = v2.3.3
 # for e2e testing
-CROSSPLANE_VERSION = 2.2.0
+CROSSPLANE_VERSION = 2.3.3
 -include build/makelib/k8s_tools.mk
 
 # ====================================================================================
@@ -271,6 +271,54 @@ schema-version-diff: $(TERRAFORM_PROVIDER_SCHEMA:.json=.generated.lst)
 	git cat-file -p "$${GITHUB_BASE_REF}:config/schema.json" > "$(WORK_DIR)/schema.json.$${PREV_PROVIDER_VERSION}"; \
 	./scripts/version_diff.py config/generated.lst "$(WORK_DIR)/schema.json.$${PREV_PROVIDER_VERSION}" config/schema.json
 	@$(OK) Checking for native state schema version changes
+
+# ====================================================================================
+# Package Extensions (README, SBOM)
+
+EXTENSIONS_DIR := $(ROOT_DIR)/extensions
+SYFT_VERSION ?= 1.44.0
+SYFT := $(TOOLS_HOST_DIR)/syft-$(SYFT_VERSION)
+UP_VERSION = v0.42.0
+UP_CHANNEL = stable
+UP := $(TOOLS_HOST_DIR)/up-$(UP_VERSION)
+
+$(SYFT):
+	@$(INFO) installing syft $(SYFT_VERSION)
+	@mkdir -p $(TOOLS_HOST_DIR)
+	@curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b $(TOOLS_HOST_DIR) v$(SYFT_VERSION) || $(FAIL)
+	@mv $(TOOLS_HOST_DIR)/syft $(SYFT)
+	@$(OK) installing syft $(SYFT_VERSION)
+
+$(UP):
+	@$(INFO) installing up $(UP_VERSION)
+	@mkdir -p $(TOOLS_HOST_DIR)
+	@curl -fsSLo $(UP) https://cli.upbound.io/$(UP_CHANNEL)/$(UP_VERSION)/bin/$(SAFEHOST_PLATFORM)/up || $(FAIL)
+	@chmod +x $(UP)
+	@$(OK) installing up $(UP_VERSION)
+
+sbom: $(SYFT)
+	@$(INFO) Generating SPDX SBOM
+	@mkdir -p $(EXTENSIONS_DIR)/sbom
+	@$(SYFT) scan dir:. --source-name $(PROJECT_NAME) --source-version $(VERSION) -o spdx-json=$(EXTENSIONS_DIR)/sbom/sbom.spdx.json
+	@$(OK) SBOM generated at $(EXTENSIONS_DIR)/sbom/sbom.spdx.json
+
+readme: README.md.tmpl
+	@$(INFO) Rendering README.md from template
+	@envsubst < $(ROOT_DIR)/README.md.tmpl > $(ROOT_DIR)/README.md
+	@$(OK) README.md rendered
+
+xpkg.extensions: sbom readme
+	@$(INFO) Preparing package extensions
+	@mkdir -p $(EXTENSIONS_DIR)/readme
+	@cp $(ROOT_DIR)/README.md $(EXTENSIONS_DIR)/readme/readme.md
+	@$(OK) Package extensions prepared at $(EXTENSIONS_DIR)
+
+xpkg.append: xpkg.extensions $(UP)
+	@$(INFO) Appending extensions to $(XPKG_REG_ORGS)/$(PROJECT_NAME):$(VERSION)
+	@$(UP) alpha xpkg append --extensions-root=$(EXTENSIONS_DIR) $(XPKG_REG_ORGS)/$(PROJECT_NAME):$(VERSION) || $(FAIL)
+	@$(OK) Appended extensions to $(XPKG_REG_ORGS)/$(PROJECT_NAME):$(VERSION)
+
+.PHONY: readme sbom xpkg.extensions xpkg.append
 
 .PHONY: e2e cobertura local-deploy submodules fallthrough run crds.clean clean prune.stale.xpkg
 
