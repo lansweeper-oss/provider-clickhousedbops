@@ -73,6 +73,7 @@ func SetupWebhookWithManager(mgr ctrl.Manager) error {
 		settingprofile.SetupWebhookWithManager,
 		settingprofileassociation.SetupWebhookWithManager,
 		user.SetupWebhookWithManager,
+		providerconfig.SetupWebhookWithManager,
 	} {
 		if err := setup(mgr); err != nil {
 			return err
