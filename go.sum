@@ -188,8 +188,8 @@ github.com/hashicorp/terraform-plugin-go v0.31.0 h1:0Fz2r9DQ+kNNl6bx8HRxFd1TfMKU
 github.com/hashicorp/terraform-plugin-go v0.31.0/go.mod h1:A88bDhd/cW7FnwqxQRz3slT+QY6yzbHKc6AOTtmdeS8=
 github.com/hashicorp/terraform-plugin-log v0.10.0 h1:eu2kW6/QBVdN4P3Ju2WiB2W3ObjkAsyfBsL3Wh1fj3g=
 github.com/hashicorp/terraform-plugin-log v0.10.0/go.mod h1:/9RR5Cv2aAbrqcTSdNmY1NRHP4E3ekrXRGjqORpXyB0=
-github.com/hashicorp/terraform-plugin-sdk/v2 v2.40.0 h1:MKS/2URqeJRwJdbOfcbdsZCq/IRrNkqJNN0GtVIsuGs=
-github.com/hashicorp/terraform-plugin-sdk/v2 v2.40.0/go.mod h1:PuG4P97Ju3QXW6c6vRkRadWJbvnEu2Xh+oOuqcYOqX4=
+github.com/hashicorp/terraform-plugin-sdk/v2 v2.40.1 h1:2yPUd7esMOpuTaG3y1iEla1iw+tla+3ZEkkBnmOAre4=
+github.com/hashicorp/terraform-plugin-sdk/v2 v2.40.1/go.mod h1:sq8qsxh+PwdvTQFcd17kfCoBgQo46ADNMvCpKE7t/gY=
 github.com/hashicorp/terraform-registry-address v0.4.0 h1:S1yCGomj30Sao4l5BMPjTGZmCNzuv7/GDTDX99E9gTk=
 github.com/hashicorp/terraform-registry-address v0.4.0/go.mod h1:LRS1Ay0+mAiRkUyltGT+UHWkIqTFvigGn/LbMshfflE=
 github.com/hashicorp/terraform-svchost v0.1.1 h1:EZZimZ1GxdqFRinZ1tpJwVxxt49xc/S52uzrw4x0jKQ=
@@ -370,8 +370,8 @@ github.com/yuin/goldmark v1.7.16/go.mod h1:ip/1k0VRfGynBgxOz0yCqHrbZXhcjxyuS66Br
 github.com/zclconf/go-cty v1.2.0/go.mod h1:hOPWgoHbaTUnI5k4D2ld+GRpFJSCe6bCM7m1q/N4PQ8=
 github.com/zclconf/go-cty v1.8.0/go.mod h1:vVKLxnk3puL4qRAv72AO+W99LUD4da90g3uUAzyuvAk=
 github.com/zclconf/go-cty v1.8.1/go.mod h1:vVKLxnk3puL4qRAv72AO+W99LUD4da90g3uUAzyuvAk=
-github.com/zclconf/go-cty v1.17.0 h1:seZvECve6XX4tmnvRzWtJNHdscMtYEx5R7bnnVyd/d0=
-github.com/zclconf/go-cty v1.17.0/go.mod h1:wqFzcImaLTI6A5HfsRwB0nj5n0MRZFwmey8YoFPPs3U=
+github.com/zclconf/go-cty v1.18.1 h1:yEGE8M4iIZlyKQURZNb2SnEyZlZHUcBCnx6KF81KuwM=
+github.com/zclconf/go-cty v1.18.1/go.mod h1:qpnV6EDNgC1sns/AleL1fvatHw72j+S+nS+MJ+T2CSg=
 github.com/zclconf/go-cty-debug v0.0.0-20191215020915-b22d67c1ba0b/go.mod h1:ZRKQfBXbGkpdV6QMzT3rU1kSTAnfu1dO8dPKjYprgj8=
 github.com/zclconf/go-cty-debug v0.0.0-20240509010212-0d6042c53940 h1:4r45xpDWB6ZMSMNJFMOjqrGHynW3DIBuR2H9j0ug+Mo=
 github.com/zclconf/go-cty-debug v0.0.0-20240509010212-0d6042c53940/go.mod h1:CmBdvvj3nqzfzJ6nTCIwDTPZ56aVGvDrmztiO5g3qrM=

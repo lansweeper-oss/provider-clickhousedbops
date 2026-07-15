@@ -12,7 +12,7 @@ require (
 	github.com/crossplane/crossplane-tools v0.0.0-20251017183449-dd4517244339
 	github.com/crossplane/upjet/v2 v2.3.0
 	github.com/go-logr/logr v1.4.3
-	github.com/hashicorp/terraform-plugin-sdk/v2 v2.40.0
+	github.com/hashicorp/terraform-plugin-sdk/v2 v2.40.1
 	github.com/pkg/errors v0.9.1
 	google.golang.org/grpc v1.82.0
 	k8s.io/api v0.36.2
@@ -136,7 +136,7 @@ require (
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
 	github.com/yargevad/filepathx v1.0.0 // indirect
 	github.com/yuin/goldmark v1.7.16 // indirect
-	github.com/zclconf/go-cty v1.17.0 // indirect
+	github.com/zclconf/go-cty v1.18.1 // indirect
 	github.com/zclconf/go-cty-yaml v1.0.3 // indirect
 	go.opentelemetry.io/otel v1.44.0 // indirect
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
