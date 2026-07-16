@@ -10,13 +10,13 @@ TERRAFORM_VERSION ?= 1.5.7
 # licensed under BSL, which is not permitted.
 TERRAFORM_VERSION_VALID := $(shell [ "$(TERRAFORM_VERSION)" = "`printf "$(TERRAFORM_VERSION)\n1.6" | sort -V | head -n1`" ] && echo 1 || echo 0)
 
-TERRAFORM_PROVIDER_SOURCE ?= ClickHouse/clickhousedbops
+export TERRAFORM_PROVIDER_SOURCE ?= ClickHouse/clickhousedbops
 TERRAFORM_PROVIDER_REPO ?= https://github.com/ClickHouse/terraform-provider-clickhousedbops
-TERRAFORM_PROVIDER_VERSION ?= 1.10.0
+export TERRAFORM_PROVIDER_VERSION ?= 1.10.0
 TERRAFORM_PROVIDER_DOWNLOAD_NAME ?= terraform-provider-clickhousedbops
 TERRAFORM_PROVIDER_DOWNLOAD_URL_PREFIX ?= https://github.com/ClickHouse/$(TERRAFORM_PROVIDER_DOWNLOAD_NAME)/releases/download/v$(TERRAFORM_PROVIDER_VERSION)
 TERRAFORM_NATIVE_PROVIDER_BINARY ?= $(TERRAFORM_PROVIDER_DOWNLOAD_NAME)_v$(TERRAFORM_PROVIDER_VERSION)
-TERRAFORM_DOCS_PATH ?= docs/resources
+export TERRAFORM_DOCS_PATH ?= docs/resources
 
 
 PLATFORMS ?= linux_amd64 linux_arm64
