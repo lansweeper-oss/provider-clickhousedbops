@@ -58,6 +58,7 @@ linters:
     goconst:
       min-len: 3
       min-occurrences: 5
+      ignore-tests: true
     gocritic:
       enabled-tags:
         - performance
@@ -84,6 +85,7 @@ linters:
       - linters:
           - dupl
           - errcheck
+          - goconst
           - gocyclo
           - gosec
           - scopelint

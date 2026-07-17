@@ -60,7 +60,7 @@ func TestIdWithStub_GetExternalNameFn(t *testing.T) {
 			// GetExternalNameFn should return "" without error.
 			tfstate: map[string]any{
 				"privilege_name":    "SELECT",
-				"database_name":    "testdb",
+				"database_name":     "testdb",
 				"grantee_user_name": "testuser",
 			},
 			wantName: "",

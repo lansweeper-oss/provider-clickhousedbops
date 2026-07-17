@@ -94,33 +94,33 @@ func TestGrantPrivilegeTFValueRoundTrip(t *testing.T) {
 		"MinimalGrant": {
 			params: map[string]any{
 				"privilege_name":    "SELECT",
-				"database_name":    "testdb",
+				"database_name":     "testdb",
 				"grantee_user_name": "testuser",
 			},
 		},
 		"FullGrant": {
 			params: map[string]any{
 				"privilege_name":    "SELECT",
-				"database_name":    "testdb",
-				"table_name":       "testtable",
-				"column_name":      "testcolumn",
+				"database_name":     "testdb",
+				"table_name":        "testtable",
+				"column_name":       "testcolumn",
 				"grantee_user_name": "testuser",
-				"grant_option":     false,
+				"grant_option":      false,
 			},
 		},
 		"RoleGrant": {
 			params: map[string]any{
 				"privilege_name":    "INSERT",
-				"database_name":    "testdb",
+				"database_name":     "testdb",
 				"grantee_role_name": "testrole",
 			},
 		},
 		"WithCluster": {
 			params: map[string]any{
 				"privilege_name":    "SELECT",
-				"database_name":    "testdb",
+				"database_name":     "testdb",
 				"grantee_user_name": "testuser",
-				"cluster_name":     "mycluster",
+				"cluster_name":      "mycluster",
 			},
 		},
 		"EmptyParams": {
@@ -190,7 +190,7 @@ func TestGrantPrivilegeStateReconstructionPath(t *testing.T) {
 
 	params := map[string]any{
 		"privilege_name":    "SELECT",
-		"database_name":    "testdb",
+		"database_name":     "testdb",
 		"grantee_user_name": "testuser",
 	}
 
@@ -263,9 +263,9 @@ func TestGetExternalNameFnAfterCreate(t *testing.T) {
 	// No "id" attribute in the state.
 	stateAfterCreate := map[string]any{
 		"privilege_name":    "SELECT",
-		"database_name":    "testdb",
+		"database_name":     "testdb",
 		"grantee_user_name": "testuser",
-		"grant_option":     false,
+		"grant_option":      false,
 	}
 
 	externalName, err := e.GetExternalNameFn(stateAfterCreate)
