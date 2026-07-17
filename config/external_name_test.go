@@ -102,12 +102,17 @@ func TestIdWithClusterName_GetIDFn(t *testing.T) {
 		params       map[string]any
 		wantID       string
 	}{
-		"EmptyExternalNameFallsBackToName": {
+		"EmptyExternalNameSeedsSentinel": {
 			externalName: "",
 			params:       map[string]any{"name": "testuser"},
-			wantID:       "testuser",
+			wantID:       sentinelUUID,
 		},
-		"ExternalNameUsedWhenSet": {
+		"NameEqualsExternalNameSeedsSentinel": {
+			externalName: "testuser",
+			params:       map[string]any{"name": "testuser"},
+			wantID:       sentinelUUID,
+		},
+		"RealUUIDUsedDirectly": {
 			externalName: "real-uuid",
 			params:       map[string]any{"name": "testuser"},
 			wantID:       "real-uuid",
@@ -120,7 +125,7 @@ func TestIdWithClusterName_GetIDFn(t *testing.T) {
 		"EmptyExternalNameWithCluster": {
 			externalName: "",
 			params:       map[string]any{"name": "testuser", "cluster_name": "mycluster"},
-			wantID:       "mycluster:testuser",
+			wantID:       "mycluster:" + sentinelUUID,
 		},
 	}
 
