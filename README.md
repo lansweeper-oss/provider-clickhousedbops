@@ -5,7 +5,7 @@ that is built using [Upjet](https://github.com/crossplane/upjet) code
 generation tools and exposes XRM-conformant managed resources for the
 ClickHouse API.
 
-[![Upstream Terraform Provider](https://img.shields.io/badge/upstream_terraform_provider-v1.10.0-blue?logo=terraform)](https://github.com/ClickHouse/terraform-provider-clickhousedbops/tree/v1.10.0)
+[![Upstream Terraform Provider](https://img.shields.io/badge/upstream_terraform_provider-v1.10.0-blue?logo=terraform)](https://github.com/ClickHouse//tree/v1.10.0)
 
 ## Getting Started
 
@@ -118,7 +118,7 @@ For detailed information on configuring passwords for User resources, including 
 Run code-generation pipeline:
 
 ```console
-go run cmd/generator/main.go "/home/jesus-fernandez/repos/provider-clickhousedbops"
+go run cmd/generator/main.go .
 ```
 
 Run against a Kubernetes cluster (out of cluster):
