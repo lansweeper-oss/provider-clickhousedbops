@@ -127,3 +127,19 @@ jobs:
 
       - name: Run E2E Tests
         run: make e2e
+
+      - name: Dump Provider Logs
+        if: failure()
+        run: |
+          echo "::group::Provider pod logs"
+          kubectl -n crossplane-system logs -l pkg.crossplane.io/revision --tail=500 --all-containers || true
+          echo "::endgroup::"
+          echo "::group::Provider pod status"
+          kubectl -n crossplane-system get pods -l pkg.crossplane.io/revision -o wide || true
+          echo "::endgroup::"
+          echo "::group::GrantPrivilege resources"
+          kubectl get grantprivilege.clickhousedbops.crossplane.io -o yaml || true
+          echo "::endgroup::"
+          echo "::group::All managed resources"
+          kubectl get managed -o wide || true
+          echo "::endgroup::"
