@@ -9,6 +9,7 @@ cover.out
 # generated files
 config/generated.lst
 examples-generated
+extensions
 
 # ignore IDE folders
 .vscode/
