@@ -18,7 +18,6 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/statemetrics"
 	tjcontroller "github.com/crossplane/upjet/v2/pkg/controller"
-	"github.com/crossplane/upjet/v2/pkg/terraform"
 	"github.com/go-logr/logr"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -72,13 +71,9 @@ var cli struct {
 	EnableChangeLogs         bool   `name:"enable-changelogs" help:"Enable support for capturing change logs during reconciliation" default:"false" env:"ENABLE_CHANGE_LOGS"`
 	ChangelogsSocketPath     string `help:"Path for changelogs socket (if enabled)" default:"/var/run/changelogs/changelogs.sock" env:"CHANGELOGS_SOCKET_PATH"`
 
-	WebhookPort        int    `help:"The port the webhook listens on" default:"9443" env:"WEBHOOK_PORT"`
-	MetricsBindAddress string `help:"The address the metrics server listens on" default:":8080" env:"METRICS_BIND_ADDRESS"`
-
-	TerraformVersion string   `help:"Terraform version" required:"" env:"TERRAFORM_VERSION"`
-	ProviderSource   string   `help:"Terraform provider source" required:"" env:"TERRAFORM_PROVIDER_SOURCE"`
-	ProviderVersion  string   `help:"Terraform provider version" required:"" env:"TERRAFORM_PROVIDER_VERSION"`
-	CertsDir         certsDir `help:"The directory that contains the server key and certificate" default:"${defaultCertsDir}" env:"${defaultCertsDirEnvVar}"`
+	WebhookPort        int      `help:"The port the webhook listens on" default:"9443" env:"WEBHOOK_PORT"`
+	MetricsBindAddress string   `help:"The address the metrics server listens on" default:":8080" env:"METRICS_BIND_ADDRESS"`
+	CertsDir           certsDir `help:"The directory that contains the server key and certificate" default:"${defaultCertsDir}" env:"${defaultCertsDirEnvVar}"`
 }
 
 func main() {
@@ -168,6 +163,10 @@ func main() {
 	metrics.Registry.MustRegister(metricRecorder)
 	metrics.Registry.MustRegister(stateMetrics)
 
+	clusterProvider := config.GetProvider()
+	namespacedProvider := config.GetProviderNamespaced()
+	o := tjcontroller.NewOperationStore(log)
+
 	clusterOpts := tjcontroller.Options{
 		Options: xpcontroller.Options{
 			Logger:                  log,
@@ -181,11 +180,11 @@ func main() {
 				MRStateMetrics:          stateMetrics,
 			},
 		},
-		Provider:       config.GetProvider(),
-		SetupFn:        clients.TerraformSetupBuilder(cli.TerraformVersion, cli.ProviderSource, cli.ProviderVersion),
-		WorkspaceStore: terraform.NewWorkspaceStore(log),
-		PollJitter:     pollJitter,
-		StartWebhooks:  cli.CertsDir != "",
+		Provider:              clusterProvider,
+		SetupFn:               clients.TerraformSetupBuilder(clusterProvider.TerraformPluginFrameworkProvider),
+		OperationTrackerStore: o,
+		PollJitter:            pollJitter,
+		StartWebhooks:         cli.CertsDir != "",
 	}
 
 	namespacedOpts := tjcontroller.Options{
@@ -201,11 +200,11 @@ func main() {
 				MRStateMetrics:          stateMetrics,
 			},
 		},
-		Provider:       config.GetProviderNamespaced(),
-		SetupFn:        clients.TerraformSetupBuilder(cli.TerraformVersion, cli.ProviderSource, cli.ProviderVersion),
-		WorkspaceStore: terraform.NewWorkspaceStore(log),
-		PollJitter:     pollJitter,
-		StartWebhooks:  cli.CertsDir != "",
+		Provider:              namespacedProvider,
+		SetupFn:               clients.TerraformSetupBuilder(namespacedProvider.TerraformPluginFrameworkProvider),
+		OperationTrackerStore: o,
+		PollJitter:            pollJitter,
+		StartWebhooks:         cli.CertsDir != "",
 	}
 
 	if cli.EnableManagementPolicies {
@@ -242,8 +241,10 @@ func main() {
 			Gate:                    crdGate,
 			MaxConcurrentReconciles: 1,
 		}), "Cannot setup CRD gate")
+		log.Info("Registering gated controllers (controllers start when their CRDs become established)")
 		ctx.FatalIfErrorf(controllerCluster.SetupGated(mgr, clusterOpts), "Cannot setup cluster-scoped Template controllers")
 		ctx.FatalIfErrorf(controllerNamespaced.SetupGated(mgr, namespacedOpts), "Cannot setup namespaced Template controllers")
+		log.Info("All gated controllers registered", "cluster-resources", len(clusterProvider.Resources), "namespaced-resources", len(namespacedProvider.Resources))
 	} else {
 		log.Info("Provider has missing RBAC permissions for watching CRDs, controller SafeStart capability will be disabled")
 		ctx.FatalIfErrorf(controllerCluster.Setup(mgr, clusterOpts), "Cannot setup cluster-scoped Template controllers")

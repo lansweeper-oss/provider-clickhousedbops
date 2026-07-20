@@ -36,11 +36,9 @@ var ExternalNameConfigs = map[string]config.ExternalName{
 // ExternalNameConfigured returns the list of possible external name
 // configurations for this provider.
 func ExternalNameConfigured() []string {
-	l := make([]string, len(ExternalNameConfigs))
-	i := 0
+	l := make([]string, 0, len(ExternalNameConfigs))
 	for name := range ExternalNameConfigs {
-		l[i] = name
-		i++
+		l = append(l, name)
 	}
 	return l
 }
@@ -55,74 +53,7 @@ func ExternalNameConfigurations() config.ResourceOption {
 	}
 }
 
-func idWithClusterName() config.ExternalName {
-	e := config.IdentifierFromProvider
-	e.GetIDFn = func(_ context.Context, externalName string, parameters map[string]any, _ map[string]any) (string, error) {
-		nameVal := parameters["name"]
-		name, _ := nameVal.(string)
-		// Fall back to the resource name when no provider-assigned ID exists yet.
-		// Unlike databases (which use UUID-based lookup), users/roles/profiles
-		// support import by name, so using the name here works for both the
-		// initial observe (finds the existing resource) and the pre-creation
-		// observe (returns "not found", triggering creation).
-		id := externalName
-		if id == "" {
-			id = name
-		}
-		if clusterVal, ok := parameters["cluster_name"]; ok {
-			cluster, ok := clusterVal.(string)
-			if ok && cluster != "" {
-				return cluster + sep + id, nil
-			}
-		}
-		return id, nil
-	}
-	e.GetExternalNameFn = ExternalNameFromClusterName(sep)
-	return e
-}
-
-// idWithClusterNameDatabase uses the "uuid" field from tfstate as external name.
-func idWithClusterNameDatabase() config.ExternalName {
-	e := config.IdentifierFromProvider
-	e.GetIDFn = IDFromClusterName(sep)
-	e.GetExternalNameFn = func(tfstate map[string]any) (string, error) {
-		if uuidVal, ok := tfstate["uuid"].(string); ok && uuidVal != "" {
-			// Strip the cluster name prefix if present (same as ExternalNameFromClusterName).
-			if strings.Contains(uuidVal, sep) {
-				return strings.Split(uuidVal, sep)[1], nil
-			}
-			return uuidVal, nil
-		}
-		// Fall back to the id-based extraction for safety.
-		return ExternalNameFromClusterName(sep)(tfstate)
-	}
-	return e
-}
-
-// idWithStub extends config.IdentifierFromProvider with a custom GetIDFn for resources that use a
-// provider-assigned composite key and cannot be imported.
-// The composite key always contains ":" (e.g. "SELECT:testdb::testuser").
-// Before creation, externalName is the plain K8s resource name which never contains ":".
-// Returning "" in that case signals to upjet that there is no existing resource to look up, so it proceeds directly to creation.
-func idWithStub() config.ExternalName {
-	e := config.IdentifierFromProvider
-	e.GetIDFn = func(_ context.Context, externalName string, _ map[string]any, _ map[string]any) (string, error) {
-		if strings.Contains(externalName, sep) {
-			return externalName, nil
-		}
-		return "", nil
-	}
-	// Return "" instead of an error when id is absent from tfstate. This
-	// happens when terraform refresh signals "not found" and Terraform removes
-	// the resource from state, leaving no id key in the attributes map.
-	e.GetExternalNameFn = func(tfstate map[string]any) (string, error) {
-		en, _ := config.IDAsExternalName(tfstate)
-		return en, nil
-	}
-	return e
-}
-
-func ExtractIDFromState(tfstate map[string]any) (string, error) {
+func extractIDFromState(tfstate map[string]any) (string, error) {
 	id, ok := tfstate["id"]
 	if !ok {
 		return "", errors.New("id attribute missing from state file")
@@ -158,13 +89,61 @@ func IDFromClusterName(sep string) func(context.Context, string, map[string]any,
 
 func ExternalNameFromClusterName(sep string) func(tfstate map[string]any) (string, error) {
 	return func(tfstate map[string]any) (string, error) {
-		idStr, err := ExtractIDFromState(tfstate)
+		idStr, err := extractIDFromState(tfstate)
 		if err != nil {
 			return "", err
 		}
-		if strings.Contains(idStr, sep) {
-			return strings.Split(idStr, sep)[1], nil
-		}
-		return idStr, nil
+		return stripClusterPrefix(idStr, sep), nil
 	}
+}
+
+func idWithClusterName() config.ExternalName {
+	e := config.IdentifierFromProvider
+	e.GetIDFn = IDFromClusterName(sep)
+	e.GetExternalNameFn = ExternalNameFromClusterName(sep)
+	return e
+}
+
+// idWithClusterNameDatabase uses the "uuid" field from tfstate as external name.
+func idWithClusterNameDatabase() config.ExternalName {
+	e := config.IdentifierFromProvider
+	e.GetIDFn = IDFromClusterName(sep)
+	e.GetExternalNameFn = func(tfstate map[string]any) (string, error) {
+		if uuidVal, ok := tfstate["uuid"].(string); ok && uuidVal != "" {
+			return stripClusterPrefix(uuidVal, sep), nil
+		}
+		// Fall back to the id-based extraction for safety.
+		return ExternalNameFromClusterName(sep)(tfstate)
+	}
+	return e
+}
+
+// idWithStub extends config.IdentifierFromProvider with a custom GetIDFn for resources that use a
+// provider-assigned composite key and cannot be imported.
+// The composite key always contains ":" (e.g. "SELECT:testdb::testuser").
+// Before creation, externalName is the plain K8s resource name which never contains ":".
+// Returning "" in that case signals to upjet that there is no existing resource to look up, so it proceeds directly to creation.
+func idWithStub() config.ExternalName {
+	e := config.IdentifierFromProvider
+	e.GetIDFn = func(_ context.Context, externalName string, _ map[string]any, _ map[string]any) (string, error) {
+		if strings.Contains(externalName, sep) {
+			return externalName, nil
+		}
+		return "", nil
+	}
+	// Return "" instead of an error when id is absent from tfstate. This
+	// happens when terraform refresh signals "not found" and Terraform removes
+	// the resource from state, leaving no id key in the attributes map.
+	e.GetExternalNameFn = func(tfstate map[string]any) (string, error) {
+		en, _ := config.IDAsExternalName(tfstate)
+		return en, nil
+	}
+	return e
+}
+
+func stripClusterPrefix(id, sep string) string {
+	if i := strings.Index(id, sep); i >= 0 {
+		return id[i+len(sep):]
+	}
+	return id
 }

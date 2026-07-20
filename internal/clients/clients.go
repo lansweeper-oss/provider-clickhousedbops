@@ -11,6 +11,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	fwprovider "github.com/hashicorp/terraform-plugin-framework/provider"
+
 	"github.com/crossplane/upjet/v2/pkg/terraform"
 
 	clusterv1beta1 "github.com/lansweeper-oss/provider-clickhousedbops/apis/cluster/v1beta1"
@@ -89,16 +91,12 @@ func parsePort(v any) uint16 {
 	return uint16(n)
 }
 
-// TerraformSetupBuilder builds Terraform a terraform.SetupFn function which
-// returns Terraform provider setup configuration
-func TerraformSetupBuilder(version, providerSource, providerVersion string) terraform.SetupFn {
+// TerraformSetupBuilder builds a terraform.SetupFn that returns Terraform
+// provider setup configuration for the no-fork (plugin framework) architecture.
+func TerraformSetupBuilder(frameworkProvider fwprovider.Provider) terraform.SetupFn {
 	return func(ctx context.Context, client client.Client, mg resource.Managed) (terraform.Setup, error) {
 		ps := terraform.Setup{
-			Version: version,
-			Requirement: terraform.ProviderRequirement{
-				Source:  providerSource,
-				Version: providerVersion,
-			},
+			FrameworkProvider: frameworkProvider,
 		}
 
 		pcSpec, err := resolveProviderConfig(ctx, client, mg)

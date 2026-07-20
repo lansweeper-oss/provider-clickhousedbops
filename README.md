@@ -118,7 +118,7 @@ For detailed information on configuring passwords for User resources, including 
 Run code-generation pipeline:
 
 ```console
-go run cmd/generator/main.go "/home/runner/work/provider-clickhousedbops/provider-clickhousedbops"
+go run cmd/generator/main.go .
 ```
 
 Run against a Kubernetes cluster (out of cluster):

@@ -4,18 +4,18 @@
 PROJECT_NAME ?= provider-clickhousedbops
 PROJECT_REPO ?= github.com/lansweeper-oss/$(PROJECT_NAME)
 
-export TERRAFORM_VERSION ?= 1.5.7
+TERRAFORM_VERSION ?= 1.5.7
 
 # Do not allow a version of terraform greater than 1.5.x, due to versions 1.6+ being
 # licensed under BSL, which is not permitted.
 TERRAFORM_VERSION_VALID := $(shell [ "$(TERRAFORM_VERSION)" = "`printf "$(TERRAFORM_VERSION)\n1.6" | sort -V | head -n1`" ] && echo 1 || echo 0)
 
 export TERRAFORM_PROVIDER_SOURCE ?= ClickHouse/clickhousedbops
-export TERRAFORM_PROVIDER_REPO ?= https://github.com/ClickHouse/terraform-provider-clickhousedbops
-export TERRAFORM_PROVIDER_VERSION ?= 1.10.0
-export TERRAFORM_PROVIDER_DOWNLOAD_NAME ?= terraform-provider-clickhousedbops
-export TERRAFORM_PROVIDER_DOWNLOAD_URL_PREFIX ?= https://github.com/ClickHouse/$(TERRAFORM_PROVIDER_DOWNLOAD_NAME)/releases/download/v$(TERRAFORM_PROVIDER_VERSION)
-export TERRAFORM_NATIVE_PROVIDER_BINARY ?= $(TERRAFORM_PROVIDER_DOWNLOAD_NAME)_v$(TERRAFORM_PROVIDER_VERSION)
+TERRAFORM_PROVIDER_DOWNLOAD_NAME ?= terraform-provider-clickhousedbops
+export TERRAFORM_PROVIDER_REPO ?= https://github.com/ClickHouse/$(TERRAFORM_PROVIDER_DOWNLOAD_NAME)
+export TERRAFORM_PROVIDER_VERSION ?= $(shell grep '$(TERRAFORM_PROVIDER_DOWNLOAD_NAME)' go.mod | awk '{print $$2}' | sed 's/^v//')
+TERRAFORM_PROVIDER_DOWNLOAD_URL_PREFIX ?= https://github.com/ClickHouse/$(TERRAFORM_PROVIDER_DOWNLOAD_NAME)/releases/download/v$(TERRAFORM_PROVIDER_VERSION)
+TERRAFORM_NATIVE_PROVIDER_BINARY ?= $(TERRAFORM_PROVIDER_DOWNLOAD_NAME)_v$(TERRAFORM_PROVIDER_VERSION)
 export TERRAFORM_DOCS_PATH ?= docs/resources
 
 
@@ -273,14 +273,16 @@ schema-version-diff: $(TERRAFORM_PROVIDER_SCHEMA:.json=.generated.lst)
 	./scripts/version_diff.py config/generated.lst "$(WORK_DIR)/schema.json.$${PREV_PROVIDER_VERSION}" config/schema.json
 	@$(OK) Checking for native state schema version changes
 
+.PHONY: e2e cobertura local-deploy submodules fallthrough run crds.clean clean prune.stale.xpkg
+
 # ====================================================================================
 # Package Extensions (README, SBOM)
 
 EXTENSIONS_DIR := $(ROOT_DIR)/extensions
-SYFT_VERSION ?= 1.44.0
+SYFT_VERSION ?= 1.48.0
 SYFT := $(TOOLS_HOST_DIR)/syft-$(SYFT_VERSION)
-UP_VERSION = v0.42.0
-UP_CHANNEL = stable
+UP_VERSION ?= v0.49.1
+UP_CHANNEL ?= stable
 UP := $(TOOLS_HOST_DIR)/up-$(UP_VERSION)
 
 $(SYFT):
@@ -310,6 +312,8 @@ readme: README.md.tmpl
 
 xpkg.extensions: sbom readme
 	@$(INFO) Preparing package extensions
+	@mkdir -p $(EXTENSIONS_DIR)/icons
+	@cp $(ROOT_DIR)/icon.svg $(EXTENSIONS_DIR)/icons/icon.svg
 	@mkdir -p $(EXTENSIONS_DIR)/readme
 	@cp $(ROOT_DIR)/README.md $(EXTENSIONS_DIR)/readme/readme.md
 	@$(OK) Package extensions prepared at $(EXTENSIONS_DIR)
@@ -320,8 +324,6 @@ xpkg.append: xpkg.extensions $(UP)
 	@$(OK) Appended extensions to $(XPKG_REG_ORGS)/$(PROJECT_NAME):$(VERSION)
 
 .PHONY: readme sbom xpkg.extensions xpkg.append
-
-.PHONY: e2e cobertura local-deploy submodules fallthrough run crds.clean clean prune.stale.xpkg
 
 # ====================================================================================
 # Special Targets
