@@ -1,16 +1,10 @@
 package config
 
 import (
-	"context"
-	"fmt"
-
-	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
-	xpresource "github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	"github.com/crossplane/upjet/v2/pkg/config"
 	"github.com/crossplane/upjet/v2/pkg/types/comments"
 	tfschema "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // terraformedObservation is the subset of upjet's resource.Terraformed that we
@@ -18,36 +12,6 @@ import (
 type terraformedObservation interface {
 	GetObservation() (map[string]any, error)
 	SetObservation(map[string]any) error
-}
-
-// sentinelUUIDInitializer sets a synthetic sentinelUUID before the first Terraform observe cycle,
-// leaving it untouched once the provider has written a real UUID to it.
-// This is needed for resources where the TF provider uses a UUID field for read lookups:
-// an empty or name-based value causes ClickHouse to return a UUID parse error (code 376) instead of zero rows.
-// Seeding a syntactically valid but non-existent UUID causes ClickHouse to return zero rows, which
-// the provider maps to "not found", triggering resource creation.
-func sentinelUUIDInitializer(field string) config.NewInitializerFn {
-	return func(_ client.Client) managed.Initializer {
-		return managed.InitializerFn(func(_ context.Context, mg xpresource.Managed) error {
-			tr, ok := mg.(terraformedObservation)
-			if !ok {
-				return nil
-			}
-			obs, err := tr.GetObservation()
-			if err != nil {
-				return fmt.Errorf("cannot get observation for %s initializer: %w", field, err)
-			}
-			if val, _ := obs[field].(string); val != "" && val != sentinelUUID {
-				// Real UUID already set (post-creation) - leave it alone.
-				return nil
-			}
-			if obs == nil {
-				obs = make(map[string]any)
-			}
-			obs[field] = sentinelUUID
-			return tr.SetObservation(obs)
-		})
-	}
 }
 
 var gkvOverrideMap = map[string]schema.GroupVersionKind{
@@ -89,20 +53,21 @@ func Configure(p *config.Provider) {
 		// When reconciling a clickhousedbops_database resource, the provider calls a Read operation
 		// to check if the resource exists by looking up the database by uuid.
 		// But it reads that uuid from the previous Terraform state, not from the resource name.
-		// Before that, the sentinelUUIDInitializer fakes the UUID (_sentinel_) into status.atProvider.uuid.
+		// Before that, adoptByNameInitializer seeds status.atProvider.uuid: the real UUID when a
+		// database of that name already exists (adopt/import), otherwise the sentinelUUID.
 		// When upjet builds the Terraform state file from that observation, the provider now has a
-		// valid UUID to send to ClickHouse.
-		// ClickHouse finds no rows with that fake UUID and returns zero rows, which the provider correctly
-		// maps to "not found", triggering resource creation.
-		r.InitializerFns = append(r.InitializerFns, sentinelUUIDInitializer("uuid"))
+		// valid UUID to send to ClickHouse. A real UUID imports the existing database; the sentinel
+		// matches no row, which the provider maps to "not found", triggering resource creation.
+		r.InitializerFns = append(r.InitializerFns, adoptByNameInitializer("clickhousedbops_database", "uuid"))
 		r.UseAsync = true
 	})
 	p.AddResourceConfigurator("clickhousedbops_user", func(r *config.Resource) {
 		// Removing "id" from the schema keeps hasTFID=false, so EnsureTFState falls
-		// back to status.atProvider.id (seeded with sentinelUUID). ClickHouse finds
-		// no rows for the fake UUID and returns zero rows, which the provider maps to
-		// "not found", triggering creation. After creation, atProvider holds the real
-		// UUID and the initializer leaves it untouched on subsequent reconciles.
+		// back to status.atProvider.id (seeded by adoptByNameInitializer). ClickHouse
+		// finds no rows for the sentinel UUID and returns zero rows, which the provider
+		// maps to "not found", triggering creation; a resolved real UUID imports the
+		// existing user instead. After creation, atProvider holds the real UUID and the
+		// initializer leaves it untouched on subsequent reconciles.
 		// The "id" field still appears in status.atProvider because the provider
 		// populates it from its own TF state output after a successful read.
 		delete(r.TerraformResource.Schema, "id")
@@ -139,7 +104,7 @@ func Configure(p *config.Provider) {
 		r.InitializerFns = append(r.InitializerFns,
 			PasswordValidator(),
 			PasswordRefProcessor(),
-			sentinelUUIDInitializer("id"),
+			adoptByNameInitializer("clickhousedbops_user", "id"),
 			PasswordGenerator("spec.forProvider.autoGeneratePassword"),
 		)
 
@@ -161,17 +126,16 @@ func Configure(p *config.Provider) {
 		// Same hasTFID=false trick as for clickhousedbops_user, prevents name-based
 		// id from being written to TF state on first reconcile, avoiding UUID parse errors.
 		delete(r.TerraformResource.Schema, "id")
-		r.InitializerFns = append(r.InitializerFns, sentinelUUIDInitializer("id"))
+		r.InitializerFns = append(r.InitializerFns, adoptByNameInitializer("clickhousedbops_settings_profile", "id"))
 	})
 	p.AddResourceConfigurator("clickhousedbops_role", func(r *config.Resource) {
 		// Same hasTFID=false trick, role lookup also uses UUID-based WHERE id=UUID(...).
 		delete(r.TerraformResource.Schema, "id")
-		// Unlike the sentinel-only initializer used elsewhere, roles must be
-		// adoptable: after a backup restore the role already exists in ClickHouse
-		// and CREATE ROLE (which is not idempotent) fails with
-		// "already exists in `replicated`". roleImportInitializer looks the role up
+		// Roles must be adoptable: after a backup restore the role already exists in
+		// ClickHouse and CREATE ROLE (which is not idempotent) fails with
+		// "already exists in `replicated`". adoptByNameInitializer looks the role up
 		// by name and seeds its real UUID when found, so upjet imports instead of
 		// re-creating; it falls back to the sentinel (force-create) when absent.
-		r.InitializerFns = append(r.InitializerFns, roleImportInitializer())
+		r.InitializerFns = append(r.InitializerFns, adoptByNameInitializer("clickhousedbops_role", "id"))
 	})
 }

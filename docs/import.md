@@ -79,6 +79,8 @@ Further information about strategies when importing Users might be found in its
 [dedicated document](user-import-workflow.md).
 
 After applying, Crossplane will:
-- Set `crossplane.io/external-name` to the username (`jane`).
+- Resolve the identity `name` to the resource's provider-assigned UUID and adopt the
+  existing resource (looking it up on the cluster when `clusterName` is set).
+- Set `crossplane.io/external-name` to that UUID.
 - Populate `status.atProvider` with the full remote state.
 - Report the resource as `Ready` and `Synced` once the observe succeeds.
