@@ -11,63 +11,73 @@ metadata:
 # ProviderConfig "default" from the e2e setup script. A dedicated ClickHouse name
 # (obsrole) avoids colliding with the uptest manifest role (testrole).
 spec:
+  # Provider deletes are async (create/poll), so cleanup can exceed the default
+  # delete timeout; give finally/cleanup deletes room to finish.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
   steps:
-  - name: apply-role
-    try:
-    - apply:
-        resource:
-          apiVersion: clickhousedbops.crossplane.io/v1alpha1
-          kind: Role
-          metadata:
-            name: obsrole
-          spec:
-            forProvider:
-              name: obsrole
-            providerConfigRef:
-              name: default
-    - assert:
-        timeout: 5m
-        resource:
-          apiVersion: clickhousedbops.crossplane.io/v1alpha1
-          kind: Role
-          metadata:
-            name: obsrole
-          status:
-            conditions:
-            - type: Ready
-              status: "True"
+    - name: apply-role
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: obsrole
+              spec:
+                forProvider:
+                  name: obsrole
+                providerConfigRef:
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: obsrole
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
 
-  - name: observe-sibling-by-name
-    try:
-    - apply:
-        resource:
-          apiVersion: clickhousedbops.crossplane.io/v1alpha1
-          kind: Role
-          metadata:
-            name: obsrole-observe
-          spec:
-            forProvider:
+    - name: observe-sibling-by-name
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: obsrole-observe
+              spec:
+                forProvider:
+                  name: obsrole
+                managementPolicies:
+                  - Observe
+                providerConfigRef:
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: obsrole-observe
+              status:
+                (conditions[?type == 'Synced']):
+                  - status: "True"
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+      finally:
+        # Delete the managed resources while the test namespace still exists (cluster-scoped
+        # MRs outlive it); sibling first (Observe-only), then the managed role.
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Role
+              name: obsrole-observe
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Role
               name: obsrole
-            managementPolicies:
-            - Observe
-            providerConfigRef:
-              name: default
-    - assert:
-        timeout: 5m
-        resource:
-          apiVersion: clickhousedbops.crossplane.io/v1alpha1
-          kind: Role
-          metadata:
-            name: obsrole-observe
-          status:
-            conditions:
-            - type: Synced
-              status: "True"
-            - type: Ready
-              status: "True"
-    finally:
-    - delete:
-        ref:
-          apiVersion: clickhousedbops.crossplane.io/v1alpha1
-          kind: Role
-          name: obsrole-observe

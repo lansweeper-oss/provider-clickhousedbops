@@ -3,40 +3,47 @@ kind: Test
 metadata:
   name: user-autogenerate-password
 spec:
+  # Provider deletes are async; allow cleanup to finish before the deadline.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
   steps:
-  - name: apply-user
-    try:
-    - apply:
-        resource:
-          apiVersion: clickhousedbops.crossplane.io/v1alpha1
-          kind: User
-          metadata:
-            name: testuser
-          spec:
-            forProvider:
-              name: testuser
-              autoGeneratePassword: true
-            writeConnectionSecretToRef:
-              name: testuser
-              namespace: ($namespace)
-            providerConfigRef:
-              name: default
-    - assert:
-        timeout: 5m
-        resource:
-          apiVersion: clickhousedbops.crossplane.io/v1alpha1
-          kind: User
-          metadata:
-            name: testuser
+    - name: apply-user
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: nsautogenuser
+              spec:
+                forProvider:
+                  name: nsautogenuser
+                  autoGeneratePassword: true
+                writeConnectionSecretToRef:
+                  name: nsautogenuser
+                  # Cluster-scoped User (legacy API): write to a stable namespace so the
+                  # secret write survives ephemeral test-namespace teardown.
+                  namespace: crossplane-system
+                providerConfigRef:
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: nsautogenuser
 
-  - name: assert-connection-secret
-    try:
-    - assert:
-        timeout: 5m
-        resource:
-          apiVersion: v1
-          kind: Secret
-          metadata:
-            name: testuser
-          (data.password != null): true
-          (data.hash != null): true
+    - name: assert-connection-secret
+      try:
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: nsautogenuser
+                namespace: crossplane-system
+              (data.password != null): true
+              (data.hash != null): true

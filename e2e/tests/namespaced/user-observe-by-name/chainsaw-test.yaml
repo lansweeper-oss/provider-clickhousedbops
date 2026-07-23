@@ -1,103 +1,94 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: user-observe-by-name
-# Validates the adopt-by-name path for a namespaced User (id observation field).
-# A sibling Observe-only User referencing an existing user by name must be
-# adopted (Synced/Ready), not re-created. Password validation is skipped for
-# Observe-only resources, so the sibling needs only the name.
+  name: user-observe-by-name-namespaced
+# Validates the adopt-by-name path for a namespaced User
+# (clickhousedbops.m.crossplane.io, id observation field). A sibling Observe-only
+# User referencing an existing user by name must be adopted (Synced/Ready), not
+# re-created. Password validation is skipped for Observe-only resources, so the
+# sibling needs only the name.
 #
-# Uses a namespaced clickhousedbops.m.crossplane.io ProviderConfig created in the
-# test namespace, and a dedicated ClickHouse name (obsuser) so it never collides
-# with the uptest manifest user (testuser); creating the same ClickHouse user
-# twice fails with "already exists in local_directory".
+# Namespaced (clickhousedbops.m.crossplane.io) resources use the cluster-scoped
+# ClusterProviderConfig "default" from the e2e setup script. A dedicated ClickHouse name
+# (nobsuser) avoids colliding with the cluster observe test and uptest manifests; creating the
+# same ClickHouse user twice fails with "already exists in local_directory".
 spec:
+  # Provider deletes are async (create/poll), so cleanup can exceed the default
+  # delete timeout; give finally/cleanup deletes room to finish.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
   steps:
-  - name: setup-providerconfig
-    try:
-    - apply:
-        resource:
-          apiVersion: v1
-          kind: Secret
-          metadata:
-            name: provider-secret
-          type: Opaque
-          stringData:
-            credentials: |
-              {"host":"clickhouse.clickhouse.svc.cluster.local","port":9000,"protocol":"native","auth_config":{"strategy":"password","username":"default","password":"e2epassword"}}
-    - apply:
-        resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1beta1
-          kind: ProviderConfig
-          metadata:
-            name: default
-          spec:
-            credentials:
-              source: Secret
-              secretRef:
-                name: provider-secret
-                namespace: ($namespace)
-                key: credentials
+    - name: apply-user
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: nobsuser
+              spec:
+                forProvider:
+                  name: nobsuser
+                  autoGeneratePassword: true
+                writeConnectionSecretToRef:
+                  name: nobsuser
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: nobsuser
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
 
-  - name: apply-user
-    try:
-    - apply:
-        resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
-          kind: User
-          metadata:
-            name: obsuser
-          spec:
-            forProvider:
-              name: obsuser
-              autoGeneratePassword: true
-            writeConnectionSecretToRef:
-              name: obsuser
-            providerConfigRef:
-              name: default
-    - assert:
-        timeout: 5m
-        resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
-          kind: User
-          metadata:
-            name: obsuser
-          status:
-            conditions:
-            - type: Ready
-              status: "True"
-
-  - name: observe-sibling-by-name
-    try:
-    - apply:
-        resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
-          kind: User
-          metadata:
-            name: obsuser-observe
-          spec:
-            forProvider:
-              name: obsuser
-            managementPolicies:
-            - Observe
-            providerConfigRef:
-              name: default
-    - assert:
-        timeout: 5m
-        resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
-          kind: User
-          metadata:
-            name: obsuser-observe
-          status:
-            conditions:
-            - type: Synced
-              status: "True"
-            - type: Ready
-              status: "True"
-    finally:
-    - delete:
-        ref:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
-          kind: User
-          name: obsuser-observe
+    - name: observe-sibling-by-name
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: nobsuser-observe
+              spec:
+                forProvider:
+                  name: nobsuser
+                managementPolicies:
+                  - Observe
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: nobsuser-observe
+              status:
+                (conditions[?type == 'Synced']):
+                  - status: "True"
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+      finally:
+        # Delete order matters: remove the managed resources while the test namespace
+        # still exists. A cluster-scoped User outlives the ephemeral namespace, and on
+        # deletion it re-applies its connection secret; if the namespace is already gone
+        # the delete gets stuck ("namespaces ... not found"). Deleting here, sibling
+        # first (Observe-only, no ClickHouse change) then the managed user, keeps cleanup
+        # deterministic and namespace-safe.
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              name: nobsuser-observe
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              name: nobsuser

@@ -1,0 +1,114 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: database-observe-by-uuid
+# Validates import by UUID: a sibling Observe-only Database whose
+# crossplane.io/external-name is pinned to the managed database's UUID must adopt it
+# (Synced/Ready), with the UUID taking precedence over name resolution.
+#
+# Legacy cluster-scoped resources use the cluster-wide clickhousedbops.crossplane.io
+# ProviderConfig "default" from the e2e setup script. Dedicated name (obsuuid) avoids
+# colliding with the other observe tests and the uptest manifests.
+spec:
+  # Provider deletes are async (create/poll), so cleanup can exceed the default
+  # delete timeout; give finally/cleanup deletes room to finish.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
+  steps:
+    - name: apply-database
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: obsuuid
+              spec:
+                forProvider:
+                  name: obsuuid
+                providerConfigRef:
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: obsuuid
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+        - assert:
+            timeout: 2m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: obsuuid
+                annotations:
+                  (crossplane.io/external-name != ''): true
+
+    - name: observe-by-uuid
+      try:
+        # Capture the provider-assigned UUID (external-name) into a binding. Keeping this
+        # in the same step as the apply below is required for the $dbuuid binding to be in
+        # scope; bindings do not leak across steps.
+        - script:
+            content: |
+              kubectl get database.clickhousedbops.crossplane.io obsuuid \
+                -o jsonpath='{.metadata.annotations.crossplane\.io/external-name}'
+            outputs:
+              - name: dbuuid
+                value: (trim_space($stdout))
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: obsuuid-byuuid
+                annotations:
+                  crossplane.io/external-name: ($dbuuid)
+              spec:
+                forProvider:
+                  name: obsuuid
+                managementPolicies:
+                  - Observe
+                providerConfigRef:
+                  name: default
+        - assert:
+            timeout: 2m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: obsuuid-byuuid
+                annotations:
+                  (crossplane.io/external-name != ''): true
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: obsuuid-byuuid
+                annotations:
+                  crossplane.io/external-name: ($dbuuid)
+              status:
+                (conditions[?type == 'Synced']):
+                  - status: "True"
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+      finally:
+        # Delete the managed resources while the test namespace still exists (cluster-scoped
+        # MRs outlive it); sibling first (Observe-only), then the managed database.
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Database
+              name: obsuuid-byuuid
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Database
+              name: obsuuid

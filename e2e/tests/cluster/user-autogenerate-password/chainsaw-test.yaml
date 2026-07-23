@@ -3,40 +3,44 @@ kind: Test
 metadata:
   name: user-autogenerate-password
 spec:
+  # Provider deletes are async; allow cleanup to finish before the deadline.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
   steps:
-  - name: apply-user
-    try:
-    - apply:
-        resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
-          kind: User
-          metadata:
-            name: testuser
-          spec:
-            forProvider:
-              name: testuser
-              autoGeneratePassword: true
-            writeConnectionSecretToRef:
-              name: testuser
-            providerConfigRef:
-              kind: ClusterProviderConfig
-              name: default
-    - assert:
-        timeout: 5m
-        resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
-          kind: User
-          metadata:
-            name: testuser
+    - name: apply-user
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: clautogenuser
+              spec:
+                forProvider:
+                  name: clautogenuser
+                  autoGeneratePassword: true
+                writeConnectionSecretToRef:
+                  name: clautogenuser
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: clautogenuser
 
-  - name: assert-connection-secret
-    try:
-    - assert:
-        timeout: 5m
-        resource:
-          apiVersion: v1
-          kind: Secret
-          metadata:
-            name: testuser
-          (data.password != null): true
-          (data.hash != null): true
+    - name: assert-connection-secret
+      try:
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: clautogenuser
+              (data.password != null): true
+              (data.hash != null): true

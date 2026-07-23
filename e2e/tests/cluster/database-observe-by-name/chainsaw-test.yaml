@@ -14,63 +14,73 @@ metadata:
 # is created by the e2e setup script. A dedicated ClickHouse name (obsdb) avoids
 # colliding with the uptest manifest database (testdb).
 spec:
+  # Provider deletes are async (create/poll), so cleanup can exceed the default
+  # delete timeout; give finally/cleanup deletes room to finish.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
   steps:
-  - name: apply-database
-    try:
-    - apply:
-        resource:
-          apiVersion: clickhousedbops.crossplane.io/v1alpha1
-          kind: Database
-          metadata:
-            name: obsdb
-          spec:
-            forProvider:
-              name: obsdb
-            providerConfigRef:
-              name: default
-    - assert:
-        timeout: 5m
-        resource:
-          apiVersion: clickhousedbops.crossplane.io/v1alpha1
-          kind: Database
-          metadata:
-            name: obsdb
-          status:
-            conditions:
-            - type: Ready
-              status: "True"
+    - name: apply-database
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: obsdb
+              spec:
+                forProvider:
+                  name: obsdb
+                providerConfigRef:
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: obsdb
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
 
-  - name: observe-sibling-by-name
-    try:
-    - apply:
-        resource:
-          apiVersion: clickhousedbops.crossplane.io/v1alpha1
-          kind: Database
-          metadata:
-            name: obsdb-observe
-          spec:
-            forProvider:
+    - name: observe-sibling-by-name
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: obsdb-observe
+              spec:
+                forProvider:
+                  name: obsdb
+                managementPolicies:
+                  - Observe
+                providerConfigRef:
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: obsdb-observe
+              status:
+                (conditions[?type == 'Synced']):
+                  - status: "True"
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+      finally:
+        # Delete the managed resources while the test namespace still exists (cluster-scoped
+        # MRs outlive it); sibling first (Observe-only), then the managed database.
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Database
+              name: obsdb-observe
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Database
               name: obsdb
-            managementPolicies:
-            - Observe
-            providerConfigRef:
-              name: default
-    - assert:
-        timeout: 5m
-        resource:
-          apiVersion: clickhousedbops.crossplane.io/v1alpha1
-          kind: Database
-          metadata:
-            name: obsdb-observe
-          status:
-            conditions:
-            - type: Synced
-              status: "True"
-            - type: Ready
-              status: "True"
-    finally:
-    - delete:
-        ref:
-          apiVersion: clickhousedbops.crossplane.io/v1alpha1
-          kind: Database
-          name: obsdb-observe

@@ -1,15 +1,14 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: database-observe-by-name-namespaced
-# Validates the no-fork adopt-by-name path for a namespaced Database
-# (clickhousedbops.m.crossplane.io): a sibling Observe-only Database referencing an
-# existing ClickHouse database by name must be adopted (Synced/Ready), not
-# re-created. The adopt initializer resolves the name to the real UUID so the
-# provider's UUID-based Read finds the row.
+  name: database-observe-by-uuid-namespaced
+# Validates import by UUID: a sibling Observe-only Database whose
+# crossplane.io/external-name is pinned to the managed database's UUID must adopt it
+# (Synced/Ready), with the UUID taking precedence over name resolution.
 #
 # Namespaced (clickhousedbops.m.crossplane.io) resources use the cluster-scoped
-# ClusterProviderConfig "default" from the e2e setup script.
+# ClusterProviderConfig "default" from the e2e setup script. Dedicated name (nobsuuid)
+# avoids colliding with the cluster observe tests and uptest manifests.
 spec:
   # Provider deletes are async (create/poll), so cleanup can exceed the default
   # delete timeout; give finally/cleanup deletes room to finish.
@@ -24,10 +23,10 @@ spec:
               apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
               kind: Database
               metadata:
-                name: nobsdb
+                name: nobsuuid
               spec:
                 forProvider:
-                  name: nobsdb
+                  name: nobsuuid
                 providerConfigRef:
                   kind: ClusterProviderConfig
                   name: default
@@ -37,34 +36,66 @@ spec:
               apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
               kind: Database
               metadata:
-                name: nobsdb
+                name: nobsuuid
               status:
                 (conditions[?type == 'Ready']):
                   - status: "True"
+        - assert:
+            timeout: 2m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: nobsuuid
+                annotations:
+                  (crossplane.io/external-name != ''): true
 
-    - name: observe-sibling-by-name
+    - name: observe-by-uuid
       try:
+        # Capture the provider-assigned UUID (external-name) into a binding. Keeping this
+        # in the same step as the apply below is required for the $dbuuid binding to be in
+        # scope; bindings do not leak across steps.
+        - script:
+            content: |
+              kubectl get database.clickhousedbops.m.crossplane.io nobsuuid -n $NAMESPACE \
+                -o jsonpath='{.metadata.annotations.crossplane\.io/external-name}'
+            outputs:
+              - name: dbuuid
+                value: (trim_space($stdout))
         - apply:
             resource:
               apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
               kind: Database
               metadata:
-                name: nobsdb-observe
+                name: nobsuuid-byuuid
+                annotations:
+                  crossplane.io/external-name: ($dbuuid)
               spec:
                 forProvider:
-                  name: nobsdb
+                  name: nobsuuid
                 managementPolicies:
                   - Observe
                 providerConfigRef:
                   kind: ClusterProviderConfig
                   name: default
         - assert:
+            timeout: 2m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: nobsuuid-byuuid
+                annotations:
+                  (crossplane.io/external-name != ''): true
+        - assert:
             timeout: 5m
             resource:
               apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
               kind: Database
               metadata:
-                name: nobsdb-observe
+                name: nobsuuid-byuuid
+                annotations:
+                  crossplane.io/external-name: ($dbuuid)
               status:
                 (conditions[?type == 'Synced']):
                   - status: "True"
@@ -77,9 +108,9 @@ spec:
             ref:
               apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
               kind: Database
-              name: nobsdb-observe
+              name: nobsuuid-byuuid
         - delete:
             ref:
               apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
               kind: Database
-              name: nobsdb
+              name: nobsuuid

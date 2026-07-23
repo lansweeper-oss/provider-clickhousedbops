@@ -4,20 +4,18 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	xpresource "github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	"github.com/crossplane/upjet/v2/pkg/config"
+	"github.com/google/uuid"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// UUIDResolver looks up the provider-assigned UUID of an existing resource by
-// its name. found is false when no such resource exists.
+// UUIDResolver looks up the provider-assigned UUID of an existing resource by name
 type UUIDResolver func(ctx context.Context, mg xpresource.Managed) (uuid string, found bool, err error)
 
-// resolverFactories maps a Terraform resource name to the factory that builds
-// its UUIDResolver. Injected at runtime so the ClickHouse client (and the apis
-// it pulls in) stays out of the code generator's import graph, which would
-// otherwise break `make generate`.
+// resolverFactories maps a Terraform resource name to the factory that builds its UUIDResolver.
 var resolverFactories = map[string]func(client.Client) UUIDResolver{}
 
 // SetResolverFactory registers the UUIDResolver factory for a resource.
@@ -25,21 +23,10 @@ func SetResolverFactory(resourceName string, f func(client.Client) UUIDResolver)
 	resolverFactories[resourceName] = f
 }
 
-// adoptByNameInitializer seeds the observation identifier (field) before the
-// first Terraform observe cycle so upjet's UUID-based Read can adopt a
-// pre-existing resource instead of re-creating it.
-//
-// No-fork upjet calls the provider's Read (which looks up by UUID) rather than
-// ImportState (the only path that resolves a name to a UUID). Without this, a
-// resource that already exists in ClickHouse cannot be imported by name: the
-// sentinel UUID matches no row, the provider reports "not found", and upjet
-// issues a create that fails for non-idempotent resources (e.g. CREATE ROLE
-// "already exists in `replicated`").
-//
-// When the resolver finds the resource, its real UUID is seeded so upjet
-// imports it. When absent (or no resolver is wired), the sentinelUUID is seeded
-// so the provider reports "not found" and creation proceeds. A real UUID
-// already present (post-import/creation) is left untouched.
+// adoptByNameInitializer seeds the resource identifier before the first observe so
+// Upjet's UUID-based Read adopts an existing resource instead of re-creating it.
+// A real UUID already in the observation (post-import/creation) is left untouched.
+// See docs/import.md for the rationale.
 func adoptByNameInitializer(resourceName, field string) config.NewInitializerFn {
 	return func(kube client.Client) managed.Initializer {
 		return managed.InitializerFn(func(ctx context.Context, mg xpresource.Managed) error {
@@ -52,29 +39,47 @@ func adoptByNameInitializer(resourceName, field string) config.NewInitializerFn 
 				return fmt.Errorf("cannot get observation for %s import initializer: %w", resourceName, err)
 			}
 			if val, _ := obs[field].(string); val != "" && val != sentinelUUID {
-				// Real UUID already set (post-import/creation) - leave it alone.
+				// Real UUID already set (post-import/creation)
 				return nil
 			}
 			if obs == nil {
 				obs = make(map[string]any)
 			}
-
-			factory := resolverFactories[resourceName]
-			if factory == nil {
-				obs[field] = sentinelUUID
-				return tr.SetObservation(obs)
-			}
-
-			uuid, found, err := factory(kube)(ctx, mg)
-			if err != nil {
-				return fmt.Errorf("cannot resolve UUID for import of %s: %w", resourceName, err)
-			}
-			if found {
-				obs[field] = uuid
-			} else {
-				obs[field] = sentinelUUID
-			}
-			return tr.SetObservation(obs)
+			return seedImportIdentifier(ctx, kube, mg, tr, obs, resourceName, field)
 		})
 	}
+}
+
+// seedImportIdentifier honors an external name that is a UUID (import by UUID),
+// otherwise resolves the UUID from spec.forProvider.name (import by name), or seeds
+// the sentinel (force-create) when the resource is absent or no resolver is wired.
+func seedImportIdentifier(ctx context.Context, kube client.Client, mg xpresource.Managed, tr terraformedObservation, obs map[string]any, resourceName, field string) error {
+	// A pinned external name that is a UUID takes precedence over name resolution.
+	// The Crossplane default external name is the resource name, which is not a UUID and falls through.
+	if en := stripClusterPrefix(meta.GetExternalName(mg), sep); en != "" {
+		if _, err := uuid.Parse(en); err == nil {
+			return seedIdentifier(mg, tr, obs, field, en)
+		}
+	}
+
+	id, found := sentinelUUID, false
+	if factory := resolverFactories[resourceName]; factory != nil {
+		var err error
+		if id, found, err = factory(kube)(ctx, mg); err != nil {
+			return fmt.Errorf("cannot resolve UUID for import of %s: %w", resourceName, err)
+		}
+	}
+	if !found {
+		// Absent (or no resolver): seed the sentinel so the provider reports "not found" and creation proceeds
+		obs[field] = sentinelUUID
+		return tr.SetObservation(obs)
+	}
+	return seedIdentifier(mg, tr, obs, field, id)
+}
+
+// seedIdentifier writes id to both the observation and the external name
+func seedIdentifier(mg xpresource.Managed, tr terraformedObservation, obs map[string]any, field, id string) error {
+	meta.SetExternalName(mg, id)
+	obs[field] = id
+	return tr.SetObservation(obs)
 }

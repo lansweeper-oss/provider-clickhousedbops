@@ -1,98 +1,85 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: role-observe-by-name
-# Validates the adopt-by-name path for a namespaced Role (id observation field).
-# A sibling Observe-only Role referencing an existing role by name must be
-# adopted (Synced/Ready), not re-created — CREATE ROLE is not idempotent.
+  name: role-observe-by-name-namespaced
+# Validates the adopt-by-name path for a namespaced Role
+# (clickhousedbops.m.crossplane.io, id observation field). A sibling Observe-only
+# Role referencing an existing role by name must be adopted (Synced/Ready), not
+# re-created — CREATE ROLE is not idempotent.
 #
-# Uses a namespaced clickhousedbops.m.crossplane.io ProviderConfig created in the
-# test namespace, and a dedicated ClickHouse name (obsrole) so it never collides
-# with the uptest manifest role (testrole).
+# Namespaced (clickhousedbops.m.crossplane.io) resources use the cluster-scoped
+# ClusterProviderConfig "default" from the e2e setup script. A dedicated ClickHouse name
+# (nobsrole) avoids colliding with the cluster observe test and uptest manifests.
 spec:
+  # Provider deletes are async (create/poll), so cleanup can exceed the default
+  # delete timeout; give finally/cleanup deletes room to finish.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
   steps:
-  - name: setup-providerconfig
-    try:
-    - apply:
-        resource:
-          apiVersion: v1
-          kind: Secret
-          metadata:
-            name: provider-secret
-          type: Opaque
-          stringData:
-            credentials: |
-              {"host":"clickhouse.clickhouse.svc.cluster.local","port":9000,"protocol":"native","auth_config":{"strategy":"password","username":"default","password":"e2epassword"}}
-    - apply:
-        resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1beta1
-          kind: ProviderConfig
-          metadata:
-            name: default
-          spec:
-            credentials:
-              source: Secret
-              secretRef:
-                name: provider-secret
-                namespace: ($namespace)
-                key: credentials
+    - name: apply-role
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: nobsrole
+              spec:
+                forProvider:
+                  name: nobsrole
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: nobsrole
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
 
-  - name: apply-role
-    try:
-    - apply:
-        resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
-          kind: Role
-          metadata:
-            name: obsrole
-          spec:
-            forProvider:
-              name: obsrole
-            providerConfigRef:
-              name: default
-    - assert:
-        timeout: 5m
-        resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
-          kind: Role
-          metadata:
-            name: obsrole
-          status:
-            conditions:
-            - type: Ready
-              status: "True"
-
-  - name: observe-sibling-by-name
-    try:
-    - apply:
-        resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
-          kind: Role
-          metadata:
-            name: obsrole-observe
-          spec:
-            forProvider:
-              name: obsrole
-            managementPolicies:
-            - Observe
-            providerConfigRef:
-              name: default
-    - assert:
-        timeout: 5m
-        resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
-          kind: Role
-          metadata:
-            name: obsrole-observe
-          status:
-            conditions:
-            - type: Synced
-              status: "True"
-            - type: Ready
-              status: "True"
-    finally:
-    - delete:
-        ref:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
-          kind: Role
-          name: obsrole-observe
+    - name: observe-sibling-by-name
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: nobsrole-observe
+              spec:
+                forProvider:
+                  name: nobsrole
+                managementPolicies:
+                  - Observe
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: nobsrole-observe
+              status:
+                (conditions[?type == 'Synced']):
+                  - status: "True"
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+      finally:
+        # Delete the managed resources while the test namespace still exists (cluster-scoped
+        # MRs outlive it); sibling first (Observe-only), then the managed role.
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Role
+              name: nobsrole-observe
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Role
+              name: nobsrole

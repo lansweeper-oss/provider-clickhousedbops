@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	xpresource "github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,27 +37,30 @@ func TestAdoptByNameInitializer(t *testing.T) {
 		resourceName string
 		field        string // observation key the initializer writes ("id" or "uuid")
 
-		startVal   string // "" means key absent
-		noResolver bool   // simulate code generation / no injection
-		resolveID  string
-		resolveOK  bool
-		resolveErr error
+		startVal      string // "" means key absent
+		startExternal string // pre-set crossplane.io/external-name annotation
+		noResolver    bool   // simulate code generation / no injection
+		resolveID     string
+		resolveOK     bool
+		resolveErr    error
 
-		wantVal     string
-		wantErr     bool
-		wantResolve bool // whether the resolver must have been consulted
+		wantVal          string
+		wantExternalName string // crossplane.io/external-name expected after Initialize
+		wantErr          bool
+		wantResolve      bool // whether the resolver must have been consulted
 	}{
 		"AdoptsExistingResourceOnRestore": {
 			// The bug: a restored resource already exists, so it must be adopted by its
 			// real UUID instead of re-created. Without the fix the id stayed at the
 			// sentinel and the provider issued a conflicting create.
-			resourceName: "clickhousedbops_role",
-			field:        "id",
-			startVal:     "",
-			resolveID:    realUUID,
-			resolveOK:    true,
-			wantVal:      realUUID,
-			wantResolve:  true,
+			resourceName:     "clickhousedbops_role",
+			field:            "id",
+			startVal:         "",
+			resolveID:        realUUID,
+			resolveOK:        true,
+			wantVal:          realUUID,
+			wantExternalName: realUUID,
+			wantResolve:      true,
 		},
 		"SeedsSentinelWhenResourceAbsent": {
 			resourceName: "clickhousedbops_role",
@@ -67,13 +71,14 @@ func TestAdoptByNameInitializer(t *testing.T) {
 			wantResolve:  true,
 		},
 		"ReplacesSentinelWithRealUUIDWhenFound": {
-			resourceName: "clickhousedbops_role",
-			field:        "id",
-			startVal:     sentinelUUID,
-			resolveID:    realUUID,
-			resolveOK:    true,
-			wantVal:      realUUID,
-			wantResolve:  true,
+			resourceName:     "clickhousedbops_role",
+			field:            "id",
+			startVal:         sentinelUUID,
+			resolveID:        realUUID,
+			resolveOK:        true,
+			wantVal:          realUUID,
+			wantExternalName: realUUID,
+			wantResolve:      true,
 		},
 		"LeavesRealUUIDUntouched": {
 			// Post-import/creation: a real UUID is present, resolver must not run.
@@ -101,13 +106,14 @@ func TestAdoptByNameInitializer(t *testing.T) {
 		},
 		"AdoptsDatabaseOnUUIDField": {
 			// database seeds the "uuid" observation field rather than "id".
-			resourceName: "clickhousedbops_database",
-			field:        "uuid",
-			startVal:     "",
-			resolveID:    realUUID,
-			resolveOK:    true,
-			wantVal:      realUUID,
-			wantResolve:  true,
+			resourceName:     "clickhousedbops_database",
+			field:            "uuid",
+			startVal:         "",
+			resolveID:        realUUID,
+			resolveOK:        true,
+			wantVal:          realUUID,
+			wantExternalName: realUUID,
+			wantResolve:      true,
 		},
 		"SeedsSentinelOnUUIDFieldWhenAbsent": {
 			resourceName: "clickhousedbops_database",
@@ -116,6 +122,43 @@ func TestAdoptByNameInitializer(t *testing.T) {
 			resolveOK:    false,
 			wantVal:      sentinelUUID,
 			wantResolve:  true,
+		},
+		"ExplicitUUIDExternalNameWins": {
+			// Import by UUID: a pinned external name that is a UUID takes precedence
+			// and the name resolver is never consulted.
+			resourceName:     "clickhousedbops_role",
+			field:            "id",
+			startExternal:    realUUID,
+			startVal:         "",
+			resolveID:        "99999999-9999-9999-9999-999999999999",
+			resolveOK:        true,
+			wantVal:          realUUID,
+			wantExternalName: realUUID,
+			wantResolve:      false,
+		},
+		"ClusterPrefixedUUIDExternalNameStripped": {
+			resourceName:     "clickhousedbops_role",
+			field:            "id",
+			startExternal:    "mycluster:" + realUUID,
+			startVal:         "",
+			resolveOK:        true,
+			resolveID:        "99999999-9999-9999-9999-999999999999",
+			wantVal:          realUUID,
+			wantExternalName: realUUID,
+			wantResolve:      false,
+		},
+		"NonUUIDExternalNameFallsThroughToResolver": {
+			// The crossplane default external name is the resource name (not a UUID),
+			// so resolution by spec.forProvider.name still runs.
+			resourceName:     "clickhousedbops_role",
+			field:            "id",
+			startExternal:    "myrole",
+			startVal:         "",
+			resolveID:        realUUID,
+			resolveOK:        true,
+			wantVal:          realUUID,
+			wantExternalName: realUUID,
+			wantResolve:      true,
 		},
 	}
 
@@ -137,6 +180,9 @@ func TestAdoptByNameInitializer(t *testing.T) {
 				obs[tc.field] = tc.startVal
 			}
 			mg := &fakeManaged{Managed: &fake.Managed{}, obs: obs}
+			if tc.startExternal != "" {
+				meta.SetExternalName(mg, tc.startExternal)
+			}
 
 			init := adoptByNameInitializer(tc.resourceName, tc.field)(nil)
 			err := init.Initialize(context.Background(), mg)
@@ -152,6 +198,9 @@ func TestAdoptByNameInitializer(t *testing.T) {
 			}
 			if got := mg.obs[tc.field]; got != tc.wantVal {
 				t.Errorf("%s = %v, want %v", tc.field, got, tc.wantVal)
+			}
+			if got := meta.GetExternalName(mg); got != tc.wantExternalName {
+				t.Errorf("external-name = %q, want %q", got, tc.wantExternalName)
 			}
 			if resolved != tc.wantResolve {
 				t.Errorf("resolver consulted = %v, want %v", resolved, tc.wantResolve)
