@@ -2,33 +2,39 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   name: database-observe-by-name
-# Validates the no-fork adopt-by-name path: a sibling Observe-only Database that
-# references an existing ClickHouse database by name must be adopted (Synced/Ready),
-# not re-created. The adopt initializer resolves the name to the real UUID so the
+# Validates the no-fork adopt-by-name path for a cluster-scoped Database
+# (clickhousedbops.crossplane.io): a sibling Observe-only Database referencing an
+# existing ClickHouse database by name must be adopted (Synced/Ready), not
+# re-created. The adopt initializer resolves the name to the real UUID so the
 # provider's UUID-based Read finds the row.
+#
+# Legacy cluster-scoped resources resolve their provider config only via the
+# cluster-wide clickhousedbops.crossplane.io ProviderConfig (a ClusterProviderConfig
+# belongs to the m. API group and is not usable here); the "default" ProviderConfig
+# is created by the e2e setup script. A dedicated ClickHouse name (obsdb) avoids
+# colliding with the uptest manifest database (testdb).
 spec:
   steps:
   - name: apply-database
     try:
     - apply:
         resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
           kind: Database
           metadata:
-            name: testdb
+            name: obsdb
           spec:
             forProvider:
-              name: testdb
+              name: obsdb
             providerConfigRef:
-              kind: ClusterProviderConfig
               name: default
     - assert:
         timeout: 5m
         resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
           kind: Database
           metadata:
-            name: testdb
+            name: obsdb
           status:
             conditions:
             - type: Ready
@@ -38,25 +44,24 @@ spec:
     try:
     - apply:
         resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
           kind: Database
           metadata:
-            name: testdb-observe
+            name: obsdb-observe
           spec:
             forProvider:
-              name: testdb
+              name: obsdb
             managementPolicies:
             - Observe
             providerConfigRef:
-              kind: ClusterProviderConfig
               name: default
     - assert:
         timeout: 5m
         resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
           kind: Database
           metadata:
-            name: testdb-observe
+            name: obsdb-observe
           status:
             conditions:
             - type: Synced
@@ -66,6 +71,6 @@ spec:
     finally:
     - delete:
         ref:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
           kind: Database
-          name: testdb-observe
+          name: obsdb-observe

@@ -46,3 +46,5 @@ The no-fork import-by-name regression has no e2e coverage. Add chainsaw tests cr
 
 ### 2026-07-23T10:31:34.714Z - Added observe-by-name chainsaw tests for database/user/role/settingprofile (e2e/tests/cluster/*-observe-by-name). Create managed resource, apply sibling Observe-only MR by name, assert Synced+Ready, delete sibling in finally. YAML validated. Live 'make chainsaw-e2e' run pending (needs ClickHouse cluster).
 
+### 2026-07-23T13:06:59.570Z - Correction: e2e runs fully in kind via 'make e2e' (ClickHouse deployed by setup.sh, native:9000). No external cluster. Starting run.
+

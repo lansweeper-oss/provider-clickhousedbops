@@ -2,32 +2,36 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   name: settingprofile-observe-by-name
-# Validates the adopt-by-name path for SettingProfile (id observation field). A
-# sibling Observe-only profile referencing an existing profile by name must be
-# adopted (Synced/Ready), not re-created.
+# Validates the adopt-by-name path for a cluster-scoped SettingProfile
+# (clickhousedbops.crossplane.io, id observation field). A sibling Observe-only
+# profile referencing an existing profile by name must be adopted (Synced/Ready),
+# not re-created.
+#
+# Legacy cluster-scoped resources use the cluster-wide clickhousedbops.crossplane.io
+# ProviderConfig "default" from the e2e setup script. A dedicated ClickHouse name
+# (obsprofile) avoids colliding with the uptest manifest profile (testprofile).
 spec:
   steps:
   - name: apply-settingprofile
     try:
     - apply:
         resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
           kind: SettingProfile
           metadata:
-            name: testprofile
+            name: obsprofile
           spec:
             forProvider:
-              name: testprofile
+              name: obsprofile
             providerConfigRef:
-              kind: ClusterProviderConfig
               name: default
     - assert:
         timeout: 5m
         resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
           kind: SettingProfile
           metadata:
-            name: testprofile
+            name: obsprofile
           status:
             conditions:
             - type: Ready
@@ -37,25 +41,24 @@ spec:
     try:
     - apply:
         resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
           kind: SettingProfile
           metadata:
-            name: testprofile-observe
+            name: obsprofile-observe
           spec:
             forProvider:
-              name: testprofile
+              name: obsprofile
             managementPolicies:
             - Observe
             providerConfigRef:
-              kind: ClusterProviderConfig
               name: default
     - assert:
         timeout: 5m
         resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
           kind: SettingProfile
           metadata:
-            name: testprofile-observe
+            name: obsprofile-observe
           status:
             conditions:
             - type: Synced
@@ -65,6 +68,6 @@ spec:
     finally:
     - delete:
         ref:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
           kind: SettingProfile
-          name: testprofile-observe
+          name: obsprofile-observe

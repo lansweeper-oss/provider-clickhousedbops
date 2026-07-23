@@ -1,0 +1,99 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: database-observe-by-name
+# Validates the no-fork adopt-by-name path for a namespaced Database: a sibling
+# Observe-only Database referencing an existing ClickHouse database by name must
+# be adopted (Synced/Ready), not re-created. The adopt initializer resolves the
+# name to the real UUID so the provider's UUID-based Read finds the row.
+#
+# Uses a namespaced clickhousedbops.m.crossplane.io ProviderConfig created in the
+# test namespace, and a dedicated ClickHouse name (obsdb) so it never collides
+# with the uptest manifest database (testdb).
+spec:
+  steps:
+  - name: setup-providerconfig
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: provider-secret
+          type: Opaque
+          stringData:
+            credentials: |
+              {"host":"clickhouse.clickhouse.svc.cluster.local","port":9000,"protocol":"native","auth_config":{"strategy":"password","username":"default","password":"e2epassword"}}
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1beta1
+          kind: ProviderConfig
+          metadata:
+            name: default
+          spec:
+            credentials:
+              source: Secret
+              secretRef:
+                name: provider-secret
+                namespace: ($namespace)
+                key: credentials
+
+  - name: apply-database
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: Database
+          metadata:
+            name: obsdb
+          spec:
+            forProvider:
+              name: obsdb
+            providerConfigRef:
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: Database
+          metadata:
+            name: obsdb
+          status:
+            conditions:
+            - type: Ready
+              status: "True"
+
+  - name: observe-sibling-by-name
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: Database
+          metadata:
+            name: obsdb-observe
+          spec:
+            forProvider:
+              name: obsdb
+            managementPolicies:
+            - Observe
+            providerConfigRef:
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: Database
+          metadata:
+            name: obsdb-observe
+          status:
+            conditions:
+            - type: Synced
+              status: "True"
+            - type: Ready
+              status: "True"
+    finally:
+    - delete:
+        ref:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: Database
+          name: obsdb-observe

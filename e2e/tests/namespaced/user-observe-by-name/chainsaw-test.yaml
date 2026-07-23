@@ -1,0 +1,103 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: user-observe-by-name
+# Validates the adopt-by-name path for a namespaced User (id observation field).
+# A sibling Observe-only User referencing an existing user by name must be
+# adopted (Synced/Ready), not re-created. Password validation is skipped for
+# Observe-only resources, so the sibling needs only the name.
+#
+# Uses a namespaced clickhousedbops.m.crossplane.io ProviderConfig created in the
+# test namespace, and a dedicated ClickHouse name (obsuser) so it never collides
+# with the uptest manifest user (testuser); creating the same ClickHouse user
+# twice fails with "already exists in local_directory".
+spec:
+  steps:
+  - name: setup-providerconfig
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: provider-secret
+          type: Opaque
+          stringData:
+            credentials: |
+              {"host":"clickhouse.clickhouse.svc.cluster.local","port":9000,"protocol":"native","auth_config":{"strategy":"password","username":"default","password":"e2epassword"}}
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1beta1
+          kind: ProviderConfig
+          metadata:
+            name: default
+          spec:
+            credentials:
+              source: Secret
+              secretRef:
+                name: provider-secret
+                namespace: ($namespace)
+                key: credentials
+
+  - name: apply-user
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: obsuser
+          spec:
+            forProvider:
+              name: obsuser
+              autoGeneratePassword: true
+            writeConnectionSecretToRef:
+              name: obsuser
+            providerConfigRef:
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: obsuser
+          status:
+            conditions:
+            - type: Ready
+              status: "True"
+
+  - name: observe-sibling-by-name
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: obsuser-observe
+          spec:
+            forProvider:
+              name: obsuser
+            managementPolicies:
+            - Observe
+            providerConfigRef:
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: obsuser-observe
+          status:
+            conditions:
+            - type: Synced
+              status: "True"
+            - type: Ready
+              status: "True"
+    finally:
+    - delete:
+        ref:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          name: obsuser-observe

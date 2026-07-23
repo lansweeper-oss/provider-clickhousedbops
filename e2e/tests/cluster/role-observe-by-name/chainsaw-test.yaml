@@ -2,32 +2,36 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   name: role-observe-by-name
-# Validates the adopt-by-name path for Role (id observation field). A sibling
-# Observe-only Role referencing an existing role by name must be adopted
-# (Synced/Ready), not re-created — CREATE ROLE is not idempotent.
+# Validates the adopt-by-name path for a cluster-scoped Role
+# (clickhousedbops.crossplane.io, id observation field). A sibling Observe-only
+# Role referencing an existing role by name must be adopted (Synced/Ready), not
+# re-created — CREATE ROLE is not idempotent.
+#
+# Legacy cluster-scoped resources use the cluster-wide clickhousedbops.crossplane.io
+# ProviderConfig "default" from the e2e setup script. A dedicated ClickHouse name
+# (obsrole) avoids colliding with the uptest manifest role (testrole).
 spec:
   steps:
   - name: apply-role
     try:
     - apply:
         resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
           kind: Role
           metadata:
-            name: testrole
+            name: obsrole
           spec:
             forProvider:
-              name: testrole
+              name: obsrole
             providerConfigRef:
-              kind: ClusterProviderConfig
               name: default
     - assert:
         timeout: 5m
         resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
           kind: Role
           metadata:
-            name: testrole
+            name: obsrole
           status:
             conditions:
             - type: Ready
@@ -37,25 +41,24 @@ spec:
     try:
     - apply:
         resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
           kind: Role
           metadata:
-            name: testrole-observe
+            name: obsrole-observe
           spec:
             forProvider:
-              name: testrole
+              name: obsrole
             managementPolicies:
             - Observe
             providerConfigRef:
-              kind: ClusterProviderConfig
               name: default
     - assert:
         timeout: 5m
         resource:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
           kind: Role
           metadata:
-            name: testrole-observe
+            name: obsrole-observe
           status:
             conditions:
             - type: Synced
@@ -65,6 +68,6 @@ spec:
     finally:
     - delete:
         ref:
-          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
           kind: Role
-          name: testrole-observe
+          name: obsrole-observe
