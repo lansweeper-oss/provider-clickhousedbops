@@ -1,0 +1,74 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: user-observe-by-name
+# Validates the adopt-by-name path for User (id observation field). A sibling
+# Observe-only User referencing an existing user by name must be adopted
+# (Synced/Ready), not re-created. Password validation is skipped for
+# Observe-only resources, so the sibling needs only the name.
+spec:
+  steps:
+  - name: apply-user
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: testuser
+          spec:
+            forProvider:
+              name: testuser
+              autoGeneratePassword: true
+            writeConnectionSecretToRef:
+              name: testuser
+            providerConfigRef:
+              kind: ClusterProviderConfig
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: testuser
+          status:
+            conditions:
+            - type: Ready
+              status: "True"
+
+  - name: observe-sibling-by-name
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: testuser-observe
+          spec:
+            forProvider:
+              name: testuser
+            managementPolicies:
+            - Observe
+            providerConfigRef:
+              kind: ClusterProviderConfig
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: testuser-observe
+          status:
+            conditions:
+            - type: Synced
+              status: "True"
+            - type: Ready
+              status: "True"
+    finally:
+    - delete:
+        ref:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          name: testuser-observe

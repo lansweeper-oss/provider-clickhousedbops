@@ -1,0 +1,70 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: role-observe-by-name
+# Validates the adopt-by-name path for Role (id observation field). A sibling
+# Observe-only Role referencing an existing role by name must be adopted
+# (Synced/Ready), not re-created — CREATE ROLE is not idempotent.
+spec:
+  steps:
+  - name: apply-role
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: Role
+          metadata:
+            name: testrole
+          spec:
+            forProvider:
+              name: testrole
+            providerConfigRef:
+              kind: ClusterProviderConfig
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: Role
+          metadata:
+            name: testrole
+          status:
+            conditions:
+            - type: Ready
+              status: "True"
+
+  - name: observe-sibling-by-name
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: Role
+          metadata:
+            name: testrole-observe
+          spec:
+            forProvider:
+              name: testrole
+            managementPolicies:
+            - Observe
+            providerConfigRef:
+              kind: ClusterProviderConfig
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: Role
+          metadata:
+            name: testrole-observe
+          status:
+            conditions:
+            - type: Synced
+              status: "True"
+            - type: Ready
+              status: "True"
+    finally:
+    - delete:
+        ref:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: Role
+          name: testrole-observe

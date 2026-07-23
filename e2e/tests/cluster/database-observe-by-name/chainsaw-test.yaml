@@ -1,0 +1,71 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: database-observe-by-name
+# Validates the no-fork adopt-by-name path: a sibling Observe-only Database that
+# references an existing ClickHouse database by name must be adopted (Synced/Ready),
+# not re-created. The adopt initializer resolves the name to the real UUID so the
+# provider's UUID-based Read finds the row.
+spec:
+  steps:
+  - name: apply-database
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: Database
+          metadata:
+            name: testdb
+          spec:
+            forProvider:
+              name: testdb
+            providerConfigRef:
+              kind: ClusterProviderConfig
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: Database
+          metadata:
+            name: testdb
+          status:
+            conditions:
+            - type: Ready
+              status: "True"
+
+  - name: observe-sibling-by-name
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: Database
+          metadata:
+            name: testdb-observe
+          spec:
+            forProvider:
+              name: testdb
+            managementPolicies:
+            - Observe
+            providerConfigRef:
+              kind: ClusterProviderConfig
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: Database
+          metadata:
+            name: testdb-observe
+          status:
+            conditions:
+            - type: Synced
+              status: "True"
+            - type: Ready
+              status: "True"
+    finally:
+    - delete:
+        ref:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: Database
+          name: testdb-observe

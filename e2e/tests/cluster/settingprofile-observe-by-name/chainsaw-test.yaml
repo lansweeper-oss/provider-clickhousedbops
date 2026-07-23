@@ -1,0 +1,70 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: settingprofile-observe-by-name
+# Validates the adopt-by-name path for SettingProfile (id observation field). A
+# sibling Observe-only profile referencing an existing profile by name must be
+# adopted (Synced/Ready), not re-created.
+spec:
+  steps:
+  - name: apply-settingprofile
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: SettingProfile
+          metadata:
+            name: testprofile
+          spec:
+            forProvider:
+              name: testprofile
+            providerConfigRef:
+              kind: ClusterProviderConfig
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: SettingProfile
+          metadata:
+            name: testprofile
+          status:
+            conditions:
+            - type: Ready
+              status: "True"
+
+  - name: observe-sibling-by-name
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: SettingProfile
+          metadata:
+            name: testprofile-observe
+          spec:
+            forProvider:
+              name: testprofile
+            managementPolicies:
+            - Observe
+            providerConfigRef:
+              kind: ClusterProviderConfig
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: SettingProfile
+          metadata:
+            name: testprofile-observe
+          status:
+            conditions:
+            - type: Synced
+              status: "True"
+            - type: Ready
+              status: "True"
+    finally:
+    - delete:
+        ref:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: SettingProfile
+          name: testprofile-observe
