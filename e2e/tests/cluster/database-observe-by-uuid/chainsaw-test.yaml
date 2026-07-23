@@ -55,6 +55,7 @@ spec:
         # in the same step as the apply below is required for the $dbuuid binding to be in
         # scope; bindings do not leak across steps.
         - script:
+            shell: bash
             content: |
               set -euo pipefail
               kubectl get database.clickhousedbops.crossplane.io obsuuid \

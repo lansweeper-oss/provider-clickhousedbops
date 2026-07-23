@@ -61,6 +61,7 @@ spec:
     - name: rotate-password
       try:
         - script:
+            shell: bash
             timeout: 2m
             content: |
               old_hash=$(kubectl get secret my-password -n ${NAMESPACE} -o jsonpath='{.data.hash}')
