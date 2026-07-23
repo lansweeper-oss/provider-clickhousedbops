@@ -56,8 +56,9 @@ spec:
         # scope; bindings do not leak across steps.
         - script:
             content: |
+              set -euo pipefail
               kubectl get database.clickhousedbops.crossplane.io obsuuid \
-                -o jsonpath='{.metadata.annotations.crossplane\.io/external-name}'
+                -o go-template='{{index .metadata.annotations "crossplane.io/external-name"}}'
             outputs:
               - name: dbuuid
                 value: (trim_space($stdout))
