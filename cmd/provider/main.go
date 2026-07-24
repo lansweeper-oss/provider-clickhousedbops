@@ -154,7 +154,7 @@ func main() {
 	ctx.FatalIfErrorf(apiextensionsv1.AddToScheme(mgr.GetScheme()), "Cannot add api-extensions APIs to scheme")
 	ctx.FatalIfErrorf(authv1.AddToScheme(mgr.GetScheme()), "Cannot add k8s authorization APIs to scheme")
 
-	// So resources that already exist (e.g. after a restore, or an import by name) are
+	// Resources that already exist (e.g. after a restore, or an import by name) are
 	// adopted by their real UUID instead of being re-created.
 	config.SetResolverFactory("clickhousedbops_role", clients.NewRoleUUIDResolver)
 	config.SetResolverFactory("clickhousedbops_database", clients.NewDatabaseUUIDResolver)
