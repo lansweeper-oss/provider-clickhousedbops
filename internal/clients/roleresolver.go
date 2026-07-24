@@ -39,7 +39,7 @@ func NewSettingsProfileUUIDResolver(kube client.Client) config.UUIDResolver {
 
 // newUUIDResolver builds a UUIDResolver that looks up idField by the resource's
 // spec.forProvider.name in the given system table. table and idField are
-// package-internal constants (never user input). When spec.forProvider.cluster_name
+// package-internal constants (never user input). When spec.forProvider.clusterName
 // is set the lookup runs across all replicas, mirroring the provider's WithCluster.
 func newUUIDResolver(kube client.Client, table, idField string) config.UUIDResolver {
 	return func(ctx context.Context, mg xpresource.Managed) (string, bool, error) {
@@ -52,7 +52,7 @@ func newUUIDResolver(kube client.Client, table, idField string) config.UUIDResol
 			return "", false, fmt.Errorf("cannot read spec.forProvider.name: %w", err)
 		}
 		// Optional - absent on single node / ClickHouse Cloud.
-		cluster, _ := paved.GetString("spec.forProvider.cluster_name")
+		cluster, _ := paved.GetString("spec.forProvider.clusterName")
 
 		params, err := ResolveConnParams(ctx, kube, mg)
 		if err != nil {
