@@ -79,6 +79,43 @@ Further information about strategies when importing Users might be found in its
 [dedicated document](user-import-workflow.md).
 
 After applying, Crossplane will:
-- Set `crossplane.io/external-name` to the username (`jane`).
+- Resolve the identity `name` to the resource's provider-assigned UUID and adopt the
+  existing resource (looking it up on the cluster when `clusterName` is set).
+- Set `crossplane.io/external-name` to that UUID.
 - Populate `status.atProvider` with the full remote state.
 - Report the resource as `Ready` and `Synced` once the observe succeeds.
+
+## Import by UUID (advanced)
+
+Instead of a name, you may pin `crossplane.io/external-name` directly to the
+resource's UUID. When the annotation is a UUID it takes precedence and name
+resolution is skipped; the plain resource name (the crossplane default external
+name) is not a UUID, so it falls through to name-based lookup. Both forms end up
+adopting the same resource.
+
+## How adoption works internally
+
+Background for maintainers (implementation in `config/importinit.go`):
+
+- This provider runs in no-fork mode. upjet calls the Terraform provider's `Read`,
+  which looks a resource up by its **UUID**, not by name. It never calls
+  `ImportState` (the only provider path that resolves a name to a UUID). So the
+  UUID must be known before the first observe.
+- An initializer (`adoptByNameInitializer`) runs before observe. It determines the
+  UUID from, in order: an external-name that is already a UUID; a lookup by
+  `spec.forProvider.name` against the ClickHouse `system.*` tables; otherwise a
+  sentinel UUID that matches no row (so the provider reports "not found" and
+  creation proceeds). This avoids re-creating a resource that already exists —
+  important for non-idempotent operations such as `CREATE ROLE`.
+- The resolved UUID is written to **both** the observation and the external name,
+  because the two resource shapes consume it differently: `database` keys `Read`
+  off the seeded `status.atProvider.uuid`; `user`/`role`/`settings profile` keep an
+  `id` attribute in their framework schema, and upjet rebuilds the Terraform state
+  `id` from the external name (`GetIDFn`) just before `Read`, so the external name
+  must carry the UUID. Neither value is persisted with an explicit `kube.Update`:
+  the in-memory managed resource is reused through the same reconcile, and an
+  update would reset the freshly seeded `status.atProvider` to the empty server
+  value.
+- Name resolution is cluster-aware: when `clusterName` is set the lookup runs
+  across the cluster (`cluster(<name>, system.<table>)`), matching the provider's
+  own behavior.

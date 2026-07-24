@@ -1,0 +1,85 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: settingprofile-observe-by-name-namespaced
+# Validates the adopt-by-name path for a namespaced SettingProfile
+# (clickhousedbops.m.crossplane.io, id observation field). A sibling Observe-only
+# profile referencing an existing profile by name must be adopted (Synced/Ready),
+# not re-created.
+#
+# Namespaced (clickhousedbops.m.crossplane.io) resources use the cluster-scoped
+# ClusterProviderConfig "default" from the e2e setup script. A dedicated ClickHouse name
+# (nobsprofile) avoids colliding with the cluster observe test and uptest manifests.
+spec:
+  # Provider deletes are async (create/poll), so cleanup can exceed the default
+  # delete timeout; give finally/cleanup deletes room to finish.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
+  steps:
+    - name: apply-settingprofile
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: SettingProfile
+              metadata:
+                name: nobsprofile
+              spec:
+                forProvider:
+                  name: nobsprofile
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: SettingProfile
+              metadata:
+                name: nobsprofile
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+
+    - name: observe-sibling-by-name
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: SettingProfile
+              metadata:
+                name: nobsprofile-observe
+              spec:
+                forProvider:
+                  name: nobsprofile
+                managementPolicies:
+                  - Observe
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: SettingProfile
+              metadata:
+                name: nobsprofile-observe
+              status:
+                (conditions[?type == 'Synced']):
+                  - status: "True"
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+      finally:
+        # Delete the managed resources while the test namespace still exists (cluster-scoped
+        # MRs outlive it); sibling first (Observe-only), then the managed profile.
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: SettingProfile
+              name: nobsprofile-observe
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: SettingProfile
+              name: nobsprofile

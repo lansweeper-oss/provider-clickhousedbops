@@ -1,0 +1,83 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: role-observe-by-name
+# Validates the adopt-by-name path for a cluster-scoped Role
+# (clickhousedbops.crossplane.io, id observation field). A sibling Observe-only
+# Role referencing an existing role by name must be adopted (Synced/Ready), not
+# re-created — CREATE ROLE is not idempotent.
+#
+# Legacy cluster-scoped resources use the cluster-wide clickhousedbops.crossplane.io
+# ProviderConfig "default" from the e2e setup script. A dedicated ClickHouse name
+# (obsrole) avoids colliding with the uptest manifest role (testrole).
+spec:
+  # Provider deletes are async (create/poll), so cleanup can exceed the default
+  # delete timeout; give finally/cleanup deletes room to finish.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
+  steps:
+    - name: apply-role
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: obsrole
+              spec:
+                forProvider:
+                  name: obsrole
+                providerConfigRef:
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: obsrole
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+
+    - name: observe-sibling-by-name
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: obsrole-observe
+              spec:
+                forProvider:
+                  name: obsrole
+                managementPolicies:
+                  - Observe
+                providerConfigRef:
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: obsrole-observe
+              status:
+                (conditions[?type == 'Synced']):
+                  - status: "True"
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+      finally:
+        # Delete the managed resources while the test namespace still exists (cluster-scoped
+        # MRs outlive it); sibling first (Observe-only), then the managed role.
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Role
+              name: obsrole-observe
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: Role
+              name: obsrole

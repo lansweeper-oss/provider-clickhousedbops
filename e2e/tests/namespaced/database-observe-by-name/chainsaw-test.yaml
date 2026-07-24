@@ -1,0 +1,85 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: database-observe-by-name-namespaced
+# Validates the no-fork adopt-by-name path for a namespaced Database
+# (clickhousedbops.m.crossplane.io): a sibling Observe-only Database referencing an
+# existing ClickHouse database by name must be adopted (Synced/Ready), not
+# re-created. The adopt initializer resolves the name to the real UUID so the
+# provider's UUID-based Read finds the row.
+#
+# Namespaced (clickhousedbops.m.crossplane.io) resources use the cluster-scoped
+# ClusterProviderConfig "default" from the e2e setup script.
+spec:
+  # Provider deletes are async (create/poll), so cleanup can exceed the default
+  # delete timeout; give finally/cleanup deletes room to finish.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
+  steps:
+    - name: apply-database
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: nobsdb
+              spec:
+                forProvider:
+                  name: nobsdb
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: nobsdb
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+
+    - name: observe-sibling-by-name
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: nobsdb-observe
+              spec:
+                forProvider:
+                  name: nobsdb
+                managementPolicies:
+                  - Observe
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: nobsdb-observe
+              status:
+                (conditions[?type == 'Synced']):
+                  - status: "True"
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+      finally:
+        # Delete the managed resources while the test namespace still exists (cluster-scoped
+        # MRs outlive it); sibling first (Observe-only), then the managed database.
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Database
+              name: nobsdb-observe
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Database
+              name: nobsdb

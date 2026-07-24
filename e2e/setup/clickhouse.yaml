@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: clickhouse
-          image: clickhouse/clickhouse-server:26.2-alpine
+          image: clickhouse/clickhouse-server:26.7-alpine
           env:
             - name: CLICKHOUSE_PASSWORD
               value: e2epassword

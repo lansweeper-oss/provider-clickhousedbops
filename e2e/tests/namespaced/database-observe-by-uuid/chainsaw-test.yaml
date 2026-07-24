@@ -1,0 +1,110 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: database-observe-by-uuid-namespaced
+# Validates import by UUID: a sibling Observe-only Database whose
+# crossplane.io/external-name is pinned to the managed database's UUID must adopt it
+# (Synced/Ready), with the UUID taking precedence over name resolution.
+#
+# Namespaced (clickhousedbops.m.crossplane.io) resources use the cluster-scoped
+# ClusterProviderConfig "default" from the e2e setup script. Dedicated name (nobsuuid)
+# avoids colliding with the cluster observe tests and uptest manifests.
+spec:
+  # Provider deletes are async (create/poll), so cleanup can exceed the default
+  # delete timeout; give finally/cleanup deletes room to finish.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
+  steps:
+    - name: observe-by-uuid
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: nobsuuid
+              spec:
+                forProvider:
+                  name: nobsuuid
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: nobsuuid
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+        - assert:
+            timeout: 2m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: nobsuuid
+                annotations:
+                  (crossplane.io/external-name != ''): true
+        - script:
+            shell: bash
+            content: |
+              set -euo pipefail
+              kubectl get database.clickhousedbops.m.crossplane.io nobsuuid -n $NAMESPACE \
+                -o go-template='{{index .metadata.annotations "crossplane.io/external-name"}}'
+            outputs:
+              - name: dbuuid
+                value: (trim_space($stdout))
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: nobsuuid-byuuid
+                annotations:
+                  crossplane.io/external-name: ($dbuuid)
+              spec:
+                forProvider:
+                  name: nobsuuid
+                managementPolicies:
+                  - Observe
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 2m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: nobsuuid-byuuid
+                annotations:
+                  (crossplane.io/external-name != ''): true
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Database
+              metadata:
+                name: nobsuuid-byuuid
+              status:
+                (conditions[?type == 'Synced']):
+                  - status: "True"
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+      finally:
+        # Delete the managed resources while the test namespace still exists (cluster-scoped
+        # MRs outlive it); sibling first (Observe-only), then the managed database.
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Database
+              name: nobsuuid-byuuid
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Database
+              name: nobsuuid

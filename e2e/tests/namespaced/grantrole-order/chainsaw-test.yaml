@@ -1,0 +1,116 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: grantrole-order-namespaced
+# GrantRole references its grantee user and role by plain name (no Ref/Selector),
+# so crossplane does not order creation: applied together, GrantRole reconciles
+# before the user/role exist and only converges on a later retry. This test makes
+# the dependency order explicit with sequential chainsaw steps - the role and user
+# must be Ready before GrantRole is applied - so the grant succeeds on first try.
+#
+# Namespaced (clickhousedbops.m.crossplane.io) resources use the cluster-scoped
+# ClusterProviderConfig "default" from the e2e setup script. Dedicated names (ord*) avoid
+# colliding with the uptest manifests.
+spec:
+  # Provider deletes are async (create/poll), so cleanup can exceed the default
+  # delete timeout; give finally/cleanup deletes room to finish.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
+  steps:
+    - name: create-role
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: nordrole
+              spec:
+                forProvider:
+                  name: nordrole
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: nordrole
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+
+    - name: create-user
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: norduser
+              spec:
+                forProvider:
+                  name: norduser
+                  autoGeneratePassword: true
+                writeConnectionSecretToRef:
+                  name: norduser
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: norduser
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+
+    - name: create-grantrole
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: GrantRole
+              metadata:
+                name: nordgrantrole
+              spec:
+                forProvider:
+                  granteeUserName: norduser
+                  roleName: nordrole
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: GrantRole
+              metadata:
+                name: nordgrantrole
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+      finally:
+        # Reverse dependency order, while the test namespace still exists: grant first,
+        # then the user (whose connection secret lives in crossplane-system), then the role.
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: GrantRole
+              name: nordgrantrole
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              name: norduser
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Role
+              name: nordrole

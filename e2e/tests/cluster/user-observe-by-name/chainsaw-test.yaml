@@ -1,0 +1,95 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: user-observe-by-name
+# Validates the adopt-by-name path for a cluster-scoped User
+# (clickhousedbops.crossplane.io, id observation field). A sibling Observe-only
+# User referencing an existing user by name must be adopted (Synced/Ready), not
+# re-created. Password validation is skipped for Observe-only resources, so the
+# sibling needs only the name.
+#
+# Legacy cluster-scoped resources use the cluster-wide clickhousedbops.crossplane.io
+# ProviderConfig "default" from the e2e setup script. A dedicated ClickHouse name
+# (obsuser) avoids colliding with the uptest manifest user (testuser); creating the
+# same ClickHouse user twice fails with "already exists in local_directory".
+spec:
+  # Provider deletes are async (create/poll), so cleanup can exceed the default
+  # delete timeout; give finally/cleanup deletes room to finish.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
+  steps:
+    - name: apply-user
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: obsuser
+              spec:
+                forProvider:
+                  name: obsuser
+                  autoGeneratePassword: true
+                writeConnectionSecretToRef:
+                  name: obsuser
+                  # Cluster-scoped User (legacy API): write to a stable namespace so the
+                  # secret write survives ephemeral test-namespace teardown.
+                  namespace: crossplane-system
+                providerConfigRef:
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: obsuser
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+
+    - name: observe-sibling-by-name
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: obsuser-observe
+              spec:
+                forProvider:
+                  name: obsuser
+                managementPolicies:
+                  - Observe
+                providerConfigRef:
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: obsuser-observe
+              status:
+                (conditions[?type == 'Synced']):
+                  - status: "True"
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+      finally:
+        # Delete order matters: remove the managed resources while the test namespace
+        # still exists. A cluster-scoped User outlives the ephemeral namespace, and on
+        # deletion it re-applies its connection secret; if the namespace is already gone
+        # the delete gets stuck ("namespaces ... not found"). Deleting here, sibling
+        # first (Observe-only, no ClickHouse change) then the managed user, keeps cleanup
+        # deterministic and namespace-safe.
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              name: obsuser-observe
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              name: obsuser
