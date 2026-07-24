@@ -16,7 +16,7 @@ spec:
     delete: 5m
     cleanup: 5m
   steps:
-    - name: apply-database
+    - name: observe-by-uuid
       try:
         - apply:
             resource:
@@ -49,14 +49,8 @@ spec:
                 name: nobsuuid
                 annotations:
                   (crossplane.io/external-name != ''): true
-
-    - name: observe-by-uuid
-      try:
-        # Capture the provider-assigned UUID (external-name) into a binding. Keeping this
-        # in the same step as the apply below is required for the $dbuuid binding to be in
-        # scope; bindings do not leak across steps.
+        - script:
             shell: bash
-            timeout: 2m
             content: |
               set -euo pipefail
               kubectl get database.clickhousedbops.m.crossplane.io nobsuuid -n $NAMESPACE \
