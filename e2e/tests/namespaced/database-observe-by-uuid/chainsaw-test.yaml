@@ -90,8 +90,6 @@ spec:
               kind: Database
               metadata:
                 name: nobsuuid-byuuid
-                annotations:
-                  crossplane.io/external-name: ($dbuuid)
               status:
                 (conditions[?type == 'Synced']):
                   - status: "True"
