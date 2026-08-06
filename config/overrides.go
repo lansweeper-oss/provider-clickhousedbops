@@ -139,18 +139,7 @@ func Configure(p *config.Provider) {
 		r.InitializerFns = append(r.InitializerFns, adoptByNameInitializer("clickhousedbops_role", "id"))
 	})
 	p.AddResourceConfigurator("clickhousedbops_grant_privilege", func(r *config.Resource) {
-		// Upstream v1.11.0+ marks current_grants and grant_option as
-		// RequiresReplace (ForceNew in SDK shim). Existing resources created
-		// before these fields existed get a computed default, producing a diff
-		// on ForceNew fields that upjet cannot reconcile (it doesn't support
-		// async replacement). Clearing ForceNew lets upjet treat them as
-		// normal update fields; the Framework provider still handles CRUD.
-		if s, ok := r.TerraformResource.Schema["current_grants"]; ok {
-			s.ForceNew = false
-		}
-		if s, ok := r.TerraformResource.Schema["grant_option"]; ok {
-			s.ForceNew = false
-		}
+		r.InitializerFns = append(r.InitializerFns, backfillGrantPrivilegeDefaults())
 	})
 	p.AddResourceConfigurator("clickhousedbops_masking_policy", func(r *config.Resource) {
 		r.ExternalName = config.TemplatedStringAsIdentifier("name", "{{ .parameters.database_name }}:{{ .parameters.table_name }}:{{ .externalName }}")
