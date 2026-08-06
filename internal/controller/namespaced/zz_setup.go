@@ -17,7 +17,9 @@ import (
 	settingprofile "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/namespaced/clickhousedbops/settingprofile"
 	settingprofileassociation "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/namespaced/clickhousedbops/settingprofileassociation"
 	user "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/namespaced/clickhousedbops/user"
+	policy "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/namespaced/masking/policy"
 	providerconfig "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/namespaced/providerconfig"
+	policyrow "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/namespaced/row/policy"
 )
 
 // Setup creates all controllers with the supplied logger and adds them to
@@ -32,7 +34,9 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		settingprofile.Setup,
 		settingprofileassociation.Setup,
 		user.Setup,
+		policy.Setup,
 		providerconfig.Setup,
+		policyrow.Setup,
 	} {
 		if err := setup(mgr, o); err != nil {
 			return err
@@ -53,7 +57,9 @@ func SetupGated(mgr ctrl.Manager, o controller.Options) error {
 		settingprofile.SetupGated,
 		settingprofileassociation.SetupGated,
 		user.SetupGated,
+		policy.SetupGated,
 		providerconfig.SetupGated,
+		policyrow.SetupGated,
 	} {
 		if err := setup(mgr, o); err != nil {
 			return err
@@ -73,7 +79,9 @@ func SetupWebhookWithManager(mgr ctrl.Manager) error {
 		settingprofile.SetupWebhookWithManager,
 		settingprofileassociation.SetupWebhookWithManager,
 		user.SetupWebhookWithManager,
+		policy.SetupWebhookWithManager,
 		providerconfig.SetupWebhookWithManager,
+		policyrow.SetupWebhookWithManager,
 	} {
 		if err := setup(mgr); err != nil {
 			return err

@@ -272,6 +272,167 @@ spec:
             properties:
               atProvider:
                 properties:
+                  auth:
+                    description: |-
+                      Authentication methods for the user. Methods may be combined and each block (except no_password) may be repeated.
+                    items:
+                      properties:
+                        bcryptHash:
+                          description: |-
+                            Bcrypt hash authentication.
+                          items:
+                            properties:
+                              valueWoVersion:
+                                description: |-
+                                  Version of value_wo. Bump to re-apply the write-only value.
+                                type: number
+                            type: object
+                          type: array
+                        bcryptPassword:
+                          description: |-
+                            Bcrypt password authentication.
+                          items:
+                            properties:
+                              valueWoVersion:
+                                description: |-
+                                  Version of value_wo. Bump to re-apply the write-only value.
+                                type: number
+                            type: object
+                          type: array
+                        doubleSha1Hash:
+                          description: |-
+                            Double SHA1 hash authentication.
+                          items:
+                            properties:
+                              valueWoVersion:
+                                description: |-
+                                  Version of value_wo. Bump to re-apply the write-only value.
+                                type: number
+                            type: object
+                          type: array
+                        doubleSha1Password:
+                          description: |-
+                            Double SHA1 password authentication.
+                          items:
+                            properties:
+                              valueWoVersion:
+                                description: |-
+                                  Version of value_wo. Bump to re-apply the write-only value.
+                                type: number
+                            type: object
+                          type: array
+                        http:
+                          description: |-
+                            HTTP authentication. Exactly one of server or scheme.
+                          items:
+                            properties:
+                              scheme:
+                                description: |-
+                                  HTTP authentication scheme (e.g. Basic).
+                                type: string
+                              server:
+                                description: |-
+                                  HTTP authentication server name.
+                                type: string
+                            type: object
+                          type: array
+                        kerberos:
+                          description: |-
+                            Kerberos authentication.
+                          items:
+                            properties:
+                              realm:
+                                description: |-
+                                  Optional Kerberos realm to restrict authentication to.
+                                type: string
+                            type: object
+                          type: array
+                        ldap:
+                          description: |-
+                            LDAP authentication.
+                          items:
+                            properties:
+                              server:
+                                description: |-
+                                  LDAP server name (as defined in ClickHouse config).
+                                type: string
+                            type: object
+                          type: array
+                        noPassword:
+                          description: |-
+                            Passwordless authentication. Cannot be combined with any other method.
+                          items:
+                            type: object
+                          type: array
+                        plaintextPassword:
+                          description: |-
+                            Plaintext password authentication.
+                          items:
+                            properties:
+                              valueWoVersion:
+                                description: |-
+                                  Version of value_wo. Bump to re-apply the write-only value.
+                                type: number
+                            type: object
+                          type: array
+                        sha256Hash:
+                          description: |-
+                            SHA256 hash authentication.
+                          items:
+                            properties:
+                              salt:
+                                description: |-
+                                  Optional salt used with the sha256 hash.
+                                type: string
+                              valueWoVersion:
+                                description: |-
+                                  Version of value_wo. Bump to re-apply the write-only value.
+                                type: number
+                            type: object
+                          type: array
+                        sha256Password:
+                          description: |-
+                            SHA256 password authentication (ClickHouse computes the hash).
+                          items:
+                            properties:
+                              valueWoVersion:
+                                description: |-
+                                  Version of value_wo. Bump to re-apply the write-only value.
+                                type: number
+                            type: object
+                          type: array
+                        sshKey:
+                          description: |-
+                            SSH key authentication.
+                          items:
+                            properties:
+                              publicKey:
+                                description: |-
+                                  SSH public key.
+                                type: string
+                              type:
+                                description: |-
+                                  SSH key type (e.g. ssh-rsa, ssh-ed25519).
+                                type: string
+                            type: object
+                          type: array
+                        sslCertificate:
+                          description: |-
+                            SSL certificate authentication. Exactly one of common_name or subject_alt_name.
+                          items:
+                            properties:
+                              commonName:
+                                description: |-
+                                  Certificate Common Name (CN).
+                                type: string
+                              subjectAltName:
+                                description: |-
+                                  Certificate Subject Alternative Name (SAN).
+                                type: string
+                            type: object
+                          type: array
+                      type: object
+                    type: array
                   clusterName:
                     description: |-
                       Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
@@ -339,6 +500,13 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              lastHandledReconcileAt:
+                description: |-
+                  LastHandledReconcileAt holds the value of the most recent
+                  reconcile-requested-at annotation token that the controller has
+                  processed. Users can compare this to the annotation to determine
+                  whether a reconcile request has been handled.
+                type: string
               observedGeneration:
                 description: |-
                   ObservedGeneration is the latest metadata.generation

@@ -10,11 +10,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	v1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
-	v2 "github.com/crossplane/crossplane-runtime/v2/apis/common/v2"
+	v2 "github.com/crossplane/crossplane/apis/v2/core/v2"
 )
 
 type GrantPrivilegeInitParameters struct {
+
+	// scoped privileges, or a source name (e.g. S3) for source READ/WRITE grants. Supports a trailing * prefix pattern.
+	// The object the privilege applies to: a user/role name for USER_NAME/DEFINER-scoped privileges, or a source name (e.g. `S3`) for source READ/WRITE grants. Supports a trailing `*` prefix pattern.
+	AccessObject *string `json:"accessObject,omitempty" tf:"access_object,omitempty"`
 
 	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
@@ -27,6 +30,10 @@ type GrantPrivilegeInitParameters struct {
 	// (String) The name of the column in table_name to grant privilege on.
 	// The name of the column in `table_name` to grant privilege on.
 	ColumnName *string `json:"columnName,omitempty" tf:"column_name,omitempty"`
+
+	// (Boolean) If true, emit GRANT CURRENT GRANTS(...) so the privilege is copied from the grantor's own grants instead of granted directly. Required on ClickHouse Cloud for broad privileges (e.g. ALL, or SELECT on *.*) that the admin user holds but cannot transfer directly. Note: the effective grants depend on what the grantor holds at apply time, so drift on a current_grants grant is not reconciled. On destroy the privilege is revoked in full from the grantee on the target.
+	// If true, emit `GRANT CURRENT GRANTS(...)` so the privilege is copied from the grantor's own grants instead of granted directly. Required on ClickHouse Cloud for broad privileges (e.g. `ALL`, or `SELECT` on `*.*`) that the admin user holds but cannot transfer directly. Note: the effective grants depend on what the grantor holds at apply time, so drift on a `current_grants` grant is not reconciled. On destroy the privilege is revoked in full from the grantee on the target.
+	CurrentGrants *bool `json:"currentGrants,omitempty" tf:"current_grants,omitempty"`
 
 	// (String) The name of the database to grant privilege on. Defaults to all databases if left null
 	// The name of the database to grant privilege on. Defaults to all databases if left null
@@ -48,12 +55,16 @@ type GrantPrivilegeInitParameters struct {
 	// The privilege to grant, such as `CREATE DATABASE`, `SELECT`, etc. See https://clickhouse.com/docs/en/sql-reference/statements/grant#privileges.
 	PrivilegeName *string `json:"privilegeName,omitempty" tf:"privilege_name,omitempty"`
 
-	// (String) The name of the table to grant privilege on.
-	// The name of the table to grant privilege on.
+	// (String) The name of the table to grant privilege on. Defaults to all tables if left null.
+	// The name of the table to grant privilege on. Defaults to all tables if left null.
 	TableName *string `json:"tableName,omitempty" tf:"table_name,omitempty"`
 }
 
 type GrantPrivilegeObservation struct {
+
+	// scoped privileges, or a source name (e.g. S3) for source READ/WRITE grants. Supports a trailing * prefix pattern.
+	// The object the privilege applies to: a user/role name for USER_NAME/DEFINER-scoped privileges, or a source name (e.g. `S3`) for source READ/WRITE grants. Supports a trailing `*` prefix pattern.
+	AccessObject *string `json:"accessObject,omitempty" tf:"access_object,omitempty"`
 
 	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
@@ -66,6 +77,10 @@ type GrantPrivilegeObservation struct {
 	// (String) The name of the column in table_name to grant privilege on.
 	// The name of the column in `table_name` to grant privilege on.
 	ColumnName *string `json:"columnName,omitempty" tf:"column_name,omitempty"`
+
+	// (Boolean) If true, emit GRANT CURRENT GRANTS(...) so the privilege is copied from the grantor's own grants instead of granted directly. Required on ClickHouse Cloud for broad privileges (e.g. ALL, or SELECT on *.*) that the admin user holds but cannot transfer directly. Note: the effective grants depend on what the grantor holds at apply time, so drift on a current_grants grant is not reconciled. On destroy the privilege is revoked in full from the grantee on the target.
+	// If true, emit `GRANT CURRENT GRANTS(...)` so the privilege is copied from the grantor's own grants instead of granted directly. Required on ClickHouse Cloud for broad privileges (e.g. `ALL`, or `SELECT` on `*.*`) that the admin user holds but cannot transfer directly. Note: the effective grants depend on what the grantor holds at apply time, so drift on a `current_grants` grant is not reconciled. On destroy the privilege is revoked in full from the grantee on the target.
+	CurrentGrants *bool `json:"currentGrants,omitempty" tf:"current_grants,omitempty"`
 
 	// (String) The name of the database to grant privilege on. Defaults to all databases if left null
 	// The name of the database to grant privilege on. Defaults to all databases if left null
@@ -89,12 +104,17 @@ type GrantPrivilegeObservation struct {
 	// The privilege to grant, such as `CREATE DATABASE`, `SELECT`, etc. See https://clickhouse.com/docs/en/sql-reference/statements/grant#privileges.
 	PrivilegeName *string `json:"privilegeName,omitempty" tf:"privilege_name,omitempty"`
 
-	// (String) The name of the table to grant privilege on.
-	// The name of the table to grant privilege on.
+	// (String) The name of the table to grant privilege on. Defaults to all tables if left null.
+	// The name of the table to grant privilege on. Defaults to all tables if left null.
 	TableName *string `json:"tableName,omitempty" tf:"table_name,omitempty"`
 }
 
 type GrantPrivilegeParameters struct {
+
+	// scoped privileges, or a source name (e.g. S3) for source READ/WRITE grants. Supports a trailing * prefix pattern.
+	// The object the privilege applies to: a user/role name for USER_NAME/DEFINER-scoped privileges, or a source name (e.g. `S3`) for source READ/WRITE grants. Supports a trailing `*` prefix pattern.
+	// +kubebuilder:validation:Optional
+	AccessObject *string `json:"accessObject,omitempty" tf:"access_object,omitempty"`
 
 	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
@@ -109,6 +129,11 @@ type GrantPrivilegeParameters struct {
 	// The name of the column in `table_name` to grant privilege on.
 	// +kubebuilder:validation:Optional
 	ColumnName *string `json:"columnName,omitempty" tf:"column_name,omitempty"`
+
+	// (Boolean) If true, emit GRANT CURRENT GRANTS(...) so the privilege is copied from the grantor's own grants instead of granted directly. Required on ClickHouse Cloud for broad privileges (e.g. ALL, or SELECT on *.*) that the admin user holds but cannot transfer directly. Note: the effective grants depend on what the grantor holds at apply time, so drift on a current_grants grant is not reconciled. On destroy the privilege is revoked in full from the grantee on the target.
+	// If true, emit `GRANT CURRENT GRANTS(...)` so the privilege is copied from the grantor's own grants instead of granted directly. Required on ClickHouse Cloud for broad privileges (e.g. `ALL`, or `SELECT` on `*.*`) that the admin user holds but cannot transfer directly. Note: the effective grants depend on what the grantor holds at apply time, so drift on a `current_grants` grant is not reconciled. On destroy the privilege is revoked in full from the grantee on the target.
+	// +kubebuilder:validation:Optional
+	CurrentGrants *bool `json:"currentGrants,omitempty" tf:"current_grants,omitempty"`
 
 	// (String) The name of the database to grant privilege on. Defaults to all databases if left null
 	// The name of the database to grant privilege on. Defaults to all databases if left null
@@ -135,8 +160,8 @@ type GrantPrivilegeParameters struct {
 	// +kubebuilder:validation:Optional
 	PrivilegeName *string `json:"privilegeName,omitempty" tf:"privilege_name,omitempty"`
 
-	// (String) The name of the table to grant privilege on.
-	// The name of the table to grant privilege on.
+	// (String) The name of the table to grant privilege on. Defaults to all tables if left null.
+	// The name of the table to grant privilege on. Defaults to all tables if left null.
 	// +kubebuilder:validation:Optional
 	TableName *string `json:"tableName,omitempty" tf:"table_name,omitempty"`
 }
@@ -160,15 +185,15 @@ type GrantPrivilegeSpec struct {
 
 // GrantPrivilegeStatus defines the observed state of GrantPrivilege.
 type GrantPrivilegeStatus struct {
-	v1.ResourceStatus `json:",inline"`
-	AtProvider        GrantPrivilegeObservation `json:"atProvider,omitempty"`
+	v2.ManagedResourceStatus `json:",inline"`
+	AtProvider               GrantPrivilegeObservation `json:"atProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
-// GrantPrivilege is the Schema for the GrantPrivileges API. You can use the clickhousedbops_grant_privilege resource to grant privileges on databases and tables to either a clickhousedbops_user or a clickhousedbops_role. Please note that in order to grant privileges to all database and/or all tables, the database and/or table fields must be set to null, and not to "*". Known limitations: Only a subset of privileges can be granted on ClickHouse cloud. For example the ALL privilege can't be granted. See https://clickhouse.com/docs/en/sql-reference/statements/grant#allIt's not possible to grant privileges using their alias name. The canonical name must be used.It's not possible to grant group of privileges. Please grant each member of the group individually instead.It's not possible to grant the same clickhousedbops_grant_privilege to both a clickhousedbops_user and a clickhousedbops_role using a single clickhousedbops_grant_privilege stanza. You can do that using two different stanzas, one with grantee_user_name and the other with grantee_role_name fields set.It's not possible to grant the same privilege (example 'SELECT') to multiple entities (for example tables) with a single stanza. You can do that my creating one stanza for each entity you want to grant privileges on.
+// GrantPrivilege is the Schema for the GrantPrivileges API. You can use the clickhousedbops_grant_privilege resource to grant privileges on databases and tables to either a clickhousedbops_user or a clickhousedbops_role. Please note that in order to grant privileges to all database and/or all tables, the database and/or table fields must be set to null, and not to "*". Known limitations: On ClickHouse Cloud some broad privileges (for example ALL, or SELECT on
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane\\.io/external-name"

@@ -138,4 +138,16 @@ func Configure(p *config.Provider) {
 		// re-creating; it falls back to the sentinel (force-create) when absent.
 		r.InitializerFns = append(r.InitializerFns, adoptByNameInitializer("clickhousedbops_role", "id"))
 	})
+	p.AddResourceConfigurator("clickhousedbops_masking_policy", func(r *config.Resource) {
+		r.ExternalName = config.TemplatedStringAsIdentifier("name", "{{ .parameters.database_name }}:{{ .parameters.table_name }}:{{ .externalName }}")
+		r.References["database_name"] = config.Reference{
+			Type: "Database",
+		}
+	})
+	p.AddResourceConfigurator("clickhousedbops_row_policy", func(r *config.Resource) {
+		r.ExternalName = config.TemplatedStringAsIdentifier("name", "{{ .parameters.database_name }}:{{ .parameters.table_name }}:{{ .externalName }}")
+		r.References["database_name"] = config.Reference{
+			Type: "Database",
+		}
+	})
 }

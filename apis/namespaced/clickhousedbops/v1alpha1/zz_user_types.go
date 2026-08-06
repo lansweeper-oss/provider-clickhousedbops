@@ -10,9 +10,651 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	v1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
-	v2 "github.com/crossplane/crossplane-runtime/v2/apis/common/v2"
+	v2 "github.com/crossplane/crossplane/apis/v2/core/v2"
 )
+
+type AuthInitParameters struct {
+
+	// (Block List) Bcrypt hash authentication. (see below for nested schema)
+	// Bcrypt hash authentication.
+	BcryptHash []BcryptHashInitParameters `json:"bcryptHash,omitempty" tf:"bcrypt_hash,omitempty"`
+
+	// (Block List) Bcrypt password authentication. (see below for nested schema)
+	// Bcrypt password authentication.
+	BcryptPassword []BcryptPasswordInitParameters `json:"bcryptPassword,omitempty" tf:"bcrypt_password,omitempty"`
+
+	// (Block List) Double SHA1 hash authentication. (see below for nested schema)
+	// Double SHA1 hash authentication.
+	DoubleSha1Hash []DoubleSha1HashInitParameters `json:"doubleSha1Hash,omitempty" tf:"double_sha1_hash,omitempty"`
+
+	// (Block List) Double SHA1 password authentication. (see below for nested schema)
+	// Double SHA1 password authentication.
+	DoubleSha1Password []DoubleSha1PasswordInitParameters `json:"doubleSha1Password,omitempty" tf:"double_sha1_password,omitempty"`
+
+	// (Block List) HTTP authentication. Exactly one of server or scheme. (see below for nested schema)
+	// HTTP authentication. Exactly one of server or scheme.
+	HTTP []HTTPInitParameters `json:"http,omitempty" tf:"http,omitempty"`
+
+	// (Block List) Kerberos authentication. (see below for nested schema)
+	// Kerberos authentication.
+	Kerberos []KerberosInitParameters `json:"kerberos,omitempty" tf:"kerberos,omitempty"`
+
+	// (Block List) LDAP authentication. (see below for nested schema)
+	// LDAP authentication.
+	Ldap []LdapInitParameters `json:"ldap,omitempty" tf:"ldap,omitempty"`
+
+	// is exclusive — it cannot be combined with any other method.
+	// Passwordless authentication. Cannot be combined with any other method.
+	NoPassword []NoPasswordInitParameters `json:"noPassword,omitempty" tf:"no_password,omitempty"`
+
+	// (Block List) Plaintext password authentication. (see below for nested schema)
+	// Plaintext password authentication.
+	PlaintextPassword []PlaintextPasswordInitParameters `json:"plaintextPassword,omitempty" tf:"plaintext_password,omitempty"`
+
+	// (Block List) SSH key authentication. (see below for nested schema)
+	// SSH key authentication.
+	SSHKey []SSHKeyInitParameters `json:"sshKey,omitempty" tf:"ssh_key,omitempty"`
+
+	// (Block List) SSL certificate authentication. Exactly one of common_name or subject_alt_name. (see below for nested schema)
+	// SSL certificate authentication. Exactly one of common_name or subject_alt_name.
+	SSLCertificate []SSLCertificateInitParameters `json:"sslCertificate,omitempty" tf:"ssl_certificate,omitempty"`
+
+	// (Block List) SHA256 hash authentication. (see below for nested schema)
+	// SHA256 hash authentication.
+	Sha256Hash []Sha256HashInitParameters `json:"sha256Hash,omitempty" tf:"sha256_hash,omitempty"`
+
+	// (Block List) SHA256 password authentication (ClickHouse computes the hash). (see below for nested schema)
+	// SHA256 password authentication (ClickHouse computes the hash).
+	Sha256Password []Sha256PasswordInitParameters `json:"sha256Password,omitempty" tf:"sha256_password,omitempty"`
+}
+
+type AuthObservation struct {
+
+	// (Block List) Bcrypt hash authentication. (see below for nested schema)
+	// Bcrypt hash authentication.
+	BcryptHash []BcryptHashObservation `json:"bcryptHash,omitempty" tf:"bcrypt_hash,omitempty"`
+
+	// (Block List) Bcrypt password authentication. (see below for nested schema)
+	// Bcrypt password authentication.
+	BcryptPassword []BcryptPasswordObservation `json:"bcryptPassword,omitempty" tf:"bcrypt_password,omitempty"`
+
+	// (Block List) Double SHA1 hash authentication. (see below for nested schema)
+	// Double SHA1 hash authentication.
+	DoubleSha1Hash []DoubleSha1HashObservation `json:"doubleSha1Hash,omitempty" tf:"double_sha1_hash,omitempty"`
+
+	// (Block List) Double SHA1 password authentication. (see below for nested schema)
+	// Double SHA1 password authentication.
+	DoubleSha1Password []DoubleSha1PasswordObservation `json:"doubleSha1Password,omitempty" tf:"double_sha1_password,omitempty"`
+
+	// (Block List) HTTP authentication. Exactly one of server or scheme. (see below for nested schema)
+	// HTTP authentication. Exactly one of server or scheme.
+	HTTP []HTTPObservation `json:"http,omitempty" tf:"http,omitempty"`
+
+	// (Block List) Kerberos authentication. (see below for nested schema)
+	// Kerberos authentication.
+	Kerberos []KerberosObservation `json:"kerberos,omitempty" tf:"kerberos,omitempty"`
+
+	// (Block List) LDAP authentication. (see below for nested schema)
+	// LDAP authentication.
+	Ldap []LdapObservation `json:"ldap,omitempty" tf:"ldap,omitempty"`
+
+	// is exclusive — it cannot be combined with any other method.
+	// Passwordless authentication. Cannot be combined with any other method.
+	NoPassword []NoPasswordParameters `json:"noPassword,omitempty" tf:"no_password,omitempty"`
+
+	// (Block List) Plaintext password authentication. (see below for nested schema)
+	// Plaintext password authentication.
+	PlaintextPassword []PlaintextPasswordObservation `json:"plaintextPassword,omitempty" tf:"plaintext_password,omitempty"`
+
+	// (Block List) SSH key authentication. (see below for nested schema)
+	// SSH key authentication.
+	SSHKey []SSHKeyObservation `json:"sshKey,omitempty" tf:"ssh_key,omitempty"`
+
+	// (Block List) SSL certificate authentication. Exactly one of common_name or subject_alt_name. (see below for nested schema)
+	// SSL certificate authentication. Exactly one of common_name or subject_alt_name.
+	SSLCertificate []SSLCertificateObservation `json:"sslCertificate,omitempty" tf:"ssl_certificate,omitempty"`
+
+	// (Block List) SHA256 hash authentication. (see below for nested schema)
+	// SHA256 hash authentication.
+	Sha256Hash []Sha256HashObservation `json:"sha256Hash,omitempty" tf:"sha256_hash,omitempty"`
+
+	// (Block List) SHA256 password authentication (ClickHouse computes the hash). (see below for nested schema)
+	// SHA256 password authentication (ClickHouse computes the hash).
+	Sha256Password []Sha256PasswordObservation `json:"sha256Password,omitempty" tf:"sha256_password,omitempty"`
+}
+
+type AuthParameters struct {
+
+	// (Block List) Bcrypt hash authentication. (see below for nested schema)
+	// Bcrypt hash authentication.
+	// +kubebuilder:validation:Optional
+	BcryptHash []BcryptHashParameters `json:"bcryptHash,omitempty" tf:"bcrypt_hash,omitempty"`
+
+	// (Block List) Bcrypt password authentication. (see below for nested schema)
+	// Bcrypt password authentication.
+	// +kubebuilder:validation:Optional
+	BcryptPassword []BcryptPasswordParameters `json:"bcryptPassword,omitempty" tf:"bcrypt_password,omitempty"`
+
+	// (Block List) Double SHA1 hash authentication. (see below for nested schema)
+	// Double SHA1 hash authentication.
+	// +kubebuilder:validation:Optional
+	DoubleSha1Hash []DoubleSha1HashParameters `json:"doubleSha1Hash,omitempty" tf:"double_sha1_hash,omitempty"`
+
+	// (Block List) Double SHA1 password authentication. (see below for nested schema)
+	// Double SHA1 password authentication.
+	// +kubebuilder:validation:Optional
+	DoubleSha1Password []DoubleSha1PasswordParameters `json:"doubleSha1Password,omitempty" tf:"double_sha1_password,omitempty"`
+
+	// (Block List) HTTP authentication. Exactly one of server or scheme. (see below for nested schema)
+	// HTTP authentication. Exactly one of server or scheme.
+	// +kubebuilder:validation:Optional
+	HTTP []HTTPParameters `json:"http,omitempty" tf:"http,omitempty"`
+
+	// (Block List) Kerberos authentication. (see below for nested schema)
+	// Kerberos authentication.
+	// +kubebuilder:validation:Optional
+	Kerberos []KerberosParameters `json:"kerberos,omitempty" tf:"kerberos,omitempty"`
+
+	// (Block List) LDAP authentication. (see below for nested schema)
+	// LDAP authentication.
+	// +kubebuilder:validation:Optional
+	Ldap []LdapParameters `json:"ldap,omitempty" tf:"ldap,omitempty"`
+
+	// is exclusive — it cannot be combined with any other method.
+	// Passwordless authentication. Cannot be combined with any other method.
+	// +kubebuilder:validation:Optional
+	NoPassword []NoPasswordParameters `json:"noPassword,omitempty" tf:"no_password,omitempty"`
+
+	// (Block List) Plaintext password authentication. (see below for nested schema)
+	// Plaintext password authentication.
+	// +kubebuilder:validation:Optional
+	PlaintextPassword []PlaintextPasswordParameters `json:"plaintextPassword,omitempty" tf:"plaintext_password,omitempty"`
+
+	// (Block List) SSH key authentication. (see below for nested schema)
+	// SSH key authentication.
+	// +kubebuilder:validation:Optional
+	SSHKey []SSHKeyParameters `json:"sshKey,omitempty" tf:"ssh_key,omitempty"`
+
+	// (Block List) SSL certificate authentication. Exactly one of common_name or subject_alt_name. (see below for nested schema)
+	// SSL certificate authentication. Exactly one of common_name or subject_alt_name.
+	// +kubebuilder:validation:Optional
+	SSLCertificate []SSLCertificateParameters `json:"sslCertificate,omitempty" tf:"ssl_certificate,omitempty"`
+
+	// (Block List) SHA256 hash authentication. (see below for nested schema)
+	// SHA256 hash authentication.
+	// +kubebuilder:validation:Optional
+	Sha256Hash []Sha256HashParameters `json:"sha256Hash,omitempty" tf:"sha256_hash,omitempty"`
+
+	// (Block List) SHA256 password authentication (ClickHouse computes the hash). (see below for nested schema)
+	// SHA256 password authentication (ClickHouse computes the hash).
+	// +kubebuilder:validation:Optional
+	Sha256Password []Sha256PasswordParameters `json:"sha256Password,omitempty" tf:"sha256_password,omitempty"`
+}
+
+type BcryptHashInitParameters struct {
+
+	// 11.
+	// Authentication value stored in state.11. Exactly one of value or value_wo.
+	ValueSecretRef *v2.LocalSecretKeySelector `json:"valueSecretRef,omitempty" tf:"-"`
+
+	// 11).
+	// Bump value_wo_version to re-apply the value.
+	// Write-only authentication value, not stored in state.11.
+	ValueWoSecretRef *v2.LocalSecretKeySelector `json:"valueWoSecretRef,omitempty" tf:"-"`
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type BcryptHashObservation struct {
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type BcryptHashParameters struct {
+
+	// 11.
+	// Authentication value stored in state.11. Exactly one of value or value_wo.
+	// +kubebuilder:validation:Optional
+	ValueSecretRef *v2.LocalSecretKeySelector `json:"valueSecretRef,omitempty" tf:"-"`
+
+	// 11).
+	// Bump value_wo_version to re-apply the value.
+	// Write-only authentication value, not stored in state.11.
+	// +kubebuilder:validation:Optional
+	ValueWoSecretRef *v2.LocalSecretKeySelector `json:"valueWoSecretRef,omitempty" tf:"-"`
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	// +kubebuilder:validation:Optional
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type BcryptPasswordInitParameters struct {
+
+	// 11.
+	// Authentication value stored in state.11. Exactly one of value or value_wo.
+	ValueSecretRef *v2.LocalSecretKeySelector `json:"valueSecretRef,omitempty" tf:"-"`
+
+	// 11).
+	// Bump value_wo_version to re-apply the value.
+	// Write-only authentication value, not stored in state.11.
+	ValueWoSecretRef *v2.LocalSecretKeySelector `json:"valueWoSecretRef,omitempty" tf:"-"`
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type BcryptPasswordObservation struct {
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type BcryptPasswordParameters struct {
+
+	// 11.
+	// Authentication value stored in state.11. Exactly one of value or value_wo.
+	// +kubebuilder:validation:Optional
+	ValueSecretRef *v2.LocalSecretKeySelector `json:"valueSecretRef,omitempty" tf:"-"`
+
+	// 11).
+	// Bump value_wo_version to re-apply the value.
+	// Write-only authentication value, not stored in state.11.
+	// +kubebuilder:validation:Optional
+	ValueWoSecretRef *v2.LocalSecretKeySelector `json:"valueWoSecretRef,omitempty" tf:"-"`
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	// +kubebuilder:validation:Optional
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type DoubleSha1HashInitParameters struct {
+
+	// 11.
+	// Authentication value stored in state.11. Exactly one of value or value_wo.
+	ValueSecretRef *v2.LocalSecretKeySelector `json:"valueSecretRef,omitempty" tf:"-"`
+
+	// 11).
+	// Bump value_wo_version to re-apply the value.
+	// Write-only authentication value, not stored in state.11.
+	ValueWoSecretRef *v2.LocalSecretKeySelector `json:"valueWoSecretRef,omitempty" tf:"-"`
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type DoubleSha1HashObservation struct {
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type DoubleSha1HashParameters struct {
+
+	// 11.
+	// Authentication value stored in state.11. Exactly one of value or value_wo.
+	// +kubebuilder:validation:Optional
+	ValueSecretRef *v2.LocalSecretKeySelector `json:"valueSecretRef,omitempty" tf:"-"`
+
+	// 11).
+	// Bump value_wo_version to re-apply the value.
+	// Write-only authentication value, not stored in state.11.
+	// +kubebuilder:validation:Optional
+	ValueWoSecretRef *v2.LocalSecretKeySelector `json:"valueWoSecretRef,omitempty" tf:"-"`
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	// +kubebuilder:validation:Optional
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type DoubleSha1PasswordInitParameters struct {
+
+	// 11.
+	// Authentication value stored in state.11. Exactly one of value or value_wo.
+	ValueSecretRef *v2.LocalSecretKeySelector `json:"valueSecretRef,omitempty" tf:"-"`
+
+	// 11).
+	// Bump value_wo_version to re-apply the value.
+	// Write-only authentication value, not stored in state.11.
+	ValueWoSecretRef *v2.LocalSecretKeySelector `json:"valueWoSecretRef,omitempty" tf:"-"`
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type DoubleSha1PasswordObservation struct {
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type DoubleSha1PasswordParameters struct {
+
+	// 11.
+	// Authentication value stored in state.11. Exactly one of value or value_wo.
+	// +kubebuilder:validation:Optional
+	ValueSecretRef *v2.LocalSecretKeySelector `json:"valueSecretRef,omitempty" tf:"-"`
+
+	// 11).
+	// Bump value_wo_version to re-apply the value.
+	// Write-only authentication value, not stored in state.11.
+	// +kubebuilder:validation:Optional
+	ValueWoSecretRef *v2.LocalSecretKeySelector `json:"valueWoSecretRef,omitempty" tf:"-"`
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	// +kubebuilder:validation:Optional
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type HTTPInitParameters struct {
+
+	// (String) HTTP authentication scheme (e.g. Basic).
+	// HTTP authentication scheme (e.g. Basic).
+	Scheme *string `json:"scheme,omitempty" tf:"scheme,omitempty"`
+
+	// (String) HTTP authentication server name.
+	// HTTP authentication server name.
+	Server *string `json:"server,omitempty" tf:"server,omitempty"`
+}
+
+type HTTPObservation struct {
+
+	// (String) HTTP authentication scheme (e.g. Basic).
+	// HTTP authentication scheme (e.g. Basic).
+	Scheme *string `json:"scheme,omitempty" tf:"scheme,omitempty"`
+
+	// (String) HTTP authentication server name.
+	// HTTP authentication server name.
+	Server *string `json:"server,omitempty" tf:"server,omitempty"`
+}
+
+type HTTPParameters struct {
+
+	// (String) HTTP authentication scheme (e.g. Basic).
+	// HTTP authentication scheme (e.g. Basic).
+	// +kubebuilder:validation:Optional
+	Scheme *string `json:"scheme,omitempty" tf:"scheme,omitempty"`
+
+	// (String) HTTP authentication server name.
+	// HTTP authentication server name.
+	// +kubebuilder:validation:Optional
+	Server *string `json:"server,omitempty" tf:"server,omitempty"`
+}
+
+type KerberosInitParameters struct {
+
+	// (String) Optional Kerberos realm to restrict authentication to.
+	// Optional Kerberos realm to restrict authentication to.
+	Realm *string `json:"realm,omitempty" tf:"realm,omitempty"`
+}
+
+type KerberosObservation struct {
+
+	// (String) Optional Kerberos realm to restrict authentication to.
+	// Optional Kerberos realm to restrict authentication to.
+	Realm *string `json:"realm,omitempty" tf:"realm,omitempty"`
+}
+
+type KerberosParameters struct {
+
+	// (String) Optional Kerberos realm to restrict authentication to.
+	// Optional Kerberos realm to restrict authentication to.
+	// +kubebuilder:validation:Optional
+	Realm *string `json:"realm,omitempty" tf:"realm,omitempty"`
+}
+
+type LdapInitParameters struct {
+
+	// (String) HTTP authentication server name.
+	// LDAP server name (as defined in ClickHouse config).
+	Server *string `json:"server,omitempty" tf:"server,omitempty"`
+}
+
+type LdapObservation struct {
+
+	// (String) HTTP authentication server name.
+	// LDAP server name (as defined in ClickHouse config).
+	Server *string `json:"server,omitempty" tf:"server,omitempty"`
+}
+
+type LdapParameters struct {
+
+	// (String) HTTP authentication server name.
+	// LDAP server name (as defined in ClickHouse config).
+	// +kubebuilder:validation:Optional
+	Server *string `json:"server" tf:"server,omitempty"`
+}
+
+type NoPasswordInitParameters struct {
+}
+
+type NoPasswordObservation struct {
+}
+
+type NoPasswordParameters struct {
+}
+
+type PlaintextPasswordInitParameters struct {
+
+	// 11.
+	// Authentication value stored in state.11. Exactly one of value or value_wo.
+	ValueSecretRef *v2.LocalSecretKeySelector `json:"valueSecretRef,omitempty" tf:"-"`
+
+	// 11).
+	// Bump value_wo_version to re-apply the value.
+	// Write-only authentication value, not stored in state.11.
+	ValueWoSecretRef *v2.LocalSecretKeySelector `json:"valueWoSecretRef,omitempty" tf:"-"`
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type PlaintextPasswordObservation struct {
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type PlaintextPasswordParameters struct {
+
+	// 11.
+	// Authentication value stored in state.11. Exactly one of value or value_wo.
+	// +kubebuilder:validation:Optional
+	ValueSecretRef *v2.LocalSecretKeySelector `json:"valueSecretRef,omitempty" tf:"-"`
+
+	// 11).
+	// Bump value_wo_version to re-apply the value.
+	// Write-only authentication value, not stored in state.11.
+	// +kubebuilder:validation:Optional
+	ValueWoSecretRef *v2.LocalSecretKeySelector `json:"valueWoSecretRef,omitempty" tf:"-"`
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	// +kubebuilder:validation:Optional
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type SSHKeyInitParameters struct {
+
+	// (String) SSH public key.
+	// SSH public key.
+	PublicKey *string `json:"publicKey,omitempty" tf:"public_key,omitempty"`
+
+	// rsa, ssh-ed25519).
+	// SSH key type (e.g. ssh-rsa, ssh-ed25519).
+	Type *string `json:"type,omitempty" tf:"type,omitempty"`
+}
+
+type SSHKeyObservation struct {
+
+	// (String) SSH public key.
+	// SSH public key.
+	PublicKey *string `json:"publicKey,omitempty" tf:"public_key,omitempty"`
+
+	// rsa, ssh-ed25519).
+	// SSH key type (e.g. ssh-rsa, ssh-ed25519).
+	Type *string `json:"type,omitempty" tf:"type,omitempty"`
+}
+
+type SSHKeyParameters struct {
+
+	// (String) SSH public key.
+	// SSH public key.
+	// +kubebuilder:validation:Optional
+	PublicKey *string `json:"publicKey" tf:"public_key,omitempty"`
+
+	// rsa, ssh-ed25519).
+	// SSH key type (e.g. ssh-rsa, ssh-ed25519).
+	// +kubebuilder:validation:Optional
+	Type *string `json:"type" tf:"type,omitempty"`
+}
+
+type SSLCertificateInitParameters struct {
+
+	// (String) Certificate Common Name (CN).
+	// Certificate Common Name (CN).
+	CommonName *string `json:"commonName,omitempty" tf:"common_name,omitempty"`
+
+	// (String) Certificate Subject Alternative Name (SAN).
+	// Certificate Subject Alternative Name (SAN).
+	SubjectAltName *string `json:"subjectAltName,omitempty" tf:"subject_alt_name,omitempty"`
+}
+
+type SSLCertificateObservation struct {
+
+	// (String) Certificate Common Name (CN).
+	// Certificate Common Name (CN).
+	CommonName *string `json:"commonName,omitempty" tf:"common_name,omitempty"`
+
+	// (String) Certificate Subject Alternative Name (SAN).
+	// Certificate Subject Alternative Name (SAN).
+	SubjectAltName *string `json:"subjectAltName,omitempty" tf:"subject_alt_name,omitempty"`
+}
+
+type SSLCertificateParameters struct {
+
+	// (String) Certificate Common Name (CN).
+	// Certificate Common Name (CN).
+	// +kubebuilder:validation:Optional
+	CommonName *string `json:"commonName,omitempty" tf:"common_name,omitempty"`
+
+	// (String) Certificate Subject Alternative Name (SAN).
+	// Certificate Subject Alternative Name (SAN).
+	// +kubebuilder:validation:Optional
+	SubjectAltName *string `json:"subjectAltName,omitempty" tf:"subject_alt_name,omitempty"`
+}
+
+type Sha256HashInitParameters struct {
+
+	// (String) Optional salt used with the sha256 hash.
+	// Optional salt used with the sha256 hash.
+	Salt *string `json:"salt,omitempty" tf:"salt,omitempty"`
+
+	// 11.
+	// Authentication value stored in state.11. Exactly one of value or value_wo.
+	ValueSecretRef *v2.LocalSecretKeySelector `json:"valueSecretRef,omitempty" tf:"-"`
+
+	// 11).
+	// Bump value_wo_version to re-apply the value.
+	// Write-only authentication value, not stored in state.11.
+	ValueWoSecretRef *v2.LocalSecretKeySelector `json:"valueWoSecretRef,omitempty" tf:"-"`
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type Sha256HashObservation struct {
+
+	// (String) Optional salt used with the sha256 hash.
+	// Optional salt used with the sha256 hash.
+	Salt *string `json:"salt,omitempty" tf:"salt,omitempty"`
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type Sha256HashParameters struct {
+
+	// (String) Optional salt used with the sha256 hash.
+	// Optional salt used with the sha256 hash.
+	// +kubebuilder:validation:Optional
+	Salt *string `json:"salt,omitempty" tf:"salt,omitempty"`
+
+	// 11.
+	// Authentication value stored in state.11. Exactly one of value or value_wo.
+	// +kubebuilder:validation:Optional
+	ValueSecretRef *v2.LocalSecretKeySelector `json:"valueSecretRef,omitempty" tf:"-"`
+
+	// 11).
+	// Bump value_wo_version to re-apply the value.
+	// Write-only authentication value, not stored in state.11.
+	// +kubebuilder:validation:Optional
+	ValueWoSecretRef *v2.LocalSecretKeySelector `json:"valueWoSecretRef,omitempty" tf:"-"`
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	// +kubebuilder:validation:Optional
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type Sha256PasswordInitParameters struct {
+
+	// 11.
+	// Authentication value stored in state.11. Exactly one of value or value_wo.
+	ValueSecretRef *v2.LocalSecretKeySelector `json:"valueSecretRef,omitempty" tf:"-"`
+
+	// 11).
+	// Bump value_wo_version to re-apply the value.
+	// Write-only authentication value, not stored in state.11.
+	ValueWoSecretRef *v2.LocalSecretKeySelector `json:"valueWoSecretRef,omitempty" tf:"-"`
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type Sha256PasswordObservation struct {
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
+
+type Sha256PasswordParameters struct {
+
+	// 11.
+	// Authentication value stored in state.11. Exactly one of value or value_wo.
+	// +kubebuilder:validation:Optional
+	ValueSecretRef *v2.LocalSecretKeySelector `json:"valueSecretRef,omitempty" tf:"-"`
+
+	// 11).
+	// Bump value_wo_version to re-apply the value.
+	// Write-only authentication value, not stored in state.11.
+	// +kubebuilder:validation:Optional
+	ValueWoSecretRef *v2.LocalSecretKeySelector `json:"valueWoSecretRef,omitempty" tf:"-"`
+
+	// apply the write-only value.
+	// Version of value_wo. Bump to re-apply the write-only value.
+	// +kubebuilder:validation:Optional
+	ValueWoVersion *float64 `json:"valueWoVersion,omitempty" tf:"value_wo_version,omitempty"`
+}
 
 type UserInitParameters struct {
 
@@ -35,10 +677,14 @@ type UserInitParameters struct {
 
 	// (String, Sensitive, Deprecated) SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
 	// Reference to a secret containing the SHA256 hash of the password. This field is automatically set.
-	PasswordSha256HashSecretRef *v1.LocalSecretKeySelector `json:"passwordSha256HashSecretRef,omitempty" tf:"-"`
+	PasswordSha256HashSecretRef *v2.LocalSecretKeySelector `json:"passwordSha256HashSecretRef,omitempty" tf:"-"`
 }
 
 type UserObservation struct {
+
+	// (Block, Optional) Authentication methods for the user. Methods may be combined and each block (except no_password) may be repeated. (see below for nested schema)
+	// Authentication methods for the user. Methods may be combined and each block (except no_password) may be repeated.
+	Auth []AuthObservation `json:"auth,omitempty" tf:"auth,omitempty"`
 
 	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
@@ -97,7 +743,7 @@ type UserParameters struct {
 	// (String, Sensitive, Deprecated) SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
 	// Reference to a secret containing the SHA256 hash of the password. This field is automatically set.
 	// +kubebuilder:validation:Optional
-	PasswordSha256HashSecretRef *v1.LocalSecretKeySelector `json:"passwordSha256HashSecretRef,omitempty" tf:"-"`
+	PasswordSha256HashSecretRef *v2.LocalSecretKeySelector `json:"passwordSha256HashSecretRef,omitempty" tf:"-"`
 }
 
 // UserSpec defines the desired state of User
@@ -119,8 +765,8 @@ type UserSpec struct {
 
 // UserStatus defines the observed state of User.
 type UserStatus struct {
-	v1.ResourceStatus `json:",inline"`
-	AtProvider        UserObservation `json:"atProvider,omitempty"`
+	v2.ManagedResourceStatus `json:",inline"`
+	AtProvider               UserObservation `json:"atProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true

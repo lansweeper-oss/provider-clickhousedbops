@@ -1,0 +1,54 @@
+apiVersion: row.clickhousedbops.m.crossplane.io/v1alpha1
+kind: Policy
+metadata:
+  annotations:
+    meta.upbound.io/example-id: row/v1alpha1/policy
+  labels:
+    testing.upbound.io/example-name: user_a_policy
+  name: user-a-policy
+  namespace: crossplane-system
+spec:
+  forProvider:
+    databaseNameSelector:
+      matchLabels:
+        testing.upbound.io/example-name: example
+    granteeNames:
+    - ${clickhousedbops_user.user_a.name}
+    selectFilter: user_id = 'a'
+    tableName: example_table
+
+---
+
+apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+kind: GrantPrivilege
+metadata:
+  annotations:
+    meta.upbound.io/example-id: row/v1alpha1/policy
+  labels:
+    testing.upbound.io/example-name: user_a_select
+  name: user-a-select
+  namespace: crossplane-system
+spec:
+  forProvider:
+    databaseName: logs
+    granteeUserName: user-a
+    privilegeName: SELECT
+    tableName: example_table
+
+---
+
+apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+kind: User
+metadata:
+  annotations:
+    meta.upbound.io/example-id: row/v1alpha1/policy
+  labels:
+    testing.upbound.io/example-name: user_a
+  name: user-a
+  namespace: crossplane-system
+spec:
+  forProvider:
+    name: user-a
+    passwordSha256HashSecretRef:
+      key: example-key
+      name: example-secret

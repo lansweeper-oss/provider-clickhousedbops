@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	v1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	v2 "github.com/crossplane/crossplane/apis/v2/core/v2"
 )
 
 type GrantRoleInitParameters struct {
@@ -103,8 +103,8 @@ type GrantRoleParameters struct {
 
 // GrantRoleSpec defines the desired state of GrantRole
 type GrantRoleSpec struct {
-	v1.ResourceSpec `json:",inline"`
-	ForProvider     GrantRoleParameters `json:"forProvider"`
+	v2.ClusterManagedResourceSpec `json:",inline"`
+	ForProvider                   GrantRoleParameters `json:"forProvider"`
 	// THIS IS A BETA FIELD. It will be honored
 	// unless the Management Policies feature flag is disabled.
 	// InitProvider holds the same fields as ForProvider, with the exception
@@ -120,8 +120,8 @@ type GrantRoleSpec struct {
 
 // GrantRoleStatus defines the observed state of GrantRole.
 type GrantRoleStatus struct {
-	v1.ResourceStatus `json:",inline"`
-	AtProvider        GrantRoleObservation `json:"atProvider,omitempty"`
+	v2.ManagedResourceStatus `json:",inline"`
+	AtProvider               GrantRoleObservation `json:"atProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true
