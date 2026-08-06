@@ -37,7 +37,7 @@ resources:
               terraform import clickhousedbops_database.example cluster:databasename
     clickhousedbops_grant_privilege:
         subCategory: ""
-        description: 'You can use the clickhousedbops_grant_privilege resource to grant privileges on databases and tables to either a clickhousedbops_user or a clickhousedbops_role. Please note that in order to grant privileges to all database and/or all tables, the database and/or table fields must be set to null, and not to "*". Known limitations: Only a subset of privileges can be granted on ClickHouse cloud. For example the ALL privilege can''t be granted. See https://clickhouse.com/docs/en/sql-reference/statements/grant#allIt''s not possible to grant privileges using their alias name. The canonical name must be used.It''s not possible to grant group of privileges. Please grant each member of the group individually instead.It''s not possible to grant the same clickhousedbops_grant_privilege to both a clickhousedbops_user and a clickhousedbops_role using a single clickhousedbops_grant_privilege stanza. You can do that using two different stanzas, one with grantee_user_name and the other with grantee_role_name fields set.It''s not possible to grant the same privilege (example ''SELECT'') to multiple entities (for example tables) with a single stanza. You can do that my creating one stanza for each entity you want to grant privileges on.Importing clickhousedbops_grant_privilege resources into terraform is not supported.'
+        description: 'You can use the clickhousedbops_grant_privilege resource to grant privileges on databases and tables to either a clickhousedbops_user or a clickhousedbops_role. Please note that in order to grant privileges to all database and/or all tables, the database and/or table fields must be set to null, and not to "*". Known limitations: On ClickHouse Cloud some broad privileges (for example ALL, or SELECT on'
         name: clickhousedbops_grant_privilege
         title: clickhousedbops_grant_privilege Resource - clickhousedbops
         examples:
@@ -51,20 +51,52 @@ resources:
                   "privilege_name": "SELECT",
                   "table_name": "tbl1"
                 }
+            - name: read_everything
+              manifest: |-
+                {
+                  "current_grants": true,
+                  "grantee_user_name": "my_monitoring_user",
+                  "privilege_name": "SELECT"
+                }
+            - name: full_db_access
+              manifest: |-
+                {
+                  "current_grants": true,
+                  "database_name": "mydb",
+                  "grantee_role_name": "my_role",
+                  "privilege_name": "ALL"
+                }
+            - name: user_admin
+              manifest: |-
+                {
+                  "grant_option": true,
+                  "grantee_role_name": "provisioning_admin",
+                  "privilege_name": "CREATE USER"
+                }
+            - name: team_user_admin
+              manifest: |-
+                {
+                  "access_object": "team_*",
+                  "grant_option": true,
+                  "grantee_role_name": "team_provisioner",
+                  "privilege_name": "CREATE USER"
+                }
         argumentDocs:
-            ALL: privilege can't be granted. See https://clickhouse.com/docs/en/sql-reference/statements/grant#all
+            ALL: ', or SELECT on *.*) can''t be granted directly, because the admin user holds them but can''t transfer them. Set current_grants = true to grant them via GRANT CURRENT GRANTS(...). See https://clickhouse.com/docs/en/sql-reference/statements/grant#all'
+            access_object: '(String) The object the privilege applies to: a user/role name for USER_NAME/DEFINER-scoped privileges, or a source name (e.g. S3) for source READ/WRITE grants. Supports a trailing * prefix pattern.'
             clickhousedbops_grant_privilege: to both a clickhousedbops_user and a clickhousedbops_role using a single clickhousedbops_grant_privilege stanza. You can do that using two different stanzas, one with grantee_user_name and the other with grantee_role_name fields set.
             cluster_name: |-
                 (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
                 This field must be left null when using a ClickHouse Cloud cluster.
                 When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
             column_name: (String) The name of the column in table_name to grant privilege on.
+            current_grants: '(Boolean) If true, emit GRANT CURRENT GRANTS(...) so the privilege is copied from the grantor''s own grants instead of granted directly. Required on ClickHouse Cloud for broad privileges (e.g. ALL, or SELECT on *.*) that the admin user holds but cannot transfer directly. Note: the effective grants depend on what the grantor holds at apply time, so drift on a current_grants grant is not reconciled. On destroy the privilege is revoked in full from the grantee on the target.'
             database_name: (String) The name of the database to grant privilege on. Defaults to all databases if left null
             grant_option: (Boolean) If true, the grantee will be able to grant the same privileges to others.
             grantee_role_name: (String) Name of the role to grant privileges to.
             grantee_user_name: (String) Name of the user to grant privileges to.
             privilege_name: (String) The privilege to grant, such as CREATE DATABASE, SELECT, etc. See https://clickhouse.com/docs/en/sql-reference/statements/grant#privileges.
-            table_name: (String) The name of the table to grant privilege on.
+            table_name: (String) The name of the table to grant privilege on. Defaults to all tables if left null.
         importStatements: []
     clickhousedbops_grant_role:
         subCategory: ""
@@ -90,6 +122,51 @@ resources:
             grantee_role_name: (String) Name of the role to grant role_name to.
             grantee_user_name: (String) Name of the user to grant role_name to.
             role_name: (String) Name of the role to be granted
+        importStatements: []
+    clickhousedbops_masking_policy:
+        subCategory: ""
+        description: 'You can use the clickhousedbops_masking_policy resource to manage a masking policy https://clickhouse.com/docs/cloud/guides/data-masking on a ClickHouse table. A masking policy rewrites the listed columns for the grantees named in the policy, optionally only for the rows matching where_expression. Use it to hide PII or secrets from a role while leaving the underlying data untouched. ~> ClickHouse Cloud only: masking policies are only available on ClickHouse Cloud (version 25.12+) and the feature must be enabled for the service. Open-source ClickHouse rejects the DDL. Resource can be imported by id or the'
+        name: clickhousedbops_masking_policy
+        title: clickhousedbops_masking_policy Resource - clickhousedbops
+        examples:
+            - name: logs_pii
+              manifest: |-
+                {
+                  "database_name": "logs_production",
+                  "grantee_names": [
+                    "analyst"
+                  ],
+                  "masks": {
+                    "clientIp": "multiIf(empty(clientIp), clientIp, position(clientIp, ':') \u003e 0, '** redacted **', concat(splitByChar('.', clientIp)[1], '.', splitByChar('.', clientIp)[2], '.x.x'))",
+                    "logMessage": "'** redacted **'"
+                  },
+                  "name": "logs_pii",
+                  "table_name": "logs_unified_v4",
+                  "where_expression": "ownerId NOT IN ('team_internal', 'team_tests')"
+                }
+            - name: secrets
+              manifest: |-
+                {
+                  "database_name": "default",
+                  "grantee_all_except": [
+                    "admin"
+                  ],
+                  "masks": {
+                    "ipAddress": "'** redacted **'"
+                  },
+                  "name": "secrets",
+                  "table_name": "api_request_events_v1"
+                }
+        argumentDocs:
+            database_name: (String) The database of the table the masking policy applies to. Must be a concrete name; wildcards (*) are not supported.
+            grantee_all_except: ': apply to all users and roles, excluding the ones listed. An empty set ([]) applies to everyone with no exclusions.'
+            grantee_names: ': a list of user and role names. ClickHouse stores these as one untyped list and resolves each name to a user before a role, so users and roles are not distinguished here.'
+            id: (String) The system-assigned ID for the masking policy.
+            masks: (Map of String) Map of column name to the ClickHouse expression that replaces it (the UPDATE column = expression clause). The expression is interpolated verbatim, e.g. '** redacted **' or concat(splitByChar('.', clientIp)[1], '.x.x').
+            name: (String) The name of the masking policy.
+            priority: (Number) Optional priority. When several policies touch the same column, they are applied from highest to lowest priority. Must be non-negative. Defaults to 0.
+            table_name: (String) The table the masking policy applies to. Must be a concrete name; wildcards (*) are not supported.
+            where_expression: (String) Optional WHERE condition; the columns are only masked for rows matching it. For example ownerId NOT IN ('team_a', 'team_b').
         importStatements: []
     clickhousedbops_role:
         subCategory: ""
@@ -124,6 +201,101 @@ resources:
 
               terraform import clickhousedbops_role.example cluster:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
               terraform import clickhousedbops_role.example cluster:rolename
+    clickhousedbops_row_policy:
+        subCategory: ""
+        description: 'Manages a ClickHouse row policy, which restricts the rows a user or role can access when querying a table. ~> Important: When a row policy is created on a table, all users and roles without a matching policy will see zero rows from that table. You must create an additional permissive policy (e.g. USING 1 to ALL EXCEPT ...) for any users or roles that should retain full access. Resource can be imported by id or'
+        name: clickhousedbops_row_policy
+        title: clickhousedbops_row_policy Resource - clickhousedbops
+        examples:
+            - name: user_a_policy
+              manifest: |-
+                {
+                  "database_name": "logs",
+                  "grantee_names": [
+                    "${clickhousedbops_user.user_a.name}"
+                  ],
+                  "name": "user_a_policy",
+                  "select_filter": "user_id = 'a'",
+                  "table_name": "example_table"
+                }
+              references:
+                grantee_names: clickhousedbops_user.user_a.name
+              dependencies:
+                clickhousedbops_grant_privilege.user_a_select: |-
+                    {
+                      "database_name": "logs",
+                      "grantee_user_name": "${clickhousedbops_user.user_a.name}",
+                      "privilege_name": "SELECT",
+                      "table_name": "example_table"
+                    }
+                clickhousedbops_user.user_a: |-
+                    {
+                      "name": "user-a",
+                      "password_sha256_hash": "${var.user_a_password_hash}"
+                    }
+            - name: admin_full_access
+              manifest: |-
+                {
+                  "database_name": "logs",
+                  "grantee_names": [
+                    "admin"
+                  ],
+                  "name": "admin_full_access",
+                  "select_filter": "1",
+                  "table_name": "example_table"
+                }
+              dependencies:
+                clickhousedbops_grant_privilege.user_a_select: |-
+                    {
+                      "database_name": "logs",
+                      "grantee_user_name": "${clickhousedbops_user.user_a.name}",
+                      "privilege_name": "SELECT",
+                      "table_name": "example_table"
+                    }
+                clickhousedbops_user.user_a: |-
+                    {
+                      "name": "user-a",
+                      "password_sha256_hash": "${var.user_a_password_hash}"
+                    }
+            - name: all_except_user_a
+              manifest: |-
+                {
+                  "database_name": "logs",
+                  "grantee_all_except": [
+                    "${clickhousedbops_user.user_a.name}"
+                  ],
+                  "name": "all_except_user_a",
+                  "select_filter": "1",
+                  "table_name": "example_table"
+                }
+              references:
+                grantee_all_except: clickhousedbops_user.user_a.name
+              dependencies:
+                clickhousedbops_grant_privilege.user_a_select: |-
+                    {
+                      "database_name": "logs",
+                      "grantee_user_name": "${clickhousedbops_user.user_a.name}",
+                      "privilege_name": "SELECT",
+                      "table_name": "example_table"
+                    }
+                clickhousedbops_user.user_a: |-
+                    {
+                      "name": "user-a",
+                      "password_sha256_hash": "${var.user_a_password_hash}"
+                    }
+        argumentDocs:
+            cluster_name: |-
+                (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+                This field must be left null when using a ClickHouse Cloud cluster.
+            database_name: (String) The database of the table to apply the row policy to. Must be a concrete name; wildcards (*) are not supported.
+            grantee_all_except: ': apply to all users and roles, excluding the ones listed. An empty set ([]) applies to everyone with no exclusions.'
+            grantee_names: ': a list of user and role names. ClickHouse stores these as one untyped list and resolves each name to a user before a role, so users and roles are not distinguished here.'
+            id: (String) The system-assigned ID for the row policy.
+            is_restrictive: (Boolean) If true, the policy is restrictive (AND logic). If false (default), the policy is permissive (OR logic).
+            name: (String) The name of the row policy.
+            select_filter: '(String) The filter expression used in the USING clause. For example: tenant_id = ''abc''.'
+            table_name: (String) The table to apply the row policy to. Must be a concrete name; wildcards (*) are not supported.
+        importStatements: []
     clickhousedbops_setting:
         subCategory: ""
         description: You can use the clickhousedbops_setting resource to manage the single settings of a Setting Profile in a ClickHouse instance.
@@ -216,43 +388,112 @@ resources:
         importStatements: []
     clickhousedbops_user:
         subCategory: ""
-        description: 'You can use the clickhousedbops_user resource to create a user in a ClickHouse instance. Password Field Options This resource supports two approaches for setting passwords: password_sha256_hash_wo and password_sha256_hash_wo_version:  field uses the write-only pattern (not stored in state), so you must bump password_sha256_hash_wo_version to trigger password updates.password_sha256_hash: Use this field for OpenTofu (version < 1.11) compatibility. This field uses the standard Sensitive attribute and is stored in state, so OpenTofu can automatically detect password changes. Any change to this field will trigger resource replacement. You must use either password_sha256_hash_wo/password_sha256_hash_wo_version pair OR password_sha256_hash, but not both. Known limitations: Changing the password will cause the database user to be deleted and recreated.Changing password_sha256_hash_wo alone does not trigger an update. You must also bump password_sha256_hash_wo_version.When importing an existing user, the clickhousedbops_user resource will be lacking the password or the password_sha256_hash_wo_version, and thus the subsequent apply will need to recreate the database User in order to set a password.'
+        description: 'You can use the clickhousedbops_user resource to create a user in a ClickHouse instance. Authentication Use the auth block to configure the user''s authentication. ClickHouse supports combining several methods, so auth may contain multiple method blocks, and every method block except no_password may be repeated:'
         name: clickhousedbops_user
         title: clickhousedbops_user Resource - clickhousedbops
         examples:
+            - name: example
+              manifest: |-
+                {
+                  "auth": [
+                    {
+                      "sha256_hash": [
+                        {
+                          "value_wo": "${sha256(\"changeme\")}",
+                          "value_wo_version": 1
+                        }
+                      ],
+                      "ssl_certificate": [
+                        {
+                          "common_name": "example-service"
+                        }
+                      ]
+                    }
+                  ],
+                  "name": "example"
+                }
             - name: jane
               manifest: |-
                 {
-                  "cluster_name": "cluster",
-                  "name": "jane",
-                  "password_sha256_hash_wo": "${sha256(\"test\")}",
-                  "password_sha256_hash_wo_version": 4
+                  "auth": [
+                    {
+                      "sha256_hash": [
+                        {
+                          "value_wo": "${sha256(\"changeme\")}",
+                          "value_wo_version": 1
+                        }
+                      ],
+                      "ssl_certificate": [
+                        {
+                          "common_name": "jane-service"
+                        }
+                      ]
+                    }
+                  ],
+                  "name": "jane"
+                }
+            - name: readonly
+              manifest: |-
+                {
+                  "auth": [
+                    {
+                      "no_password": [
+                        {}
+                      ]
+                    }
+                  ],
+                  "name": "readonly"
                 }
             - name: john
               manifest: |-
                 {
-                  "cluster_name": "cluster",
                   "name": "john",
-                  "password_sha256_hash": "${sha256(\"test\")}"
+                  "password_sha256_hash": "${sha256(\"changeme\")}"
                 }
         argumentDocs:
-            Sensitive: attribute and is stored in state, so OpenTofu can automatically detect password changes. Any change to this field will trigger resource replacement.
-            clickhousedbops_user: resource will be lacking the password or the password_sha256_hash_wo_version, and thus the subsequent apply will need to recreate the database User in order to set a password.
+            auth: (Block, Optional) Authentication methods for the user. Methods may be combined and each block (except no_password) may be repeated. (see below for nested schema)
+            bcrypt_hash: (Block List) Bcrypt hash authentication. (see below for nested schema)
+            bcrypt_password: (Block List) Bcrypt password authentication. (see below for nested schema)
             cluster_name: |-
                 (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
                 This field must be left null when using a ClickHouse Cloud cluster.
                 When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
+            common_name: (String) Certificate Common Name (CN).
+            double_sha1_hash: (Block List) Double SHA1 hash authentication. (see below for nested schema)
+            double_sha1_password: (Block List) Double SHA1 password authentication. (see below for nested schema)
             host_ips: (Set of String) IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
+            http: (Block List) HTTP authentication. Exactly one of server or scheme. (see below for nested schema)
             id: (String) The system-assigned ID for the user
+            kerberos: (Block List) Kerberos authentication. (see below for nested schema)
+            ldap: (Block List) LDAP authentication. (see below for nested schema)
             name: (String) Name of the user
+            no_password: (Block, Optional) Passwordless authentication. Cannot be combined with any other method. (see below for nested schema)
+            no_password.no_password: is exclusive — it cannot be combined with any other method.
             password_sha256_hash: (String, Sensitive, Deprecated) SHA256 hash of the password to be set for the user. Use this for Terraform/OpenTofu < 1.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
-            password_sha256_hash_wo: and password_sha256_hash_wo_version
-            password_sha256_hash_wo_version: to trigger password updates.
+            password_sha256_hash.*_version: to force a re-apply of a write-only value.
+            password_sha256_hash_wo: (String, Sensitive, Deprecated, Write-only) SHA256 hash of the password to be set for the user. Use this for Terraform/OpenTofu >= 1.11. Conflicts with password_sha256_hash.
+            password_sha256_hash_wo_version: (Number, Deprecated) Version of the password_sha256_hash_wo field. Bump this value to require a force update of the password on the user.
+            plaintext_password: (Block List) Plaintext password authentication. (see below for nested schema)
+            public_key: (String) SSH public key.
+            realm: (String) Optional Kerberos realm to restrict authentication to.
+            salt: (String) Optional salt used with the sha256 hash.
+            scheme: (String) HTTP authentication scheme (e.g. Basic).
+            server: (String) HTTP authentication server name.
+            sha256_hash: (Block List) SHA256 hash authentication. (see below for nested schema)
+            sha256_password: (Block List) SHA256 password authentication (ClickHouse computes the hash). (see below for nested schema)
+            ssh_key: (Block List) SSH key authentication. (see below for nested schema)
+            ssl_certificate: (Block List) SSL certificate authentication. Exactly one of common_name or subject_alt_name. (see below for nested schema)
+            subject_alt_name: (String) Certificate Subject Alternative Name (SAN).
+            type: (String) SSH key type (e.g. ssh-rsa, ssh-ed25519).
+            value: ': stored in state, for Terraform/OpenTofu < 1.11.'
+            value_wo: |-
+                (with value_wo_version): write-only, never stored in state (Terraform/OpenTofu >= 1.11).
+                Bump value_wo_version to re-apply the value.
+            value_wo_version: (Number) Version of value_wo. Bump to re-apply the write-only value.
         importStatements:
             - |-
               # Users can be imported by specifying the ID.
               # Find the ID of the user by checking system.users table.
-              # WARNING: imported users will be recreated during first 'terraform apply' because the password cannot be imported.
               terraform import clickhousedbops_user.example xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
               # It's also possible to import users using the username:

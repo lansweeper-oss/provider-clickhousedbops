@@ -10,8 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	v1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
-	v2 "github.com/crossplane/crossplane-runtime/v2/apis/common/v2"
+	v2 "github.com/crossplane/crossplane/apis/v2/core/v2"
 )
 
 type SettingProfileAssociationInitParameters struct {
@@ -108,8 +107,8 @@ type SettingProfileAssociationSpec struct {
 
 // SettingProfileAssociationStatus defines the observed state of SettingProfileAssociation.
 type SettingProfileAssociationStatus struct {
-	v1.ResourceStatus `json:",inline"`
-	AtProvider        SettingProfileAssociationObservation `json:"atProvider,omitempty"`
+	v2.ManagedResourceStatus `json:",inline"`
+	AtProvider               SettingProfileAssociationObservation `json:"atProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true

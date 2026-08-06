@@ -21,7 +21,7 @@ func (mg *User) GetTerraformResourceType() string {
 
 // GetConnectionDetailsMapping for this User
 func (tr *User) GetConnectionDetailsMapping() map[string]string {
-	return map[string]string{"password_sha256_hash": "passwordSha256HashSecretRef"}
+	return map[string]string{"auth[*].bcrypt_hash[*].value": "auth[*].bcryptHash[*].valueSecretRef", "auth[*].bcrypt_hash[*].value_wo": "auth[*].bcryptHash[*].valueWoSecretRef", "auth[*].bcrypt_password[*].value": "auth[*].bcryptPassword[*].valueSecretRef", "auth[*].bcrypt_password[*].value_wo": "auth[*].bcryptPassword[*].valueWoSecretRef", "auth[*].double_sha1_hash[*].value": "auth[*].doubleSha1Hash[*].valueSecretRef", "auth[*].double_sha1_hash[*].value_wo": "auth[*].doubleSha1Hash[*].valueWoSecretRef", "auth[*].double_sha1_password[*].value": "auth[*].doubleSha1Password[*].valueSecretRef", "auth[*].double_sha1_password[*].value_wo": "auth[*].doubleSha1Password[*].valueWoSecretRef", "auth[*].plaintext_password[*].value": "auth[*].plaintextPassword[*].valueSecretRef", "auth[*].plaintext_password[*].value_wo": "auth[*].plaintextPassword[*].valueWoSecretRef", "auth[*].sha256_hash[*].value": "auth[*].sha256Hash[*].valueSecretRef", "auth[*].sha256_hash[*].value_wo": "auth[*].sha256Hash[*].valueWoSecretRef", "auth[*].sha256_password[*].value": "auth[*].sha256Password[*].valueSecretRef", "auth[*].sha256_password[*].value_wo": "auth[*].sha256Password[*].valueWoSecretRef", "password_sha256_hash": "passwordSha256HashSecretRef"}
 }
 
 // GetObservation of this User

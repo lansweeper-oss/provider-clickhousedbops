@@ -3,6 +3,17 @@ kind: Namespace
 metadata:
   name: clickhouse
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clickhouse-memory-config
+  namespace: clickhouse
+data:
+  memory.xml: |
+    <clickhouse>
+        <max_server_memory_usage_to_ram_ratio>0.8</max_server_memory_usage_to_ram_ratio>
+    </clickhouse>
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -33,11 +44,15 @@ spec:
               containerPort: 8123
           resources:
             requests:
-              memory: 512Mi
+              memory: 1Gi
               cpu: 100m
             limits:
-              memory: 1Gi
+              memory: 2Gi
               cpu: 500m
+          volumeMounts:
+            - name: clickhouse-config
+              mountPath: /etc/clickhouse-server/config.d/memory.xml
+              subPath: memory.xml
           readinessProbe:
             httpGet:
               path: /ping
@@ -45,6 +60,10 @@ spec:
             initialDelaySeconds: 15
             periodSeconds: 5
             failureThreshold: 12
+      volumes:
+        - name: clickhouse-config
+          configMap:
+            name: clickhouse-memory-config
 ---
 apiVersion: v1
 kind: Service

@@ -24,10 +24,12 @@ const (
 // provider.
 var ExternalNameConfigs = map[string]config.ExternalName{
 	"clickhousedbops_database":                     idWithClusterNameDatabase(),
-	"clickhousedbops_grant_privilege":              idWithStub(), // cannot be imported
-	"clickhousedbops_grant_role":                   idWithStub(), // cannot be imported
+	"clickhousedbops_grant_privilege":              idWithStub(),                  // cannot be imported
+	"clickhousedbops_grant_role":                   idWithStub(),                  // cannot be imported
+	"clickhousedbops_masking_policy":               config.IdentifierFromProvider, // overridden
 	"clickhousedbops_role":                         idWithClusterName(),
-	"clickhousedbops_setting":                      idWithStub(), // cannot be imported
+	"clickhousedbops_row_policy":                   config.IdentifierFromProvider, // overridden
+	"clickhousedbops_setting":                      idWithStub(),                  // cannot be imported
 	"clickhousedbops_settings_profile":             idWithClusterName(),
 	"clickhousedbops_settings_profile_association": idWithStub(), // cannot be imported
 	"clickhousedbops_user":                         idWithClusterName(),
