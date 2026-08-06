@@ -80,15 +80,15 @@ type PolicyParameters struct {
 
 	// (String) The database of the table the masking policy applies to. Must be a concrete name; wildcards (*) are not supported.
 	// The database of the table the masking policy applies to. Must be a concrete name; wildcards (`*`) are not supported.
-	// +crossplane:generate:reference:type=Database
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/cluster/clickhousedbops/v1alpha1.Database
 	// +kubebuilder:validation:Optional
 	DatabaseName *string `json:"databaseName,omitempty" tf:"database_name,omitempty"`
 
-	// Reference to a Database to populate databaseName.
+	// Reference to a Database in clickhousedbops to populate databaseName.
 	// +kubebuilder:validation:Optional
 	DatabaseNameRef *v2.Reference `json:"databaseNameRef,omitempty" tf:"-"`
 
-	// Selector for a Database to populate databaseName.
+	// Selector for a Database in clickhousedbops to populate databaseName.
 	// +kubebuilder:validation:Optional
 	DatabaseNameSelector *v2.Selector `json:"databaseNameSelector,omitempty" tf:"-"`
 

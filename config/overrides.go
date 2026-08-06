@@ -141,13 +141,13 @@ func Configure(p *config.Provider) {
 	p.AddResourceConfigurator("clickhousedbops_masking_policy", func(r *config.Resource) {
 		r.ExternalName = config.TemplatedStringAsIdentifier("name", "{{ .parameters.database_name }}:{{ .parameters.table_name }}:{{ .externalName }}")
 		r.References["database_name"] = config.Reference{
-			Type: "Database",
+			TerraformName: "clickhousedbops_database",
 		}
 	})
 	p.AddResourceConfigurator("clickhousedbops_row_policy", func(r *config.Resource) {
 		r.ExternalName = config.TemplatedStringAsIdentifier("name", "{{ .parameters.database_name }}:{{ .parameters.table_name }}:{{ .externalName }}")
 		r.References["database_name"] = config.Reference{
-			Type: "Database",
+			TerraformName: "clickhousedbops_database",
 		}
 	})
 }

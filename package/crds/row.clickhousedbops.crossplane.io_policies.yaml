@@ -88,7 +88,8 @@ spec:
                       The database of the table to apply the row policy to. Must be a concrete name; wildcards (`*`) are not supported.
                     type: string
                   databaseNameRef:
-                    description: Reference to a Database to populate databaseName.
+                    description: Reference to a Database in clickhousedbops to populate
+                      databaseName.
                     properties:
                       name:
                         description: Name of the referenced object.
@@ -122,7 +123,8 @@ spec:
                     - name
                     type: object
                   databaseNameSelector:
-                    description: Selector for a Database to populate databaseName.
+                    description: Selector for a Database in clickhousedbops to populate
+                      databaseName.
                     properties:
                       matchControllerRef:
                         description: |-

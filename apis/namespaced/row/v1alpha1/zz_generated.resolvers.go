@@ -9,6 +9,7 @@ package v1alpha1
 import (
 	"context"
 	reference "github.com/crossplane/crossplane-runtime/v2/pkg/reference"
+	v1alpha1 "github.com/lansweeper-oss/provider-clickhousedbops/apis/namespaced/clickhousedbops/v1alpha1"
 	errors "github.com/pkg/errors"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -27,8 +28,8 @@ func (mg *Policy) ResolveReferences(ctx context.Context, c client.Reader) error 
 		Reference:    mg.Spec.ForProvider.DatabaseNameRef,
 		Selector:     mg.Spec.ForProvider.DatabaseNameSelector,
 		To: reference.To{
-			List:    &DatabaseList{},
-			Managed: &Database{},
+			List:    &v1alpha1.DatabaseList{},
+			Managed: &v1alpha1.Database{},
 		},
 	})
 	if err != nil {
