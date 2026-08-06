@@ -1,0 +1,291 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: row-policy-enforcement
+# Validates full row-policy lifecycle: creates a database, table, two users, a
+# row policy that filters rows per user, then verifies ClickHouse enforces it by
+# querying as each user and checking the returned row count.
+#
+# Legacy cluster-scoped resources use the cluster-wide clickhousedbops.crossplane.io
+# ProviderConfig "default" from the e2e setup script. Dedicated names (rp*) avoid
+# colliding with other tests.
+spec:
+  timeouts:
+    delete: 5m
+    cleanup: 5m
+  steps:
+  - name: create-database
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: Database
+          metadata:
+            name: rpdb
+          spec:
+            forProvider:
+              name: rpdb
+            providerConfigRef:
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: Database
+          metadata:
+            name: rpdb
+          status:
+            (conditions[?type == 'Ready']):
+            - status: "True"
+
+  - name: create-table-and-data
+    try:
+    - script:
+        shell: bash
+        content: |
+          set -euo pipefail
+          kubectl wait -n clickhouse deploy/clickhouse --for=condition=Available --timeout=120s
+          kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
+            --user default --password e2epassword --query "
+              CREATE TABLE IF NOT EXISTS rpdb.events (
+                tenant String,
+                value  UInt32
+              ) ENGINE = MergeTree() ORDER BY tenant;
+              INSERT INTO rpdb.events VALUES
+                ('alice', 1), ('alice', 2),
+                ('bob', 3), ('bob', 4), ('bob', 5);
+            "
+    - script:
+        shell: bash
+        content: |
+          set -euo pipefail
+          COUNT=$(kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
+            --user default --password e2epassword \
+            --query "SELECT count() FROM rpdb.events")
+          [ "$COUNT" -eq 5 ] || { echo "FAIL: expected 5 rows, got $COUNT"; exit 1; }
+
+  - name: create-users
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: rpalice
+          spec:
+            forProvider:
+              name: rpalice
+              autoGeneratePassword: true
+            writeConnectionSecretToRef:
+              name: rpalice
+              namespace: crossplane-system
+            providerConfigRef:
+              name: default
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: rpbob
+          spec:
+            forProvider:
+              name: rpbob
+              autoGeneratePassword: true
+            writeConnectionSecretToRef:
+              name: rpbob
+              namespace: crossplane-system
+            providerConfigRef:
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: rpalice
+          status:
+            (conditions[?type == 'Ready']):
+            - status: "True"
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: User
+          metadata:
+            name: rpbob
+          status:
+            (conditions[?type == 'Ready']):
+            - status: "True"
+
+  - name: grant-select
+    try:
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: GrantPrivilege
+          metadata:
+            name: rpalice-select
+          spec:
+            forProvider:
+              databaseName: rpdb
+              granteeUserName: rpalice
+              privilegeName: SELECT
+              tableName: events
+            providerConfigRef:
+              name: default
+    - apply:
+        resource:
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: GrantPrivilege
+          metadata:
+            name: rpbob-select
+          spec:
+            forProvider:
+              databaseName: rpdb
+              granteeUserName: rpbob
+              privilegeName: SELECT
+              tableName: events
+            providerConfigRef:
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: GrantPrivilege
+          metadata:
+            name: rpalice-select
+          status:
+            (conditions[?type == 'Ready']):
+            - status: "True"
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: GrantPrivilege
+          metadata:
+            name: rpbob-select
+          status:
+            (conditions[?type == 'Ready']):
+            - status: "True"
+
+  - name: create-row-policies
+    try:
+    - apply:
+        resource:
+          apiVersion: row.clickhousedbops.crossplane.io/v1alpha1
+          kind: Policy
+          metadata:
+            name: rp-alice-filter
+          spec:
+            forProvider:
+              databaseName: rpdb
+              tableName: events
+              selectFilter: "tenant = 'alice'"
+              granteeNames:
+              - rpalice
+            providerConfigRef:
+              name: default
+    - apply:
+        resource:
+          apiVersion: row.clickhousedbops.crossplane.io/v1alpha1
+          kind: Policy
+          metadata:
+            name: rp-bob-filter
+          spec:
+            forProvider:
+              databaseName: rpdb
+              tableName: events
+              selectFilter: "tenant = 'bob'"
+              granteeNames:
+              - rpbob
+            providerConfigRef:
+              name: default
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: row.clickhousedbops.crossplane.io/v1alpha1
+          kind: Policy
+          metadata:
+            name: rp-alice-filter
+          status:
+            (conditions[?type == 'Ready']):
+            - status: "True"
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: row.clickhousedbops.crossplane.io/v1alpha1
+          kind: Policy
+          metadata:
+            name: rp-bob-filter
+          status:
+            (conditions[?type == 'Ready']):
+            - status: "True"
+
+  - name: verify-enforcement
+    try:
+    # Retrieve auto-generated passwords from connection secrets
+    - script:
+        shell: bash
+        content: |
+          set -euo pipefail
+          ALICE_PW=$(kubectl get secret rpalice -n crossplane-system -o jsonpath='{.data.password}' | base64 -d)
+          BOB_PW=$(kubectl get secret rpbob -n crossplane-system -o jsonpath='{.data.password}' | base64 -d)
+
+          # Alice should see only 2 rows (tenant='alice')
+          ALICE_COUNT=$(kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
+            --user rpalice --password "$ALICE_PW" \
+            --query "SELECT count() FROM rpdb.events")
+          echo "alice row count: $ALICE_COUNT"
+          [ "$ALICE_COUNT" -eq 2 ] || { echo "FAIL: alice expected 2 rows, got $ALICE_COUNT"; exit 1; }
+
+          # Bob should see only 3 rows (tenant='bob')
+          BOB_COUNT=$(kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
+            --user rpbob --password "$BOB_PW" \
+            --query "SELECT count() FROM rpdb.events")
+          echo "bob row count: $BOB_COUNT"
+          [ "$BOB_COUNT" -eq 3 ] || { echo "FAIL: bob expected 3 rows, got $BOB_COUNT"; exit 1; }
+
+          echo "Row policy enforcement verified."
+
+  finally:
+  - delete:
+      ref:
+        apiVersion: row.clickhousedbops.crossplane.io/v1alpha1
+        kind: Policy
+        name: rp-alice-filter
+  - delete:
+      ref:
+        apiVersion: row.clickhousedbops.crossplane.io/v1alpha1
+        kind: Policy
+        name: rp-bob-filter
+  - delete:
+      ref:
+        apiVersion: clickhousedbops.crossplane.io/v1alpha1
+        kind: GrantPrivilege
+        name: rpalice-select
+  - delete:
+      ref:
+        apiVersion: clickhousedbops.crossplane.io/v1alpha1
+        kind: GrantPrivilege
+        name: rpbob-select
+  - delete:
+      ref:
+        apiVersion: clickhousedbops.crossplane.io/v1alpha1
+        kind: User
+        name: rpalice
+  - delete:
+      ref:
+        apiVersion: clickhousedbops.crossplane.io/v1alpha1
+        kind: User
+        name: rpbob
+  - script:
+      shell: bash
+      content: |
+        kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
+          --user default --password e2epassword \
+          --query "DROP TABLE IF EXISTS rpdb.events"
+  - delete:
+      ref:
+        apiVersion: clickhousedbops.crossplane.io/v1alpha1
+        kind: Database
+        name: rpdb
