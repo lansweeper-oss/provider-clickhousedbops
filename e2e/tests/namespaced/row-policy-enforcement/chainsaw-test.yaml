@@ -252,46 +252,45 @@ spec:
           [ "$BOB_COUNT" -eq 3 ] || { echo "FAIL: bob expected 3 rows, got $BOB_COUNT"; exit 1; }
 
           echo "Row policy enforcement verified."
-
-  finally:
-  - delete:
-      ref:
-        apiVersion: row.clickhousedbops.m.crossplane.io/v1alpha1
-        kind: Policy
-        name: nrp-alice-filter
-  - delete:
-      ref:
-        apiVersion: row.clickhousedbops.m.crossplane.io/v1alpha1
-        kind: Policy
-        name: nrp-bob-filter
-  - delete:
-      ref:
-        apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
-        kind: GrantPrivilege
-        name: nrpalice-select
-  - delete:
-      ref:
-        apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
-        kind: GrantPrivilege
-        name: nrpbob-select
-  - delete:
-      ref:
-        apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
-        kind: User
-        name: nrpalice
-  - delete:
-      ref:
-        apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
-        kind: User
-        name: nrpbob
-  - script:
-      shell: bash
-      content: |
-        kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
-          --user default --password e2epassword \
-          --query "DROP TABLE IF EXISTS nrpdb.events"
-  - delete:
-      ref:
-        apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
-        kind: Database
-        name: nrpdb
+    finally:
+    - delete:
+        ref:
+          apiVersion: row.clickhousedbops.m.crossplane.io/v1alpha1
+          kind: Policy
+          name: nrp-alice-filter
+    - delete:
+        ref:
+          apiVersion: row.clickhousedbops.m.crossplane.io/v1alpha1
+          kind: Policy
+          name: nrp-bob-filter
+    - delete:
+        ref:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: GrantPrivilege
+          name: nrpalice-select
+    - delete:
+        ref:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: GrantPrivilege
+          name: nrpbob-select
+    - delete:
+        ref:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          name: nrpalice
+    - delete:
+        ref:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: User
+          name: nrpbob
+    - script:
+        shell: bash
+        content: |
+          kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
+            --user default --password e2epassword \
+            --query "DROP TABLE IF EXISTS nrpdb.events"
+    - delete:
+        ref:
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: Database
+          name: nrpdb

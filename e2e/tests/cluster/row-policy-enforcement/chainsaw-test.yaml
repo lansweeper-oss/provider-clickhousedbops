@@ -223,7 +223,6 @@ spec:
 
   - name: verify-enforcement
     try:
-    # Retrieve auto-generated passwords from connection secrets
     - script:
         shell: bash
         content: |
@@ -246,46 +245,45 @@ spec:
           [ "$BOB_COUNT" -eq 3 ] || { echo "FAIL: bob expected 3 rows, got $BOB_COUNT"; exit 1; }
 
           echo "Row policy enforcement verified."
-
-  finally:
-  - delete:
-      ref:
-        apiVersion: row.clickhousedbops.crossplane.io/v1alpha1
-        kind: Policy
-        name: rp-alice-filter
-  - delete:
-      ref:
-        apiVersion: row.clickhousedbops.crossplane.io/v1alpha1
-        kind: Policy
-        name: rp-bob-filter
-  - delete:
-      ref:
-        apiVersion: clickhousedbops.crossplane.io/v1alpha1
-        kind: GrantPrivilege
-        name: rpalice-select
-  - delete:
-      ref:
-        apiVersion: clickhousedbops.crossplane.io/v1alpha1
-        kind: GrantPrivilege
-        name: rpbob-select
-  - delete:
-      ref:
-        apiVersion: clickhousedbops.crossplane.io/v1alpha1
-        kind: User
-        name: rpalice
-  - delete:
-      ref:
-        apiVersion: clickhousedbops.crossplane.io/v1alpha1
-        kind: User
-        name: rpbob
-  - script:
-      shell: bash
-      content: |
-        kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
-          --user default --password e2epassword \
-          --query "DROP TABLE IF EXISTS rpdb.events"
-  - delete:
-      ref:
-        apiVersion: clickhousedbops.crossplane.io/v1alpha1
-        kind: Database
-        name: rpdb
+    finally:
+    - delete:
+        ref:
+          apiVersion: row.clickhousedbops.crossplane.io/v1alpha1
+          kind: Policy
+          name: rp-alice-filter
+    - delete:
+        ref:
+          apiVersion: row.clickhousedbops.crossplane.io/v1alpha1
+          kind: Policy
+          name: rp-bob-filter
+    - delete:
+        ref:
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: GrantPrivilege
+          name: rpalice-select
+    - delete:
+        ref:
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: GrantPrivilege
+          name: rpbob-select
+    - delete:
+        ref:
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: User
+          name: rpalice
+    - delete:
+        ref:
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: User
+          name: rpbob
+    - script:
+        shell: bash
+        content: |
+          kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
+            --user default --password e2epassword \
+            --query "DROP TABLE IF EXISTS rpdb.events"
+    - delete:
+        ref:
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: Database
+          name: rpdb
