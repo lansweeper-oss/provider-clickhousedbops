@@ -31,8 +31,28 @@ func backfillGrantPrivilegeDefaults() config.NewInitializerFn {
 				obs = make(map[string]any)
 			}
 
+			backfillFields := map[string]bool{
+				"current_grants": true,
+				"grant_option":   true,
+			}
+
+			// Only backfill when the observation contains real data from a previous reconcile.
+			// On the very first reconcile atProvider is empty; seeding defaults here would make
+			// upjet believe state already exists and skip copying forProvider params (like
+			// grantee_user_name) into the TF state, breaking the Read call.
+			hasRealFields := false
+			for k := range obs {
+				if !backfillFields[k] {
+					hasRealFields = true
+					break
+				}
+			}
+			if !hasRealFields {
+				return nil
+			}
+
 			changed := false
-			for _, field := range []string{"current_grants", "grant_option"} {
+			for field := range backfillFields {
 				if _, exists := obs[field]; !exists {
 					obs[field] = false
 					changed = true

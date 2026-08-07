@@ -894,6 +894,16 @@ func (in *GrantPrivilegeInitParameters) DeepCopyInto(out *GrantPrivilegeInitPara
 		*out = new(string)
 		**out = **in
 	}
+	if in.DatabaseNameRef != nil {
+		in, out := &in.DatabaseNameRef, &out.DatabaseNameRef
+		*out = new(v2.NamespacedReference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.DatabaseNameSelector != nil {
+		in, out := &in.DatabaseNameSelector, &out.DatabaseNameSelector
+		*out = new(v2.NamespacedSelector)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.GrantOption != nil {
 		in, out := &in.GrantOption, &out.GrantOption
 		*out = new(bool)
@@ -904,10 +914,30 @@ func (in *GrantPrivilegeInitParameters) DeepCopyInto(out *GrantPrivilegeInitPara
 		*out = new(string)
 		**out = **in
 	}
+	if in.GranteeRoleNameRef != nil {
+		in, out := &in.GranteeRoleNameRef, &out.GranteeRoleNameRef
+		*out = new(v2.NamespacedReference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.GranteeRoleNameSelector != nil {
+		in, out := &in.GranteeRoleNameSelector, &out.GranteeRoleNameSelector
+		*out = new(v2.NamespacedSelector)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.GranteeUserName != nil {
 		in, out := &in.GranteeUserName, &out.GranteeUserName
 		*out = new(string)
 		**out = **in
+	}
+	if in.GranteeUserNameRef != nil {
+		in, out := &in.GranteeUserNameRef, &out.GranteeUserNameRef
+		*out = new(v2.NamespacedReference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.GranteeUserNameSelector != nil {
+		in, out := &in.GranteeUserNameSelector, &out.GranteeUserNameSelector
+		*out = new(v2.NamespacedSelector)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.PrivilegeName != nil {
 		in, out := &in.PrivilegeName, &out.PrivilegeName
@@ -1061,6 +1091,16 @@ func (in *GrantPrivilegeParameters) DeepCopyInto(out *GrantPrivilegeParameters) 
 		*out = new(string)
 		**out = **in
 	}
+	if in.DatabaseNameRef != nil {
+		in, out := &in.DatabaseNameRef, &out.DatabaseNameRef
+		*out = new(v2.NamespacedReference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.DatabaseNameSelector != nil {
+		in, out := &in.DatabaseNameSelector, &out.DatabaseNameSelector
+		*out = new(v2.NamespacedSelector)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.GrantOption != nil {
 		in, out := &in.GrantOption, &out.GrantOption
 		*out = new(bool)
@@ -1071,10 +1111,30 @@ func (in *GrantPrivilegeParameters) DeepCopyInto(out *GrantPrivilegeParameters) 
 		*out = new(string)
 		**out = **in
 	}
+	if in.GranteeRoleNameRef != nil {
+		in, out := &in.GranteeRoleNameRef, &out.GranteeRoleNameRef
+		*out = new(v2.NamespacedReference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.GranteeRoleNameSelector != nil {
+		in, out := &in.GranteeRoleNameSelector, &out.GranteeRoleNameSelector
+		*out = new(v2.NamespacedSelector)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.GranteeUserName != nil {
 		in, out := &in.GranteeUserName, &out.GranteeUserName
 		*out = new(string)
 		**out = **in
+	}
+	if in.GranteeUserNameRef != nil {
+		in, out := &in.GranteeUserNameRef, &out.GranteeUserNameRef
+		*out = new(v2.NamespacedReference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.GranteeUserNameSelector != nil {
+		in, out := &in.GranteeUserNameSelector, &out.GranteeUserNameSelector
+		*out = new(v2.NamespacedSelector)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.PrivilegeName != nil {
 		in, out := &in.PrivilegeName, &out.PrivilegeName
@@ -1178,15 +1238,45 @@ func (in *GrantRoleInitParameters) DeepCopyInto(out *GrantRoleInitParameters) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.GranteeRoleNameRef != nil {
+		in, out := &in.GranteeRoleNameRef, &out.GranteeRoleNameRef
+		*out = new(v2.NamespacedReference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.GranteeRoleNameSelector != nil {
+		in, out := &in.GranteeRoleNameSelector, &out.GranteeRoleNameSelector
+		*out = new(v2.NamespacedSelector)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.GranteeUserName != nil {
 		in, out := &in.GranteeUserName, &out.GranteeUserName
 		*out = new(string)
 		**out = **in
 	}
+	if in.GranteeUserNameRef != nil {
+		in, out := &in.GranteeUserNameRef, &out.GranteeUserNameRef
+		*out = new(v2.NamespacedReference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.GranteeUserNameSelector != nil {
+		in, out := &in.GranteeUserNameSelector, &out.GranteeUserNameSelector
+		*out = new(v2.NamespacedSelector)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.RoleName != nil {
 		in, out := &in.RoleName, &out.RoleName
 		*out = new(string)
 		**out = **in
+	}
+	if in.RoleNameRef != nil {
+		in, out := &in.RoleNameRef, &out.RoleNameRef
+		*out = new(v2.NamespacedReference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.RoleNameSelector != nil {
+		in, out := &in.RoleNameSelector, &out.RoleNameSelector
+		*out = new(v2.NamespacedSelector)
+		(*in).DeepCopyInto(*out)
 	}
 }
 
@@ -1295,15 +1385,45 @@ func (in *GrantRoleParameters) DeepCopyInto(out *GrantRoleParameters) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.GranteeRoleNameRef != nil {
+		in, out := &in.GranteeRoleNameRef, &out.GranteeRoleNameRef
+		*out = new(v2.NamespacedReference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.GranteeRoleNameSelector != nil {
+		in, out := &in.GranteeRoleNameSelector, &out.GranteeRoleNameSelector
+		*out = new(v2.NamespacedSelector)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.GranteeUserName != nil {
 		in, out := &in.GranteeUserName, &out.GranteeUserName
 		*out = new(string)
 		**out = **in
 	}
+	if in.GranteeUserNameRef != nil {
+		in, out := &in.GranteeUserNameRef, &out.GranteeUserNameRef
+		*out = new(v2.NamespacedReference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.GranteeUserNameSelector != nil {
+		in, out := &in.GranteeUserNameSelector, &out.GranteeUserNameSelector
+		*out = new(v2.NamespacedSelector)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.RoleName != nil {
 		in, out := &in.RoleName, &out.RoleName
 		*out = new(string)
 		**out = **in
+	}
+	if in.RoleNameRef != nil {
+		in, out := &in.RoleNameRef, &out.RoleNameRef
+		*out = new(v2.NamespacedReference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.RoleNameSelector != nil {
+		in, out := &in.RoleNameSelector, &out.RoleNameSelector
+		*out = new(v2.NamespacedSelector)
+		(*in).DeepCopyInto(*out)
 	}
 }
 

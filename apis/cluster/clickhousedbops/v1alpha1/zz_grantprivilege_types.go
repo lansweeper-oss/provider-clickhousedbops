@@ -37,7 +37,16 @@ type GrantPrivilegeInitParameters struct {
 
 	// (String) The name of the database to grant privilege on. Defaults to all databases if left null
 	// The name of the database to grant privilege on. Defaults to all databases if left null
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/cluster/clickhousedbops/v1alpha1.Database
 	DatabaseName *string `json:"databaseName,omitempty" tf:"database_name,omitempty"`
+
+	// Reference to a Database in clickhousedbops to populate databaseName.
+	// +kubebuilder:validation:Optional
+	DatabaseNameRef *v2.Reference `json:"databaseNameRef,omitempty" tf:"-"`
+
+	// Selector for a Database in clickhousedbops to populate databaseName.
+	// +kubebuilder:validation:Optional
+	DatabaseNameSelector *v2.Selector `json:"databaseNameSelector,omitempty" tf:"-"`
 
 	// (Boolean) If true, the grantee will be able to grant the same privileges to others.
 	// If true, the grantee will be able to grant the same privileges to others.
@@ -45,11 +54,29 @@ type GrantPrivilegeInitParameters struct {
 
 	// (String) Name of the role to grant privileges to.
 	// Name of the `role` to grant privileges to.
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/cluster/clickhousedbops/v1alpha1.Role
 	GranteeRoleName *string `json:"granteeRoleName,omitempty" tf:"grantee_role_name,omitempty"`
+
+	// Reference to a Role in clickhousedbops to populate granteeRoleName.
+	// +kubebuilder:validation:Optional
+	GranteeRoleNameRef *v2.Reference `json:"granteeRoleNameRef,omitempty" tf:"-"`
+
+	// Selector for a Role in clickhousedbops to populate granteeRoleName.
+	// +kubebuilder:validation:Optional
+	GranteeRoleNameSelector *v2.Selector `json:"granteeRoleNameSelector,omitempty" tf:"-"`
 
 	// (String) Name of the user to grant privileges to.
 	// Name of the `user` to grant privileges to.
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/cluster/clickhousedbops/v1alpha1.User
 	GranteeUserName *string `json:"granteeUserName,omitempty" tf:"grantee_user_name,omitempty"`
+
+	// Reference to a User in clickhousedbops to populate granteeUserName.
+	// +kubebuilder:validation:Optional
+	GranteeUserNameRef *v2.Reference `json:"granteeUserNameRef,omitempty" tf:"-"`
+
+	// Selector for a User in clickhousedbops to populate granteeUserName.
+	// +kubebuilder:validation:Optional
+	GranteeUserNameSelector *v2.Selector `json:"granteeUserNameSelector,omitempty" tf:"-"`
 
 	// reference/statements/grant#privileges.
 	// The privilege to grant, such as `CREATE DATABASE`, `SELECT`, etc. See https://clickhouse.com/docs/en/sql-reference/statements/grant#privileges.
@@ -137,8 +164,17 @@ type GrantPrivilegeParameters struct {
 
 	// (String) The name of the database to grant privilege on. Defaults to all databases if left null
 	// The name of the database to grant privilege on. Defaults to all databases if left null
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/cluster/clickhousedbops/v1alpha1.Database
 	// +kubebuilder:validation:Optional
 	DatabaseName *string `json:"databaseName,omitempty" tf:"database_name,omitempty"`
+
+	// Reference to a Database in clickhousedbops to populate databaseName.
+	// +kubebuilder:validation:Optional
+	DatabaseNameRef *v2.Reference `json:"databaseNameRef,omitempty" tf:"-"`
+
+	// Selector for a Database in clickhousedbops to populate databaseName.
+	// +kubebuilder:validation:Optional
+	DatabaseNameSelector *v2.Selector `json:"databaseNameSelector,omitempty" tf:"-"`
 
 	// (Boolean) If true, the grantee will be able to grant the same privileges to others.
 	// If true, the grantee will be able to grant the same privileges to others.
@@ -147,13 +183,31 @@ type GrantPrivilegeParameters struct {
 
 	// (String) Name of the role to grant privileges to.
 	// Name of the `role` to grant privileges to.
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/cluster/clickhousedbops/v1alpha1.Role
 	// +kubebuilder:validation:Optional
 	GranteeRoleName *string `json:"granteeRoleName,omitempty" tf:"grantee_role_name,omitempty"`
 
+	// Reference to a Role in clickhousedbops to populate granteeRoleName.
+	// +kubebuilder:validation:Optional
+	GranteeRoleNameRef *v2.Reference `json:"granteeRoleNameRef,omitempty" tf:"-"`
+
+	// Selector for a Role in clickhousedbops to populate granteeRoleName.
+	// +kubebuilder:validation:Optional
+	GranteeRoleNameSelector *v2.Selector `json:"granteeRoleNameSelector,omitempty" tf:"-"`
+
 	// (String) Name of the user to grant privileges to.
 	// Name of the `user` to grant privileges to.
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/cluster/clickhousedbops/v1alpha1.User
 	// +kubebuilder:validation:Optional
 	GranteeUserName *string `json:"granteeUserName,omitempty" tf:"grantee_user_name,omitempty"`
+
+	// Reference to a User in clickhousedbops to populate granteeUserName.
+	// +kubebuilder:validation:Optional
+	GranteeUserNameRef *v2.Reference `json:"granteeUserNameRef,omitempty" tf:"-"`
+
+	// Selector for a User in clickhousedbops to populate granteeUserName.
+	// +kubebuilder:validation:Optional
+	GranteeUserNameSelector *v2.Selector `json:"granteeUserNameSelector,omitempty" tf:"-"`
 
 	// reference/statements/grant#privileges.
 	// The privilege to grant, such as `CREATE DATABASE`, `SELECT`, etc. See https://clickhouse.com/docs/en/sql-reference/statements/grant#privileges.

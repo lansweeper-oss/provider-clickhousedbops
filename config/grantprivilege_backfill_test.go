@@ -30,10 +30,12 @@ func TestBackfillGrantPrivilegeDefaults(t *testing.T) {
 		},
 		"SeedsOnlyMissingField": {
 			obs: map[string]any{
-				"grant_option": true,
+				"grant_option":   true,
+				"privilege_name": "SELECT",
 			},
 			wantObs: map[string]any{
 				"grant_option":   true,
+				"privilege_name": "SELECT",
 				"current_grants": false,
 			},
 		},
@@ -41,17 +43,28 @@ func TestBackfillGrantPrivilegeDefaults(t *testing.T) {
 			obs: map[string]any{
 				"current_grants": true,
 				"grant_option":   true,
+				"privilege_name": "SELECT",
 			},
 			wantObs: map[string]any{
 				"current_grants": true,
 				"grant_option":   true,
+				"privilege_name": "SELECT",
 			},
 		},
-		"HandlesNilObservation": {
-			obs: nil,
+		"SkipsWhenNilObservation": {
+			obs:     nil,
+			wantObs: nil,
+		},
+		"SkipsWhenEmptyObservation": {
+			obs:     map[string]any{},
+			wantObs: map[string]any{},
+		},
+		"SkipsWhenOnlyBackfillFieldsPresent": {
+			obs: map[string]any{
+				"grant_option": true,
+			},
 			wantObs: map[string]any{
-				"current_grants": false,
-				"grant_option":   false,
+				"grant_option": true,
 			},
 		},
 		"ReturnsGetObservationError": {
@@ -59,7 +72,9 @@ func TestBackfillGrantPrivilegeDefaults(t *testing.T) {
 			wantErr: true,
 		},
 		"ReturnsSetObservationError": {
-			obs:     map[string]any{},
+			obs: map[string]any{
+				"privilege_name": "SELECT",
+			},
 			setErr:  errors.New("write error"),
 			wantErr: true,
 		},
