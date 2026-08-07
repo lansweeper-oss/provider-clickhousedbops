@@ -28,8 +28,12 @@ metadata:
   name: user-a-select
 spec:
   forProvider:
-    databaseName: logs
-    granteeUserName: user-a
+    databaseNameSelector:
+      matchLabels:
+        testing.upbound.io/example-name: example
+    granteeUserNameSelector:
+      matchLabels:
+        testing.upbound.io/example-name: user_a
     privilegeName: SELECT
     tableName: example_table
 

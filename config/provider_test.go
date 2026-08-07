@@ -66,9 +66,9 @@ func TestGrantPrivilegeResourceConfig(t *testing.T) {
 		}
 	})
 
-	t.Run("HasNoInitializerFns", func(t *testing.T) {
-		if len(r.InitializerFns) != 0 {
-			t.Errorf("expected 0 InitializerFns, got %d", len(r.InitializerFns))
+	t.Run("HasBackfillInitializer", func(t *testing.T) {
+		if len(r.InitializerFns) != 1 {
+			t.Errorf("expected 1 InitializerFn (backfillGrantPrivilegeDefaults), got %d", len(r.InitializerFns))
 		}
 	})
 }

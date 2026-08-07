@@ -29,15 +29,42 @@ type GrantRoleInitParameters struct {
 
 	// (String) Name of the role to grant role_name to.
 	// Name of the `role` to grant `role_name` to.
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/cluster/clickhousedbops/v1alpha1.Role
 	GranteeRoleName *string `json:"granteeRoleName,omitempty" tf:"grantee_role_name,omitempty"`
+
+	// Reference to a Role in clickhousedbops to populate granteeRoleName.
+	// +kubebuilder:validation:Optional
+	GranteeRoleNameRef *v2.Reference `json:"granteeRoleNameRef,omitempty" tf:"-"`
+
+	// Selector for a Role in clickhousedbops to populate granteeRoleName.
+	// +kubebuilder:validation:Optional
+	GranteeRoleNameSelector *v2.Selector `json:"granteeRoleNameSelector,omitempty" tf:"-"`
 
 	// (String) Name of the user to grant role_name to.
 	// Name of the `user` to grant `role_name` to.
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/cluster/clickhousedbops/v1alpha1.User
 	GranteeUserName *string `json:"granteeUserName,omitempty" tf:"grantee_user_name,omitempty"`
+
+	// Reference to a User in clickhousedbops to populate granteeUserName.
+	// +kubebuilder:validation:Optional
+	GranteeUserNameRef *v2.Reference `json:"granteeUserNameRef,omitempty" tf:"-"`
+
+	// Selector for a User in clickhousedbops to populate granteeUserName.
+	// +kubebuilder:validation:Optional
+	GranteeUserNameSelector *v2.Selector `json:"granteeUserNameSelector,omitempty" tf:"-"`
 
 	// (String) Name of the role to be granted
 	// Name of the role to be granted
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/cluster/clickhousedbops/v1alpha1.Role
 	RoleName *string `json:"roleName,omitempty" tf:"role_name,omitempty"`
+
+	// Reference to a Role in clickhousedbops to populate roleName.
+	// +kubebuilder:validation:Optional
+	RoleNameRef *v2.Reference `json:"roleNameRef,omitempty" tf:"-"`
+
+	// Selector for a Role in clickhousedbops to populate roleName.
+	// +kubebuilder:validation:Optional
+	RoleNameSelector *v2.Selector `json:"roleNameSelector,omitempty" tf:"-"`
 }
 
 type GrantRoleObservation struct {
@@ -87,18 +114,45 @@ type GrantRoleParameters struct {
 
 	// (String) Name of the role to grant role_name to.
 	// Name of the `role` to grant `role_name` to.
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/cluster/clickhousedbops/v1alpha1.Role
 	// +kubebuilder:validation:Optional
 	GranteeRoleName *string `json:"granteeRoleName,omitempty" tf:"grantee_role_name,omitempty"`
 
+	// Reference to a Role in clickhousedbops to populate granteeRoleName.
+	// +kubebuilder:validation:Optional
+	GranteeRoleNameRef *v2.Reference `json:"granteeRoleNameRef,omitempty" tf:"-"`
+
+	// Selector for a Role in clickhousedbops to populate granteeRoleName.
+	// +kubebuilder:validation:Optional
+	GranteeRoleNameSelector *v2.Selector `json:"granteeRoleNameSelector,omitempty" tf:"-"`
+
 	// (String) Name of the user to grant role_name to.
 	// Name of the `user` to grant `role_name` to.
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/cluster/clickhousedbops/v1alpha1.User
 	// +kubebuilder:validation:Optional
 	GranteeUserName *string `json:"granteeUserName,omitempty" tf:"grantee_user_name,omitempty"`
 
+	// Reference to a User in clickhousedbops to populate granteeUserName.
+	// +kubebuilder:validation:Optional
+	GranteeUserNameRef *v2.Reference `json:"granteeUserNameRef,omitempty" tf:"-"`
+
+	// Selector for a User in clickhousedbops to populate granteeUserName.
+	// +kubebuilder:validation:Optional
+	GranteeUserNameSelector *v2.Selector `json:"granteeUserNameSelector,omitempty" tf:"-"`
+
 	// (String) Name of the role to be granted
 	// Name of the role to be granted
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/cluster/clickhousedbops/v1alpha1.Role
 	// +kubebuilder:validation:Optional
 	RoleName *string `json:"roleName,omitempty" tf:"role_name,omitempty"`
+
+	// Reference to a Role in clickhousedbops to populate roleName.
+	// +kubebuilder:validation:Optional
+	RoleNameRef *v2.Reference `json:"roleNameRef,omitempty" tf:"-"`
+
+	// Selector for a Role in clickhousedbops to populate roleName.
+	// +kubebuilder:validation:Optional
+	RoleNameSelector *v2.Selector `json:"roleNameSelector,omitempty" tf:"-"`
 }
 
 // GrantRoleSpec defines the desired state of GrantRole
@@ -137,9 +191,8 @@ type GrantRoleStatus struct {
 type GrantRole struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	// +kubebuilder:validation:XValidation:rule="!('*' in self.managementPolicies || 'Create' in self.managementPolicies || 'Update' in self.managementPolicies) || has(self.forProvider.roleName) || (has(self.initProvider) && has(self.initProvider.roleName))",message="spec.forProvider.roleName is a required parameter"
-	Spec   GrantRoleSpec   `json:"spec"`
-	Status GrantRoleStatus `json:"status,omitempty"`
+	Spec              GrantRoleSpec   `json:"spec"`
+	Status            GrantRoleStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

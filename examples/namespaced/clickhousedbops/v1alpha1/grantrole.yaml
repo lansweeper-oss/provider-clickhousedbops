@@ -10,5 +10,9 @@ metadata:
 spec:
   forProvider:
     clusterName: cluster
-    granteeUserName: myuser
-    roleName: myrole
+    granteeUserNameSelector:
+      matchLabels:
+        testing.upbound.io/example-name: example
+    roleNameSelector:
+      matchLabels:
+        testing.upbound.io/example-name: example

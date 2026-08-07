@@ -9,8 +9,12 @@ metadata:
 spec:
   forProvider:
     columnName: count
-    databaseName: default
+    databaseNameSelector:
+      matchLabels:
+        testing.upbound.io/example-name: example
     grantOption: true
-    granteeUserName: my_user_name
+    granteeUserNameSelector:
+      matchLabels:
+        testing.upbound.io/example-name: example
     privilegeName: SELECT
     tableName: tbl1

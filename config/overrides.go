@@ -138,6 +138,29 @@ func Configure(p *config.Provider) {
 		// re-creating; it falls back to the sentinel (force-create) when absent.
 		r.InitializerFns = append(r.InitializerFns, adoptByNameInitializer("clickhousedbops_role", "id"))
 	})
+	p.AddResourceConfigurator("clickhousedbops_grant_privilege", func(r *config.Resource) {
+		r.InitializerFns = append(r.InitializerFns, backfillGrantPrivilegeDefaults())
+		r.References["grantee_role_name"] = config.Reference{
+			TerraformName: "clickhousedbops_role",
+		}
+		r.References["grantee_user_name"] = config.Reference{
+			TerraformName: "clickhousedbops_user",
+		}
+		r.References["database_name"] = config.Reference{
+			TerraformName: "clickhousedbops_database",
+		}
+	})
+	p.AddResourceConfigurator("clickhousedbops_grant_role", func(r *config.Resource) {
+		r.References["role_name"] = config.Reference{
+			TerraformName: "clickhousedbops_role",
+		}
+		r.References["grantee_role_name"] = config.Reference{
+			TerraformName: "clickhousedbops_role",
+		}
+		r.References["grantee_user_name"] = config.Reference{
+			TerraformName: "clickhousedbops_user",
+		}
+	})
 	p.AddResourceConfigurator("clickhousedbops_masking_policy", func(r *config.Resource) {
 		r.ExternalName = config.TemplatedStringAsIdentifier("name", "{{ .parameters.database_name }}:{{ .parameters.table_name }}:{{ .externalName }}")
 		r.References["database_name"] = config.Reference{
