@@ -172,8 +172,8 @@ spec:
     try:
     - apply:
         resource:
-          apiVersion: row.clickhousedbops.crossplane.io/v1alpha1
-          kind: Policy
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: RowPolicy
           metadata:
             name: rp-alice-filter
           spec:
@@ -187,8 +187,8 @@ spec:
               name: default
     - apply:
         resource:
-          apiVersion: row.clickhousedbops.crossplane.io/v1alpha1
-          kind: Policy
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: RowPolicy
           metadata:
             name: rp-bob-filter
           spec:
@@ -203,8 +203,8 @@ spec:
     - assert:
         timeout: 5m
         resource:
-          apiVersion: row.clickhousedbops.crossplane.io/v1alpha1
-          kind: Policy
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: RowPolicy
           metadata:
             name: rp-alice-filter
           status:
@@ -213,8 +213,8 @@ spec:
     - assert:
         timeout: 5m
         resource:
-          apiVersion: row.clickhousedbops.crossplane.io/v1alpha1
-          kind: Policy
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: RowPolicy
           metadata:
             name: rp-bob-filter
           status:
@@ -248,13 +248,13 @@ spec:
     finally:
     - delete:
         ref:
-          apiVersion: row.clickhousedbops.crossplane.io/v1alpha1
-          kind: Policy
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: RowPolicy
           name: rp-alice-filter
     - delete:
         ref:
-          apiVersion: row.clickhousedbops.crossplane.io/v1alpha1
-          kind: Policy
+          apiVersion: clickhousedbops.crossplane.io/v1alpha1
+          kind: RowPolicy
           name: rp-bob-filter
     - delete:
         ref:

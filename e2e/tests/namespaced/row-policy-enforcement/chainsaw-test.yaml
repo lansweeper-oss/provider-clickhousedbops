@@ -176,8 +176,8 @@ spec:
     try:
     - apply:
         resource:
-          apiVersion: row.clickhousedbops.m.crossplane.io/v1alpha1
-          kind: Policy
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: RowPolicy
           metadata:
             name: nrp-alice-filter
           spec:
@@ -192,8 +192,8 @@ spec:
               name: default
     - apply:
         resource:
-          apiVersion: row.clickhousedbops.m.crossplane.io/v1alpha1
-          kind: Policy
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: RowPolicy
           metadata:
             name: nrp-bob-filter
           spec:
@@ -209,8 +209,8 @@ spec:
     - assert:
         timeout: 5m
         resource:
-          apiVersion: row.clickhousedbops.m.crossplane.io/v1alpha1
-          kind: Policy
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: RowPolicy
           metadata:
             name: nrp-alice-filter
           status:
@@ -219,8 +219,8 @@ spec:
     - assert:
         timeout: 5m
         resource:
-          apiVersion: row.clickhousedbops.m.crossplane.io/v1alpha1
-          kind: Policy
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: RowPolicy
           metadata:
             name: nrp-bob-filter
           status:
@@ -255,13 +255,13 @@ spec:
     finally:
     - delete:
         ref:
-          apiVersion: row.clickhousedbops.m.crossplane.io/v1alpha1
-          kind: Policy
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: RowPolicy
           name: nrp-alice-filter
     - delete:
         ref:
-          apiVersion: row.clickhousedbops.m.crossplane.io/v1alpha1
-          kind: Policy
+          apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+          kind: RowPolicy
           name: nrp-bob-filter
     - delete:
         ref:

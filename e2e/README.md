@@ -29,7 +29,7 @@ the DDL for these resources.
 
 | Resource | API Group | Reason |
 |----------|-----------|--------|
-| Masking Policy | `masking.clickhousedbops.crossplane.io` / `masking.clickhousedbops.m.crossplane.io` | Masking policies are only available on ClickHouse Cloud (v25.12+). OSS ClickHouse rejects `CREATE MASKING POLICY`. |
+| Masking Policy | `clickhousedbops.crossplane.io` / `clickhousedbops.m.crossplane.io` | Masking policies are only available on ClickHouse Cloud (v25.12+). OSS ClickHouse rejects `CREATE MASKING POLICY`. |
 
 All other resources (Database, User, Role, GrantRole, GrantPrivilege,
 SettingProfile, SettingProfileAssociation, Setting, Row Policy) work on
