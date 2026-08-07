@@ -236,3 +236,57 @@ func (mg *GrantRole) ResolveReferences(ctx context.Context, c client.Reader) err
 
 	return nil
 }
+
+// ResolveReferences of this MaskingPolicy.
+func (mg *MaskingPolicy) ResolveReferences(ctx context.Context, c client.Reader) error {
+	r := reference.NewAPINamespacedResolver(c, mg)
+
+	var rsp reference.NamespacedResolutionResponse
+	var err error
+
+	rsp, err = r.Resolve(ctx, reference.NamespacedResolutionRequest{
+		CurrentValue: reference.FromPtrValue(mg.Spec.ForProvider.DatabaseName),
+		Extract:      reference.ExternalName(),
+		Namespace:    mg.GetNamespace(),
+		Reference:    mg.Spec.ForProvider.DatabaseNameRef,
+		Selector:     mg.Spec.ForProvider.DatabaseNameSelector,
+		To: reference.To{
+			List:    &DatabaseList{},
+			Managed: &Database{},
+		},
+	})
+	if err != nil {
+		return errors.Wrap(err, "mg.Spec.ForProvider.DatabaseName")
+	}
+	mg.Spec.ForProvider.DatabaseName = reference.ToPtrValue(rsp.ResolvedValue)
+	mg.Spec.ForProvider.DatabaseNameRef = rsp.ResolvedReference
+
+	return nil
+}
+
+// ResolveReferences of this RowPolicy.
+func (mg *RowPolicy) ResolveReferences(ctx context.Context, c client.Reader) error {
+	r := reference.NewAPINamespacedResolver(c, mg)
+
+	var rsp reference.NamespacedResolutionResponse
+	var err error
+
+	rsp, err = r.Resolve(ctx, reference.NamespacedResolutionRequest{
+		CurrentValue: reference.FromPtrValue(mg.Spec.ForProvider.DatabaseName),
+		Extract:      reference.ExternalName(),
+		Namespace:    mg.GetNamespace(),
+		Reference:    mg.Spec.ForProvider.DatabaseNameRef,
+		Selector:     mg.Spec.ForProvider.DatabaseNameSelector,
+		To: reference.To{
+			List:    &DatabaseList{},
+			Managed: &Database{},
+		},
+	})
+	if err != nil {
+		return errors.Wrap(err, "mg.Spec.ForProvider.DatabaseName")
+	}
+	mg.Spec.ForProvider.DatabaseName = reference.ToPtrValue(rsp.ResolvedValue)
+	mg.Spec.ForProvider.DatabaseNameRef = rsp.ResolvedReference
+
+	return nil
+}

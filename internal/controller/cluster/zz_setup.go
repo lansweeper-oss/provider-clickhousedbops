@@ -12,14 +12,14 @@ import (
 	database "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/cluster/clickhousedbops/database"
 	grantprivilege "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/cluster/clickhousedbops/grantprivilege"
 	grantrole "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/cluster/clickhousedbops/grantrole"
+	maskingpolicy "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/cluster/clickhousedbops/maskingpolicy"
 	role "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/cluster/clickhousedbops/role"
+	rowpolicy "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/cluster/clickhousedbops/rowpolicy"
 	setting "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/cluster/clickhousedbops/setting"
 	settingprofile "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/cluster/clickhousedbops/settingprofile"
 	settingprofileassociation "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/cluster/clickhousedbops/settingprofileassociation"
 	user "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/cluster/clickhousedbops/user"
-	policy "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/cluster/masking/policy"
 	providerconfig "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/cluster/providerconfig"
-	policyrow "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/cluster/row/policy"
 )
 
 // Setup creates all controllers with the supplied logger and adds them to
@@ -29,14 +29,14 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		database.Setup,
 		grantprivilege.Setup,
 		grantrole.Setup,
+		maskingpolicy.Setup,
 		role.Setup,
+		rowpolicy.Setup,
 		setting.Setup,
 		settingprofile.Setup,
 		settingprofileassociation.Setup,
 		user.Setup,
-		policy.Setup,
 		providerconfig.Setup,
-		policyrow.Setup,
 	} {
 		if err := setup(mgr, o); err != nil {
 			return err
@@ -52,14 +52,14 @@ func SetupGated(mgr ctrl.Manager, o controller.Options) error {
 		database.SetupGated,
 		grantprivilege.SetupGated,
 		grantrole.SetupGated,
+		maskingpolicy.SetupGated,
 		role.SetupGated,
+		rowpolicy.SetupGated,
 		setting.SetupGated,
 		settingprofile.SetupGated,
 		settingprofileassociation.SetupGated,
 		user.SetupGated,
-		policy.SetupGated,
 		providerconfig.SetupGated,
-		policyrow.SetupGated,
 	} {
 		if err := setup(mgr, o); err != nil {
 			return err
@@ -74,14 +74,14 @@ func SetupWebhookWithManager(mgr ctrl.Manager) error {
 		database.SetupWebhookWithManager,
 		grantprivilege.SetupWebhookWithManager,
 		grantrole.SetupWebhookWithManager,
+		maskingpolicy.SetupWebhookWithManager,
 		role.SetupWebhookWithManager,
+		rowpolicy.SetupWebhookWithManager,
 		setting.SetupWebhookWithManager,
 		settingprofile.SetupWebhookWithManager,
 		settingprofileassociation.SetupWebhookWithManager,
 		user.SetupWebhookWithManager,
-		policy.SetupWebhookWithManager,
 		providerconfig.SetupWebhookWithManager,
-		policyrow.SetupWebhookWithManager,
 	} {
 		if err := setup(mgr); err != nil {
 			return err
