@@ -23,9 +23,9 @@ func TestBackfillGrantPrivilegeDefaults(t *testing.T) {
 				"privilege_name": "SELECT",
 			},
 			wantObs: map[string]any{
-				"privilege_name":  "SELECT",
-				"current_grants":  false,
-				"grant_option":    false,
+				"privilege_name": "SELECT",
+				"current_grants": false,
+				"grant_option":   false,
 			},
 		},
 		"SeedsOnlyMissingField": {
