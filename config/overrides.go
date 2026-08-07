@@ -23,6 +23,10 @@ var gkvOverrideMap = map[string]schema.GroupVersionKind{
 		Group: "",
 		Kind:  "GrantRole",
 	},
+	"clickhousedbops_masking_policy": {
+		Group: "",
+		Kind:  "MaskingPolicy",
+	},
 	"clickhousedbops_settings_profile": {
 		Group: "",
 		Kind:  "SettingProfile",
@@ -30,6 +34,10 @@ var gkvOverrideMap = map[string]schema.GroupVersionKind{
 	"clickhousedbops_settings_profile_association": {
 		Group: "",
 		Kind:  "SettingProfileAssociation",
+	},
+	"clickhousedbops_row_policy": {
+		Group: "",
+		Kind:  "RowPolicy",
 	},
 }
 

@@ -1,0 +1,23 @@
+apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+kind: MaskingPolicy
+metadata:
+  annotations:
+    meta.upbound.io/example-id: clickhousedbops/v1alpha1/maskingpolicy
+  labels:
+    testing.upbound.io/example-name: logs_pii
+  name: logs-pii
+  namespace: crossplane-system
+spec:
+  forProvider:
+    databaseNameSelector:
+      matchLabels:
+        testing.upbound.io/example-name: example
+    granteeNames:
+    - analyst
+    masks:
+      clientIp: multiIf(empty(clientIp), clientIp, position(clientIp, ':') > 0, '**
+        redacted **', concat(splitByChar('.', clientIp)[1], '.', splitByChar('.',
+        clientIp)[2], '.x.x'))
+      logMessage: '''** redacted **'''
+    tableName: logs_unified_v4
+    whereExpression: ownerId NOT IN ('team_internal', 'team_tests')

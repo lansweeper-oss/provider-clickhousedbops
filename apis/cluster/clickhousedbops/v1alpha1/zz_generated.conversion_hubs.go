@@ -16,7 +16,13 @@ func (tr *GrantPrivilege) Hub() {}
 func (tr *GrantRole) Hub() {}
 
 // Hub marks this type as a conversion hub.
+func (tr *MaskingPolicy) Hub() {}
+
+// Hub marks this type as a conversion hub.
 func (tr *Role) Hub() {}
+
+// Hub marks this type as a conversion hub.
+func (tr *RowPolicy) Hub() {}
 
 // Hub marks this type as a conversion hub.
 func (tr *Setting) Hub() {}
