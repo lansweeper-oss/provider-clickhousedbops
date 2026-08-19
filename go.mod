@@ -19,7 +19,7 @@ require (
 	github.com/hashicorp/terraform-plugin-go v0.31.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.40.1
 	github.com/pkg/errors v0.9.1
-	github.com/stretchr/testify v1.11.1
+	github.com/stretchr/testify v1.12.0
 	google.golang.org/grpc v1.83.0
 	k8s.io/api v0.36.3
 	k8s.io/apiextensions-apiserver v0.36.3
