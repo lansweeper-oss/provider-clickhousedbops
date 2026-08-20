@@ -32,6 +32,7 @@ func (f *fakeManaged) SetObservation(o map[string]any) error {
 
 func TestAdoptByNameInitializer(t *testing.T) {
 	const realUUID = "11111111-2222-3333-4444-555555555555"
+	const rotatedUUID = "66666666-7777-8888-9999-aaaaaaaaaaaa"
 
 	cases := map[string]struct {
 		resourceName string
@@ -80,13 +81,59 @@ func TestAdoptByNameInitializer(t *testing.T) {
 			wantExternalName: realUUID,
 			wantResolve:      true,
 		},
-		"LeavesRealUUIDUntouched": {
-			// Post-import/creation: a real UUID is present, resolver must not run.
+		"KeepsRealUUIDWhenStillCurrent": {
+			// Post-import/creation: the stored UUID still matches the name, nothing to do.
+			// The resolver is consulted to detect UUID rotation (see ReAdoptsWhenUUIDRotated).
 			resourceName: "clickhousedbops_role",
 			field:        "id",
 			startVal:     realUUID,
+			resolveID:    realUUID,
+			resolveOK:    true,
+			wantVal:      realUUID,
+			wantResolve:  true,
+		},
+		"ReAdoptsWhenUUIDRotated": {
+			// The stale-UUID incident: the entity was re-created in ClickHouse with a
+			// new UUID (backup restore, replicated access-storage rebuild). The stored
+			// UUID is stale, so Read reports "not found" and the reconciler re-creates
+			// an existing resource (error 493, "already exists"). The initializer must
+			// re-resolve by name and reseed both the observation and the external-name.
+			resourceName:     "clickhousedbops_role",
+			field:            "id",
+			startVal:         realUUID,
+			startExternal:    realUUID,
+			resolveID:        rotatedUUID,
+			resolveOK:        true,
+			wantVal:          rotatedUUID,
+			wantExternalName: rotatedUUID,
+			wantResolve:      true,
+		},
+		"KeepsRealUUIDWhenNameAbsent": {
+			// Entity genuinely gone: keep the stored UUID so Read confirms absence and
+			// a legitimate re-create proceeds.
+			resourceName: "clickhousedbops_role",
+			field:        "id",
+			startVal:     realUUID,
+			resolveOK:    false,
+			wantVal:      realUUID,
+			wantResolve:  true,
+		},
+		"KeepsRealUUIDWhenNoResolverWired": {
+			resourceName: "clickhousedbops_role",
+			field:        "id",
+			startVal:     realUUID,
+			noResolver:   true,
 			wantVal:      realUUID,
 			wantResolve:  false,
+		},
+		"ReturnsErrorForRetryOnVerifyFailure": {
+			// Lookup failure while verifying a stored UUID must surface for retry,
+			// never silently proceed with a possibly-stale identifier.
+			resourceName: "clickhousedbops_role",
+			field:        "id",
+			startVal:     realUUID,
+			resolveErr:   errors.New("clickhouse unreachable"),
+			wantErr:      true,
 		},
 		"ReturnsErrorForRetryOnLookupFailure": {
 			// Must surface the error so the reconcile retries, never force-create.

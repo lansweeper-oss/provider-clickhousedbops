@@ -25,7 +25,9 @@ func SetResolverFactory(resourceName string, f func(client.Client) UUIDResolver)
 
 // adoptByNameInitializer seeds the resource identifier before the first observe so
 // Upjet's UUID-based Read adopts an existing resource instead of re-creating it.
-// A real UUID already in the observation (post-import/creation) is left untouched.
+// A real UUID already in the observation (post-import/creation) is re-verified by
+// name, because ClickHouse assigns new UUIDs when access entities are re-created
+// out-of-band (backup restore, replicated access-storage rebuild).
 // See docs/import.md for the rationale.
 func adoptByNameInitializer(resourceName, field string) config.NewInitializerFn {
 	return func(kube client.Client) managed.Initializer {
@@ -39,8 +41,7 @@ func adoptByNameInitializer(resourceName, field string) config.NewInitializerFn 
 				return fmt.Errorf("cannot get observation for %s import initializer: %w", resourceName, err)
 			}
 			if val, _ := obs[field].(string); val != "" && val != sentinelUUID {
-				// Real UUID already set (post-import/creation)
-				return nil
+				return verifyImportIdentifier(ctx, kube, mg, tr, obs, resourceName, field, val)
 			}
 			if obs == nil {
 				obs = make(map[string]any)
@@ -48,6 +49,27 @@ func adoptByNameInitializer(resourceName, field string) config.NewInitializerFn 
 			return seedImportIdentifier(ctx, kube, mg, tr, obs, resourceName, field)
 		})
 	}
+}
+
+// verifyImportIdentifier re-resolves the UUID by name when the observation already
+// holds a real UUID. When the entity was re-created in ClickHouse with a new UUID,
+// the stored one is stale: the UUID-based Read then reports "not found" and the
+// reconciler issues a create that fails with "already exists". Reseeding the resolved
+// UUID re-adopts the entity instead. When the name resolves to nothing the stored
+// UUID is kept, so Read confirms the absence and a legitimate re-create proceeds.
+func verifyImportIdentifier(ctx context.Context, kube client.Client, mg xpresource.Managed, tr terraformedObservation, obs map[string]any, resourceName, field, current string) error {
+	factory := resolverFactories[resourceName]
+	if factory == nil {
+		return nil
+	}
+	id, found, err := factory(kube)(ctx, mg)
+	if err != nil {
+		return fmt.Errorf("cannot verify UUID of %s: %w", resourceName, err)
+	}
+	if !found || id == current {
+		return nil
+	}
+	return seedIdentifier(mg, tr, obs, field, id)
 }
 
 // seedImportIdentifier honors an external name that is a UUID (import by UUID),
