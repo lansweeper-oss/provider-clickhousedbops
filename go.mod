@@ -175,3 +175,9 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
+
+// v1.11.2 + fix for silently swallowed mid-stream read errors (phantom "not found"
+// on existing entities -> conflicting creates / orphaning deletes).
+// Upstream PR: https://github.com/ClickHouse/terraform-provider-clickhousedbops/pull/259
+// Drop this replace once the fix lands in an upstream release.
+replace github.com/ClickHouse/terraform-provider-clickhousedbops => github.com/lansweeper-oss/terraform-provider-clickhousedbops v1.11.3-0.20260820123728-5ce912f0f249
