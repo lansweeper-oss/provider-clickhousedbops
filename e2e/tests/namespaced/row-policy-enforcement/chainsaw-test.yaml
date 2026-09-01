@@ -12,6 +12,7 @@ metadata:
 # (nrp*) avoid colliding with other tests.
 spec:
   timeouts:
+    exec: 3m
     delete: 5m
     cleanup: 5m
   steps:
