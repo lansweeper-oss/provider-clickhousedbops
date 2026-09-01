@@ -42,7 +42,7 @@ func (f *fakeProvider) Configure(_ context.Context, _ provider.ConfigureRequest,
 	resp.DataSourceData = resp.ResourceData
 }
 
-func (f *fakeProvider) Resources(_ context.Context) []func() resource.Resource        { return nil }
+func (f *fakeProvider) Resources(_ context.Context) []func() resource.Resource       { return nil }
 func (f *fakeProvider) DataSources(_ context.Context) []func() datasource.DataSource { return nil }
 
 func makeConfigureRequest(host string) provider.ConfigureRequest {
