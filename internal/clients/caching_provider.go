@@ -33,6 +33,9 @@ type cachedConfigEntry struct {
 // configuration (host, port, credentials) hasn't changed. The cache is keyed
 // by a SHA-256 hash of the serialized config. This reduces connection pool
 // creation from once-per-reconcile to once-per-unique-config.
+//
+// Entries are evicted after a configurable TTL (--client-cache-ttl / CLIENT_CACHE_TTL)
+// so that credential rotations are picked up and stale entries don't accumulate.
 type cachingProvider struct {
 	inner  provider.Provider
 	logger logging.Logger
@@ -44,8 +47,10 @@ type cachingProvider struct {
 
 // NewCachingProvider wraps a provider.Provider so that repeated Configure calls
 // with identical configuration reuse the previously created client.
+// The ttl controls how long a cached client lives before re-creation.
+// Set to 0 to disable caching entirely; negative values fall back to 30m default.
 func NewCachingProvider(inner provider.Provider, logger logging.Logger, ttl time.Duration) provider.Provider {
-	if ttl <= 0 {
+	if ttl < 0 {
 		ttl = defaultCacheTTL
 	}
 	return &cachingProvider{
