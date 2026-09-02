@@ -74,9 +74,10 @@ var cli struct {
 	EnableChangeLogs         bool   `name:"enable-changelogs" help:"Enable support for capturing change logs during reconciliation" default:"false" env:"ENABLE_CHANGE_LOGS"`
 	ChangelogsSocketPath     string `help:"Path for changelogs socket (if enabled)" default:"/var/run/changelogs/changelogs.sock" env:"CHANGELOGS_SOCKET_PATH"`
 
-	WebhookPort        int      `help:"The port the webhook listens on" default:"9443" env:"WEBHOOK_PORT"`
-	MetricsBindAddress string   `help:"The address the metrics server listens on" default:":8080" env:"METRICS_BIND_ADDRESS"`
-	CertsDir           certsDir `help:"The directory that contains the server key and certificate" default:"${defaultCertsDir}" env:"${defaultCertsDirEnvVar}"`
+	ClientCacheTTL     time.Duration `name:"client-cache-ttl" help:"TTL for cached provider configurations. Expired entries are evicted on next reconcile." default:"30m" env:"CLIENT_CACHE_TTL"`
+	WebhookPort        int           `help:"The port the webhook listens on" default:"9443" env:"WEBHOOK_PORT"`
+	MetricsBindAddress string        `help:"The address the metrics server listens on" default:":8080" env:"METRICS_BIND_ADDRESS"`
+	CertsDir           certsDir      `help:"The directory that contains the server key and certificate" default:"${defaultCertsDir}" env:"${defaultCertsDirEnvVar}"`
 }
 
 func main() {
@@ -196,7 +197,7 @@ func main() {
 			},
 		},
 		Provider:              clusterProvider,
-		SetupFn:               clients.TerraformSetupBuilder(clusterProvider.TerraformPluginFrameworkProvider),
+		SetupFn:               clients.TerraformSetupBuilder(clusterProvider.TerraformPluginFrameworkProvider, log, cli.ClientCacheTTL),
 		OperationTrackerStore: o,
 		PollJitter:            pollJitter,
 		StartWebhooks:         cli.CertsDir != "",
@@ -216,7 +217,7 @@ func main() {
 			},
 		},
 		Provider:              namespacedProvider,
-		SetupFn:               clients.TerraformSetupBuilder(namespacedProvider.TerraformPluginFrameworkProvider),
+		SetupFn:               clients.TerraformSetupBuilder(namespacedProvider.TerraformPluginFrameworkProvider, log, cli.ClientCacheTTL),
 		OperationTrackerStore: o,
 		PollJitter:            pollJitter,
 		StartWebhooks:         cli.CertsDir != "",
