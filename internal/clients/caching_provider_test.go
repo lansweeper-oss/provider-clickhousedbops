@@ -102,6 +102,24 @@ func TestCachingProvider_DifferentConfigGetsDifferentClient(t *testing.T) {
 	assert.Equal(t, int64(2), inner.configureCalls.Load(), "inner Configure should be called for each unique config")
 }
 
+func TestCachingProvider_ZeroTTLDisablesCache(t *testing.T) {
+	inner := &fakeProvider{}
+	cached := NewCachingProvider(inner, logging.NewNopLogger(), 0)
+	ctx := context.Background()
+	req := makeConfigureRequest("clickhouse.example.com")
+
+	resp1 := &provider.ConfigureResponse{}
+	cached.Configure(ctx, req, resp1)
+	require.NotNil(t, resp1.ResourceData)
+
+	resp2 := &provider.ConfigureResponse{}
+	cached.Configure(ctx, req, resp2)
+	require.NotNil(t, resp2.ResourceData)
+
+	assert.NotSame(t, resp1.ResourceData, resp2.ResourceData, "zero TTL should not cache")
+	assert.Equal(t, int64(2), inner.configureCalls.Load(), "inner Configure should be called every time with zero TTL")
+}
+
 func TestCachingProvider_EvictsExpiredEntries(t *testing.T) {
 	inner := &fakeProvider{}
 	cp := &cachingProvider{
