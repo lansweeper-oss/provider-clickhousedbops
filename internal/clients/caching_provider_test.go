@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -68,7 +69,7 @@ func makeConfigureRequest(host string) provider.ConfigureRequest {
 
 func TestCachingProvider_ReusesClientForSameConfig(t *testing.T) {
 	inner := &fakeProvider{}
-	cached := NewCachingProvider(inner, logging.NewNopLogger())
+	cached := NewCachingProvider(inner, logging.NewNopLogger(), 30*time.Minute)
 	ctx := context.Background()
 	req := makeConfigureRequest("clickhouse.example.com")
 
@@ -88,7 +89,7 @@ func TestCachingProvider_ReusesClientForSameConfig(t *testing.T) {
 
 func TestCachingProvider_DifferentConfigGetsDifferentClient(t *testing.T) {
 	inner := &fakeProvider{}
-	cached := NewCachingProvider(inner, logging.NewNopLogger())
+	cached := NewCachingProvider(inner, logging.NewNopLogger(), 30*time.Minute)
 	ctx := context.Background()
 
 	resp1 := &provider.ConfigureResponse{}
@@ -99,4 +100,33 @@ func TestCachingProvider_DifferentConfigGetsDifferentClient(t *testing.T) {
 
 	assert.NotSame(t, resp1.ResourceData, resp2.ResourceData, "different config should return different client")
 	assert.Equal(t, int64(2), inner.configureCalls.Load(), "inner Configure should be called for each unique config")
+}
+
+func TestCachingProvider_EvictsExpiredEntries(t *testing.T) {
+	inner := &fakeProvider{}
+	cp := &cachingProvider{
+		inner:  inner,
+		logger: logging.NewNopLogger(),
+		cache:  make(map[string]*cachedConfigEntry),
+		ttl:    10 * time.Minute,
+		now:    time.Now,
+	}
+
+	ctx := context.Background()
+	req := makeConfigureRequest("clickhouse.example.com")
+
+	resp1 := &provider.ConfigureResponse{}
+	cp.Configure(ctx, req, resp1)
+	require.NotNil(t, resp1.ResourceData)
+	assert.Equal(t, int64(1), inner.configureCalls.Load())
+
+	// Advance clock past TTL
+	cp.now = func() time.Time { return time.Now().Add(11 * time.Minute) }
+
+	resp2 := &provider.ConfigureResponse{}
+	cp.Configure(ctx, req, resp2)
+	require.NotNil(t, resp2.ResourceData)
+
+	assert.NotSame(t, resp1.ResourceData, resp2.ResourceData, "expired entry should be evicted and reconfigured")
+	assert.Equal(t, int64(2), inner.configureCalls.Load(), "inner Configure should be called again after expiry")
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
@@ -94,8 +95,8 @@ func parsePort(v any) uint16 {
 
 // TerraformSetupBuilder builds a terraform.SetupFn that returns Terraform
 // provider setup configuration for the no-fork (plugin framework) architecture.
-func TerraformSetupBuilder(frameworkProvider fwprovider.Provider, logger logging.Logger) terraform.SetupFn {
-	cached := NewCachingProvider(frameworkProvider, logger)
+func TerraformSetupBuilder(frameworkProvider fwprovider.Provider, logger logging.Logger, cacheTTL time.Duration) terraform.SetupFn {
+	cached := NewCachingProvider(frameworkProvider, logger, cacheTTL)
 	return func(ctx context.Context, client client.Client, mg resource.Managed) (terraform.Setup, error) {
 		ps := terraform.Setup{
 			FrameworkProvider: cached,
