@@ -175,6 +175,6 @@ It also adheres to the [Crossplane AI Policy](https://github.com/crossplane/cros
 
 <!-- Links -->
 
-[CONTRIBUTING.md]: CONTRIBUTING.md
+[CONTRIBUTING.md]: https://github.com/crossplane/crossplane/blob/main/contributing
 [issue]: https://github.com/lansweeper-oss/provider-clickhousedbops/issues
 [provider-dev]: https://github.com/crossplane/crossplane/blob/master/contributing/guide-provider-development.md
