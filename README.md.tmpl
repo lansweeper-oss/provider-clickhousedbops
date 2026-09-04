@@ -152,11 +152,29 @@ Build binary:
 make build
 ```
 
+## Contributing
+
+Refer to Crossplane's [CONTRIBUTING.md] file for more information on how the
+Crossplane community prefers to work. The [Provider Development][provider-dev]
+guide may also be of use.
+
 ## Report a Bug
 
 For filing bugs, suggesting improvements, or requesting new features, please
-open an [issue](https://github.com/lansweeper-oss/provider-clickhousedbops/issues).
+open an [issue].
+
+## Code of conduct
+
+This project follows the [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md).
+
+It also adheres to the [Crossplane AI Policy](https://github.com/crossplane/crossplane/blob/main/AI_POLICY.md).
 
 ## Licensing
 
 `provider-clickhousedbops` is under the Apache 2.0 [license](LICENSE).
+
+<!-- Links -->
+
+[CONTRIBUTING.md]: CONTRIBUTING.md
+[issue]: https://github.com/lansweeper-oss/provider-clickhousedbops/issues
+[provider-dev]: https://github.com/crossplane/crossplane/blob/master/contributing/guide-provider-development.md
