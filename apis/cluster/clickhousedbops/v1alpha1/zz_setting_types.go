@@ -37,7 +37,16 @@ type SettingInitParameters struct {
 
 	// (String) ID of the settings profile
 	// ID of the settings profile
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/cluster/clickhousedbops/v1alpha1.SettingProfile
 	SettingsProfileID *string `json:"settingsProfileId,omitempty" tf:"settings_profile_id,omitempty"`
+
+	// Reference to a SettingProfile in clickhousedbops to populate settingsProfileId.
+	// +kubebuilder:validation:Optional
+	SettingsProfileIDRef *v2.Reference `json:"settingsProfileIdRef,omitempty" tf:"-"`
+
+	// Selector for a SettingProfile in clickhousedbops to populate settingsProfileId.
+	// +kubebuilder:validation:Optional
+	SettingsProfileIDSelector *v2.Selector `json:"settingsProfileIdSelector,omitempty" tf:"-"`
 
 	// (Attributes) (see below for nested schema)
 	Timeouts *TimeoutsInitParameters `json:"timeouts,omitempty" tf:"timeouts,omitempty"`
@@ -119,8 +128,17 @@ type SettingParameters struct {
 
 	// (String) ID of the settings profile
 	// ID of the settings profile
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/cluster/clickhousedbops/v1alpha1.SettingProfile
 	// +kubebuilder:validation:Optional
 	SettingsProfileID *string `json:"settingsProfileId,omitempty" tf:"settings_profile_id,omitempty"`
+
+	// Reference to a SettingProfile in clickhousedbops to populate settingsProfileId.
+	// +kubebuilder:validation:Optional
+	SettingsProfileIDRef *v2.Reference `json:"settingsProfileIdRef,omitempty" tf:"-"`
+
+	// Selector for a SettingProfile in clickhousedbops to populate settingsProfileId.
+	// +kubebuilder:validation:Optional
+	SettingsProfileIDSelector *v2.Selector `json:"settingsProfileIdSelector,omitempty" tf:"-"`
 
 	// (Attributes) (see below for nested schema)
 	// +kubebuilder:validation:Optional
@@ -196,7 +214,6 @@ type Setting struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// +kubebuilder:validation:XValidation:rule="!('*' in self.managementPolicies || 'Create' in self.managementPolicies || 'Update' in self.managementPolicies) || has(self.forProvider.name) || (has(self.initProvider) && has(self.initProvider.name))",message="spec.forProvider.name is a required parameter"
-	// +kubebuilder:validation:XValidation:rule="!('*' in self.managementPolicies || 'Create' in self.managementPolicies || 'Update' in self.managementPolicies) || has(self.forProvider.settingsProfileId) || (has(self.initProvider) && has(self.initProvider.settingsProfileId))",message="spec.forProvider.settingsProfileId is a required parameter"
 	Spec   SettingSpec   `json:"spec"`
 	Status SettingStatus `json:"status,omitempty"`
 }

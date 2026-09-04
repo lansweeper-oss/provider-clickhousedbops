@@ -2774,6 +2774,16 @@ func (in *SettingInitParameters) DeepCopyInto(out *SettingInitParameters) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.SettingsProfileIDRef != nil {
+		in, out := &in.SettingsProfileIDRef, &out.SettingsProfileIDRef
+		*out = new(v2.Reference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.SettingsProfileIDSelector != nil {
+		in, out := &in.SettingsProfileIDSelector, &out.SettingsProfileIDSelector
+		*out = new(v2.Selector)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Timeouts != nil {
 		in, out := &in.Timeouts, &out.Timeouts
 		*out = new(TimeoutsInitParameters)
@@ -2921,6 +2931,16 @@ func (in *SettingParameters) DeepCopyInto(out *SettingParameters) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.SettingsProfileIDRef != nil {
+		in, out := &in.SettingsProfileIDRef, &out.SettingsProfileIDRef
+		*out = new(v2.Reference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.SettingsProfileIDSelector != nil {
+		in, out := &in.SettingsProfileIDSelector, &out.SettingsProfileIDSelector
+		*out = new(v2.Selector)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Timeouts != nil {
 		in, out := &in.Timeouts, &out.Timeouts
 		*out = new(TimeoutsParameters)
@@ -3015,15 +3035,45 @@ func (in *SettingProfileAssociationInitParameters) DeepCopyInto(out *SettingProf
 		*out = new(string)
 		**out = **in
 	}
+	if in.RoleIDRef != nil {
+		in, out := &in.RoleIDRef, &out.RoleIDRef
+		*out = new(v2.Reference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.RoleIDSelector != nil {
+		in, out := &in.RoleIDSelector, &out.RoleIDSelector
+		*out = new(v2.Selector)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.SettingsProfileID != nil {
 		in, out := &in.SettingsProfileID, &out.SettingsProfileID
 		*out = new(string)
 		**out = **in
 	}
+	if in.SettingsProfileIDRef != nil {
+		in, out := &in.SettingsProfileIDRef, &out.SettingsProfileIDRef
+		*out = new(v2.Reference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.SettingsProfileIDSelector != nil {
+		in, out := &in.SettingsProfileIDSelector, &out.SettingsProfileIDSelector
+		*out = new(v2.Selector)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.UserID != nil {
 		in, out := &in.UserID, &out.UserID
 		*out = new(string)
 		**out = **in
+	}
+	if in.UserIDRef != nil {
+		in, out := &in.UserIDRef, &out.UserIDRef
+		*out = new(v2.Reference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.UserIDSelector != nil {
+		in, out := &in.UserIDSelector, &out.UserIDSelector
+		*out = new(v2.Selector)
+		(*in).DeepCopyInto(*out)
 	}
 }
 
@@ -3122,15 +3172,45 @@ func (in *SettingProfileAssociationParameters) DeepCopyInto(out *SettingProfileA
 		*out = new(string)
 		**out = **in
 	}
+	if in.RoleIDRef != nil {
+		in, out := &in.RoleIDRef, &out.RoleIDRef
+		*out = new(v2.Reference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.RoleIDSelector != nil {
+		in, out := &in.RoleIDSelector, &out.RoleIDSelector
+		*out = new(v2.Selector)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.SettingsProfileID != nil {
 		in, out := &in.SettingsProfileID, &out.SettingsProfileID
 		*out = new(string)
 		**out = **in
 	}
+	if in.SettingsProfileIDRef != nil {
+		in, out := &in.SettingsProfileIDRef, &out.SettingsProfileIDRef
+		*out = new(v2.Reference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.SettingsProfileIDSelector != nil {
+		in, out := &in.SettingsProfileIDSelector, &out.SettingsProfileIDSelector
+		*out = new(v2.Selector)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.UserID != nil {
 		in, out := &in.UserID, &out.UserID
 		*out = new(string)
 		**out = **in
+	}
+	if in.UserIDRef != nil {
+		in, out := &in.UserIDRef, &out.UserIDRef
+		*out = new(v2.Reference)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.UserIDSelector != nil {
+		in, out := &in.UserIDSelector, &out.UserIDSelector
+		*out = new(v2.Selector)
+		(*in).DeepCopyInto(*out)
 	}
 }
 

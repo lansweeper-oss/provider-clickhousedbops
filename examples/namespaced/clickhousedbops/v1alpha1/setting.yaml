@@ -12,6 +12,8 @@ spec:
     max: "2000"
     min: "100"
     name: max_memory_usage
-    settingsProfileId: ${clickhousedbops_settings_profile.profile1.id}
+    settingsProfileIdSelector:
+      matchLabels:
+        testing.upbound.io/example-name: profile1
     value: 1000
     writability: CHANGEABLE_IN_READONLY
