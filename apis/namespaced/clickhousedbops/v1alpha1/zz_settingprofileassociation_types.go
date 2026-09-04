@@ -25,15 +25,42 @@ type SettingProfileAssociationInitParameters struct {
 
 	// (String) ID of the SettingsProfileAssociation to associate the Settings profile to
 	// ID of the SettingsProfileAssociation to associate the Settings profile to
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/namespaced/clickhousedbops/v1alpha1.Role
 	RoleID *string `json:"roleId,omitempty" tf:"role_id,omitempty"`
+
+	// Reference to a Role in clickhousedbops to populate roleId.
+	// +kubebuilder:validation:Optional
+	RoleIDRef *v2.NamespacedReference `json:"roleIdRef,omitempty" tf:"-"`
+
+	// Selector for a Role in clickhousedbops to populate roleId.
+	// +kubebuilder:validation:Optional
+	RoleIDSelector *v2.NamespacedSelector `json:"roleIdSelector,omitempty" tf:"-"`
 
 	// (String) ID of the settings profile to associate
 	// ID of the settings profile to associate
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/namespaced/clickhousedbops/v1alpha1.SettingProfile
 	SettingsProfileID *string `json:"settingsProfileId,omitempty" tf:"settings_profile_id,omitempty"`
+
+	// Reference to a SettingProfile in clickhousedbops to populate settingsProfileId.
+	// +kubebuilder:validation:Optional
+	SettingsProfileIDRef *v2.NamespacedReference `json:"settingsProfileIdRef,omitempty" tf:"-"`
+
+	// Selector for a SettingProfile in clickhousedbops to populate settingsProfileId.
+	// +kubebuilder:validation:Optional
+	SettingsProfileIDSelector *v2.NamespacedSelector `json:"settingsProfileIdSelector,omitempty" tf:"-"`
 
 	// (String) ID of the User to associate the Settings profile to
 	// ID of the User to associate the Settings profile to
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/namespaced/clickhousedbops/v1alpha1.User
 	UserID *string `json:"userId,omitempty" tf:"user_id,omitempty"`
+
+	// Reference to a User in clickhousedbops to populate userId.
+	// +kubebuilder:validation:Optional
+	UserIDRef *v2.NamespacedReference `json:"userIdRef,omitempty" tf:"-"`
+
+	// Selector for a User in clickhousedbops to populate userId.
+	// +kubebuilder:validation:Optional
+	UserIDSelector *v2.NamespacedSelector `json:"userIdSelector,omitempty" tf:"-"`
 }
 
 type SettingProfileAssociationObservation struct {
@@ -74,18 +101,45 @@ type SettingProfileAssociationParameters struct {
 
 	// (String) ID of the SettingsProfileAssociation to associate the Settings profile to
 	// ID of the SettingsProfileAssociation to associate the Settings profile to
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/namespaced/clickhousedbops/v1alpha1.Role
 	// +kubebuilder:validation:Optional
 	RoleID *string `json:"roleId,omitempty" tf:"role_id,omitempty"`
 
+	// Reference to a Role in clickhousedbops to populate roleId.
+	// +kubebuilder:validation:Optional
+	RoleIDRef *v2.NamespacedReference `json:"roleIdRef,omitempty" tf:"-"`
+
+	// Selector for a Role in clickhousedbops to populate roleId.
+	// +kubebuilder:validation:Optional
+	RoleIDSelector *v2.NamespacedSelector `json:"roleIdSelector,omitempty" tf:"-"`
+
 	// (String) ID of the settings profile to associate
 	// ID of the settings profile to associate
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/namespaced/clickhousedbops/v1alpha1.SettingProfile
 	// +kubebuilder:validation:Optional
 	SettingsProfileID *string `json:"settingsProfileId,omitempty" tf:"settings_profile_id,omitempty"`
 
+	// Reference to a SettingProfile in clickhousedbops to populate settingsProfileId.
+	// +kubebuilder:validation:Optional
+	SettingsProfileIDRef *v2.NamespacedReference `json:"settingsProfileIdRef,omitempty" tf:"-"`
+
+	// Selector for a SettingProfile in clickhousedbops to populate settingsProfileId.
+	// +kubebuilder:validation:Optional
+	SettingsProfileIDSelector *v2.NamespacedSelector `json:"settingsProfileIdSelector,omitempty" tf:"-"`
+
 	// (String) ID of the User to associate the Settings profile to
 	// ID of the User to associate the Settings profile to
+	// +crossplane:generate:reference:type=github.com/lansweeper-oss/provider-clickhousedbops/apis/namespaced/clickhousedbops/v1alpha1.User
 	// +kubebuilder:validation:Optional
 	UserID *string `json:"userId,omitempty" tf:"user_id,omitempty"`
+
+	// Reference to a User in clickhousedbops to populate userId.
+	// +kubebuilder:validation:Optional
+	UserIDRef *v2.NamespacedReference `json:"userIdRef,omitempty" tf:"-"`
+
+	// Selector for a User in clickhousedbops to populate userId.
+	// +kubebuilder:validation:Optional
+	UserIDSelector *v2.NamespacedSelector `json:"userIdSelector,omitempty" tf:"-"`
 }
 
 // SettingProfileAssociationSpec defines the desired state of SettingProfileAssociation
@@ -124,9 +178,8 @@ type SettingProfileAssociationStatus struct {
 type SettingProfileAssociation struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	// +kubebuilder:validation:XValidation:rule="!('*' in self.managementPolicies || 'Create' in self.managementPolicies || 'Update' in self.managementPolicies) || has(self.forProvider.settingsProfileId) || (has(self.initProvider) && has(self.initProvider.settingsProfileId))",message="spec.forProvider.settingsProfileId is a required parameter"
-	Spec   SettingProfileAssociationSpec   `json:"spec"`
-	Status SettingProfileAssociationStatus `json:"status,omitempty"`
+	Spec              SettingProfileAssociationSpec   `json:"spec"`
+	Status            SettingProfileAssociationStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

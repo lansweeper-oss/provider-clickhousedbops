@@ -69,6 +69,82 @@ func Configure(p *config.Provider) {
 		r.InitializerFns = append(r.InitializerFns, adoptByNameInitializer("clickhousedbops_database", "uuid"))
 		r.UseAsync = true
 	})
+
+	p.AddResourceConfigurator("clickhousedbops_grant_privilege", func(r *config.Resource) {
+		r.InitializerFns = append(r.InitializerFns, backfillGrantPrivilegeDefaults())
+		r.References["database_name"] = config.Reference{
+			TerraformName: "clickhousedbops_database",
+		}
+		r.References["grantee_role_name"] = config.Reference{
+			TerraformName: "clickhousedbops_role",
+		}
+		r.References["grantee_user_name"] = config.Reference{
+			TerraformName: "clickhousedbops_user",
+		}
+	})
+
+	p.AddResourceConfigurator("clickhousedbops_grant_role", func(r *config.Resource) {
+		r.References["grantee_role_name"] = config.Reference{
+			TerraformName: "clickhousedbops_role",
+		}
+		r.References["grantee_user_name"] = config.Reference{
+			TerraformName: "clickhousedbops_user",
+		}
+		r.References["role_name"] = config.Reference{
+			TerraformName: "clickhousedbops_role",
+		}
+	})
+
+	p.AddResourceConfigurator("clickhousedbops_masking_policy", func(r *config.Resource) {
+		r.ExternalName = config.TemplatedStringAsIdentifier("name", "{{ .parameters.database_name }}:{{ .parameters.table_name }}:{{ .externalName }}")
+		r.References["database_name"] = config.Reference{
+			TerraformName: "clickhousedbops_database",
+		}
+	})
+
+	p.AddResourceConfigurator("clickhousedbops_role", func(r *config.Resource) {
+		// Same hasTFID=false trick, role lookup also uses UUID-based WHERE id=UUID(...).
+		delete(r.TerraformResource.Schema, "id")
+		// Roles must be adoptable: after a backup restore the role already exists in
+		// ClickHouse and CREATE ROLE (which is not idempotent) fails with
+		// "already exists in `replicated`". adoptByNameInitializer looks the role up
+		// by name and seeds its real UUID when found, so upjet imports instead of
+		// re-creating; it falls back to the sentinel (force-create) when absent.
+		r.InitializerFns = append(r.InitializerFns, adoptByNameInitializer("clickhousedbops_role", "id"))
+	})
+
+	p.AddResourceConfigurator("clickhousedbops_row_policy", func(r *config.Resource) {
+		r.ExternalName = config.TemplatedStringAsIdentifier("name", "{{ .parameters.database_name }}:{{ .parameters.table_name }}:{{ .externalName }}")
+		r.References["database_name"] = config.Reference{
+			TerraformName: "clickhousedbops_database",
+		}
+	})
+
+	p.AddResourceConfigurator("clickhousedbops_setting", func(r *config.Resource) {
+		r.References["settings_profile_id"] = config.Reference{
+			TerraformName: "clickhousedbops_settings_profile",
+		}
+	})
+
+	p.AddResourceConfigurator("clickhousedbops_settings_profile", func(r *config.Resource) {
+		// Same hasTFID=false trick as for clickhousedbops_user, prevents name-based
+		// id from being written to TF state on first reconcile, avoiding UUID parse errors.
+		delete(r.TerraformResource.Schema, "id")
+		r.InitializerFns = append(r.InitializerFns, adoptByNameInitializer("clickhousedbops_settings_profile", "id"))
+	})
+
+	p.AddResourceConfigurator("clickhousedbops_settings_profile_association", func(r *config.Resource) {
+		r.References["role_id"] = config.Reference{
+			TerraformName: "clickhousedbops_role",
+		}
+		r.References["settings_profile_id"] = config.Reference{
+			TerraformName: "clickhousedbops_settings_profile",
+		}
+		r.References["user_id"] = config.Reference{
+			TerraformName: "clickhousedbops_user",
+		}
+	})
+
 	p.AddResourceConfigurator("clickhousedbops_user", func(r *config.Resource) {
 		// Removing "id" from the schema keeps hasTFID=false, so EnsureTFState falls
 		// back to status.atProvider.id (seeded by adoptByNameInitializer). ClickHouse
@@ -128,57 +204,6 @@ func Configure(p *config.Provider) {
 		r.ExternalName.OmittedFields = []string{
 			"password_sha256_hash_wo",
 			"password_sha256_hash_wo_version",
-		}
-	})
-	p.AddResourceConfigurator("clickhousedbops_settings_profile", func(r *config.Resource) {
-		// Same hasTFID=false trick as for clickhousedbops_user, prevents name-based
-		// id from being written to TF state on first reconcile, avoiding UUID parse errors.
-		delete(r.TerraformResource.Schema, "id")
-		r.InitializerFns = append(r.InitializerFns, adoptByNameInitializer("clickhousedbops_settings_profile", "id"))
-	})
-	p.AddResourceConfigurator("clickhousedbops_role", func(r *config.Resource) {
-		// Same hasTFID=false trick, role lookup also uses UUID-based WHERE id=UUID(...).
-		delete(r.TerraformResource.Schema, "id")
-		// Roles must be adoptable: after a backup restore the role already exists in
-		// ClickHouse and CREATE ROLE (which is not idempotent) fails with
-		// "already exists in `replicated`". adoptByNameInitializer looks the role up
-		// by name and seeds its real UUID when found, so upjet imports instead of
-		// re-creating; it falls back to the sentinel (force-create) when absent.
-		r.InitializerFns = append(r.InitializerFns, adoptByNameInitializer("clickhousedbops_role", "id"))
-	})
-	p.AddResourceConfigurator("clickhousedbops_grant_privilege", func(r *config.Resource) {
-		r.InitializerFns = append(r.InitializerFns, backfillGrantPrivilegeDefaults())
-		r.References["grantee_role_name"] = config.Reference{
-			TerraformName: "clickhousedbops_role",
-		}
-		r.References["grantee_user_name"] = config.Reference{
-			TerraformName: "clickhousedbops_user",
-		}
-		r.References["database_name"] = config.Reference{
-			TerraformName: "clickhousedbops_database",
-		}
-	})
-	p.AddResourceConfigurator("clickhousedbops_grant_role", func(r *config.Resource) {
-		r.References["role_name"] = config.Reference{
-			TerraformName: "clickhousedbops_role",
-		}
-		r.References["grantee_role_name"] = config.Reference{
-			TerraformName: "clickhousedbops_role",
-		}
-		r.References["grantee_user_name"] = config.Reference{
-			TerraformName: "clickhousedbops_user",
-		}
-	})
-	p.AddResourceConfigurator("clickhousedbops_masking_policy", func(r *config.Resource) {
-		r.ExternalName = config.TemplatedStringAsIdentifier("name", "{{ .parameters.database_name }}:{{ .parameters.table_name }}:{{ .externalName }}")
-		r.References["database_name"] = config.Reference{
-			TerraformName: "clickhousedbops_database",
-		}
-	})
-	p.AddResourceConfigurator("clickhousedbops_row_policy", func(r *config.Resource) {
-		r.ExternalName = config.TemplatedStringAsIdentifier("name", "{{ .parameters.database_name }}:{{ .parameters.table_name }}:{{ .externalName }}")
-		r.References["database_name"] = config.Reference{
-			TerraformName: "clickhousedbops_database",
 		}
 	})
 }

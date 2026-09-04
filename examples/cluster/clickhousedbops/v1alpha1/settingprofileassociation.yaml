@@ -8,5 +8,9 @@ metadata:
   name: roleassociation
 spec:
   forProvider:
-    roleId: ${clickhousedbops_role.role1.id}
-    settingsProfileId: ${clickhousedbops_settings_profile.profile1.id}
+    roleIdSelector:
+      matchLabels:
+        testing.upbound.io/example-name: role1
+    settingsProfileIdSelector:
+      matchLabels:
+        testing.upbound.io/example-name: profile1
