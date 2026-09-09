@@ -65,9 +65,10 @@ func applyAdoptedUserPassword(ctx context.Context, kube client.Client, mg xpreso
 
 // readPasswordHash loads and validates the SHA256 hash referenced by
 // spec.forProvider.passwordSha256HashSecretRef. found=false without error means
-// no password management is configured (the password initializers always set
-// the ref for the autoGeneratePassword and passwordSecretRef flows before
-// adoption runs).
+// the ref is absent: either no password management is configured, or
+// autoGeneratePassword is set without writeConnectionSecretToRef, in which case
+// PasswordGenerator silently skips generation and never materializes the ref -
+// the hook then no-ops and an adopted user keeps its unknown password.
 func readPasswordHash(ctx context.Context, kube client.Client, mg xpresource.Managed, paved *fieldpath.Paved) (hash string, found bool, err error) {
 	refName, err := paved.GetString("spec.forProvider.passwordSha256HashSecretRef.name")
 	if fieldpath.IsNotFound(err) {

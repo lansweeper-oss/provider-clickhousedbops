@@ -259,6 +259,15 @@ func TestAdoptHookInvocation(t *testing.T) {
 			observeOnly:    true,
 			wantHookCalled: false,
 		},
+		"HookErrorOnUUIDImportLeavesIdentifierUnseeded": {
+			// Same unseeded-on-failure guarantee for the UUID-external-name
+			// import branch as for name resolution.
+			startVal:       "",
+			startExternal:  realUUID,
+			hookErr:        errors.New("alter user failed"),
+			wantHookCalled: true,
+			wantErr:        true,
+		},
 		"NoHookRegisteredIsFine": {
 			startVal:  "",
 			resolveOK: true,
