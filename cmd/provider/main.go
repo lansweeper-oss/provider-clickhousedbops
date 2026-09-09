@@ -163,7 +163,7 @@ func main() {
 
 	// An adopted user keeps its pre-existing password, which the provider can
 	// neither observe nor update, while the connection secret advertises the
-	// spec's password - a silent, permanent credential mismatch (ACME-62534).
+	// spec's password - a silent, permanent credential mismatch.
 	// On adoption, apply the spec's password hash to the live user.
 	config.SetAdoptHook("clickhousedbops_user", clients.NewUserAdoptPasswordApplier)
 
