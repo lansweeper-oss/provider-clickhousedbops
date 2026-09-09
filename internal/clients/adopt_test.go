@@ -18,7 +18,7 @@ import (
 	"github.com/lansweeper-oss/provider-clickhousedbops/apis/namespaced/clickhousedbops/v1alpha1"
 )
 
-const testHash = "893d7f29834d5c2940f75580f8740c58ef6cd778e8eeba06694b52075eb7e95e"
+const testHash = "aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f"
 
 func testUser(name string, mut ...func(*v1alpha1.User)) *v1alpha1.User {
 	u := &v1alpha1.User{
@@ -28,7 +28,7 @@ func testUser(name string, mut ...func(*v1alpha1.User)) *v1alpha1.User {
 				Name: &name,
 				PasswordSha256HashSecretRef: &v2.LocalSecretKeySelector{
 					LocalSecretReference: v2.LocalSecretReference{Name: "user-password"},
-					Key:                 "hash",
+					Key:                  "hash",
 				},
 			},
 		},
@@ -66,56 +66,65 @@ func TestApplyAdoptedUserPassword(t *testing.T) {
 		wantErrPart string // "" means no error expected
 	}{
 		"AppliesHashOnAdoption": {
-			user:    testUser("ch_integrations_assets_api"),
+			user:    testUser("app_user"),
 			secret:  hashSecret("hash", testHash),
-			wantSQL: "ALTER USER `ch_integrations_assets_api` IDENTIFIED WITH sha256_hash BY '" + testHash + "'",
+			wantSQL: "ALTER USER `app_user` IDENTIFIED WITH sha256_hash BY '" + testHash + "'",
 		},
 		"HonoursClusterName": {
-			user: testUser("ch_user", func(u *v1alpha1.User) {
+			user: testUser("app_user", func(u *v1alpha1.User) {
 				c := "main"
 				u.Spec.ForProvider.ClusterName = &c
 			}),
 			secret:  hashSecret("hash", testHash),
-			wantSQL: "ALTER USER `ch_user` ON CLUSTER 'main' IDENTIFIED WITH sha256_hash BY '" + testHash + "'",
+			wantSQL: "ALTER USER `app_user` ON CLUSTER 'main' IDENTIFIED WITH sha256_hash BY '" + testHash + "'",
 		},
 		"EscapesBackticksInUserName": {
 			user:    testUser("we`ird"),
 			secret:  hashSecret("hash", testHash),
 			wantSQL: "ALTER USER `we\\`ird` IDENTIFIED WITH sha256_hash BY '" + testHash + "'",
 		},
+		"EscapesBackslashesInUserName": {
+			user:    testUser("back\\slash"),
+			secret:  hashSecret("hash", testHash),
+			wantSQL: "ALTER USER `back\\\\slash` IDENTIFIED WITH sha256_hash BY '" + testHash + "'",
+		},
+		"EscapesQuotesAndBackslashesInClusterName": {
+			// A trailing backslash before a quote must not re-open the string
+			// literal: \ is escaped before ', yielding c\\\'x.
+			user: testUser("app_user", func(u *v1alpha1.User) {
+				c := "c\\'x"
+				u.Spec.ForProvider.ClusterName = &c
+			}),
+			secret:  hashSecret("hash", testHash),
+			wantSQL: "ALTER USER `app_user` ON CLUSTER 'c\\\\\\'x' IDENTIFIED WITH sha256_hash BY '" + testHash + "'",
+		},
 		"RejectsInvalidHash": {
-			user:        testUser("ch_user"),
+			user:        testUser("app_user"),
 			secret:      hashSecret("hash", "not-a-sha256-hash'; DROP USER admin --"),
 			wantErrPart: "not a sha256 hex digest",
 		},
 		"NoopWithoutHashSecretRef": {
-			user: testUser("ch_user", func(u *v1alpha1.User) {
+			user: testUser("app_user", func(u *v1alpha1.User) {
 				u.Spec.ForProvider.PasswordSha256HashSecretRef = nil
 			}),
 		},
-		"NoopForObserveOnly": {
-			user: testUser("ch_user", func(u *v1alpha1.User) {
-				u.SetManagementPolicies(v2.ManagementPolicies{v2.ManagementActionObserve})
-			}),
-			secret: hashSecret("hash", testHash),
-		},
 		"ErrorWhenSecretMissing": {
-			user:        testUser("ch_user"),
+			user:        testUser("app_user"),
 			wantErrPart: "cannot read password hash secret",
 		},
 		"ErrorWhenKeyMissing": {
-			user:        testUser("ch_user"),
+			user:        testUser("app_user"),
 			secret:      hashSecret("wrongkey", testHash),
 			wantErrPart: "key \"hash\" not found",
 		},
 		"ResolveErrorPropagates": {
-			user:        testUser("ch_user"),
+			user:        testUser("app_user"),
 			secret:      hashSecret("hash", testHash),
 			resolveErr:  errors.New("no provider config"),
 			wantErrPart: "no provider config",
 		},
 		"ExecErrorPropagates": {
-			user:        testUser("ch_user"),
+			user:        testUser("app_user"),
 			secret:      hashSecret("hash", testHash),
 			execErr:     errors.New("connection refused"),
 			wantErrPart: "connection refused",

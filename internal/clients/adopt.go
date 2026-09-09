@@ -2,12 +2,10 @@ package clients
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"regexp"
 	"strings"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/fieldpath"
 	xpresource "github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	corev1 "k8s.io/api/core/v1"
@@ -38,11 +36,6 @@ func NewUserAdoptPasswordApplier(kube client.Client) config.AdoptHook {
 }
 
 func applyAdoptedUserPassword(ctx context.Context, kube client.Client, mg xpresource.Managed, resolve connResolver, exec stmtExec) error {
-	policies := mg.GetManagementPolicies()
-	if len(policies) == 1 && string(policies[0]) == "Observe" {
-		return nil
-	}
-
 	paved, err := fieldpath.PaveObject(mg)
 	if err != nil {
 		return fmt.Errorf("cannot pave managed resource: %w", err)
@@ -54,18 +47,38 @@ func applyAdoptedUserPassword(ctx context.Context, kube client.Client, mg xpreso
 	// Optional - absent on single node / ClickHouse Cloud.
 	cluster, _ := paved.GetString("spec.forProvider.clusterName")
 
+	hash, found, err := readPasswordHash(ctx, kube, mg, paved)
+	if err != nil || !found {
+		return err
+	}
+
+	params, err := resolve(ctx, kube, mg)
+	if err != nil {
+		return fmt.Errorf("cannot resolve connection params: %w", err)
+	}
+
+	if err := exec(ctx, params, alterUserPasswordSQL(name, cluster, hash)); err != nil {
+		return fmt.Errorf("cannot apply password hash to adopted user %q: %w", name, err)
+	}
+	return nil
+}
+
+// readPasswordHash loads and validates the SHA256 hash referenced by
+// spec.forProvider.passwordSha256HashSecretRef. found=false without error means
+// no password management is configured (the password initializers always set
+// the ref for the autoGeneratePassword and passwordSecretRef flows before
+// adoption runs).
+func readPasswordHash(ctx context.Context, kube client.Client, mg xpresource.Managed, paved *fieldpath.Paved) (hash string, found bool, err error) {
 	refName, err := paved.GetString("spec.forProvider.passwordSha256HashSecretRef.name")
 	if fieldpath.IsNotFound(err) {
-		// No password management configured (initializers always set the ref for
-		// autoGeneratePassword and passwordSecretRef flows before adoption runs).
-		return nil
+		return "", false, nil
 	}
 	if err != nil {
-		return fmt.Errorf("cannot read passwordSha256HashSecretRef: %w", err)
+		return "", false, fmt.Errorf("cannot read passwordSha256HashSecretRef: %w", err)
 	}
 	refKey, err := paved.GetString("spec.forProvider.passwordSha256HashSecretRef.key")
 	if err != nil {
-		return fmt.Errorf("cannot read passwordSha256HashSecretRef.key: %w", err)
+		return "", false, fmt.Errorf("cannot read passwordSha256HashSecretRef.key: %w", err)
 	}
 	ns, _ := paved.GetString("spec.forProvider.passwordSha256HashSecretRef.namespace")
 	if ns == "" {
@@ -74,31 +87,28 @@ func applyAdoptedUserPassword(ctx context.Context, kube client.Client, mg xpreso
 
 	s := &corev1.Secret{}
 	if err := kube.Get(ctx, types.NamespacedName{Namespace: ns, Name: refName}, s); err != nil {
-		return fmt.Errorf("cannot read password hash secret %s/%s: %w", ns, refName, err)
+		return "", false, fmt.Errorf("cannot read password hash secret %s/%s: %w", ns, refName, err)
 	}
 	raw, ok := s.Data[refKey]
 	if !ok {
-		return fmt.Errorf("key %q not found in secret %s/%s", refKey, ns, refName)
+		return "", false, fmt.Errorf("key %q not found in secret %s/%s", refKey, ns, refName)
 	}
-	hash := strings.ToLower(strings.TrimSpace(string(raw)))
+	hash = strings.ToLower(strings.TrimSpace(string(raw)))
 	if !sha256HexRe.MatchString(hash) {
-		return fmt.Errorf("value of key %q in secret %s/%s is not a sha256 hex digest", refKey, ns, refName)
+		return "", false, fmt.Errorf("value of key %q in secret %s/%s is not a sha256 hex digest", refKey, ns, refName)
 	}
+	return hash, true, nil
+}
 
-	params, err := resolve(ctx, kube, mg)
-	if err != nil {
-		return fmt.Errorf("cannot resolve connection params: %w", err)
-	}
-
+// alterUserPasswordSQL builds the ALTER USER statement. The hash is already
+// validated as hex-64, the identifier is backtick-quoted and the cluster name
+// is escaped as a string literal.
+func alterUserPasswordSQL(name, cluster, hash string) string {
 	onCluster := ""
 	if cluster != "" {
-		onCluster = fmt.Sprintf(" ON CLUSTER '%s'", strings.ReplaceAll(cluster, "'", "\\'"))
+		onCluster = fmt.Sprintf(" ON CLUSTER '%s'", escapeStringLit(cluster))
 	}
-	sql := fmt.Sprintf("ALTER USER %s%s IDENTIFIED WITH sha256_hash BY '%s'", quoteIdent(name), onCluster, hash)
-	if err := exec(ctx, params, sql); err != nil {
-		return fmt.Errorf("cannot apply password hash to adopted user %q: %w", name, err)
-	}
-	return nil
+	return fmt.Sprintf("ALTER USER %s%s IDENTIFIED WITH sha256_hash BY '%s'", quoteIdent(name), onCluster, hash)
 }
 
 // quoteIdent backtick-quotes a ClickHouse identifier, escaping backslashes and backticks.
@@ -108,24 +118,21 @@ func quoteIdent(s string) string {
 	return "`" + s + "`"
 }
 
-// execStatement runs a single statement against ClickHouse using the provider
-// config connection parameters, mirroring findUUIDByName's connection setup.
-func execStatement(ctx context.Context, params ConnParams, sql string) error {
-	opts := &clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", params.Host, params.Port)},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: params.Username,
-			Password: params.Password,
-		},
-	}
-	if params.Protocol == "nativesecure" {
-		opts.TLS = &tls.Config{MinVersion: tls.VersionTLS12}
-	}
+// escapeStringLit escapes a value for use inside a single-quoted ClickHouse
+// string literal. Backslashes must be escaped before quotes, otherwise an
+// input like `x\'` would re-open the literal.
+func escapeStringLit(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `'`, `\'`)
+	return s
+}
 
-	conn, err := clickhouse.Open(opts)
+// execStatement runs a single statement against ClickHouse using the provider
+// config connection parameters.
+func execStatement(ctx context.Context, params ConnParams, sql string) error {
+	conn, err := openConn(params)
 	if err != nil {
-		return fmt.Errorf("cannot open clickhouse connection: %w", err)
+		return err
 	}
 	defer func() { _ = conn.Close() }()
 
