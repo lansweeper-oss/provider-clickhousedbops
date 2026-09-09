@@ -23,6 +23,31 @@ func SetResolverFactory(resourceName string, f func(client.Client) UUIDResolver)
 	resolverFactories[resourceName] = f
 }
 
+// AdoptHook runs once when an existing resource is adopted (imported) instead of
+// created, so the provider can reconcile state that adoption would otherwise skip.
+// A returned error fails the reconcile, which retries the adoption.
+type AdoptHook func(ctx context.Context, mg xpresource.Managed) error
+
+// adoptHookFactories maps a Terraform resource name to the factory that builds its AdoptHook.
+var adoptHookFactories = map[string]func(client.Client) AdoptHook{}
+
+// SetAdoptHook registers the AdoptHook factory for a resource.
+func SetAdoptHook(resourceName string, f func(client.Client) AdoptHook) {
+	adoptHookFactories[resourceName] = f
+}
+
+// runAdoptHook invokes the resource's AdoptHook, if one is registered.
+func runAdoptHook(ctx context.Context, kube client.Client, mg xpresource.Managed, resourceName string) error {
+	factory := adoptHookFactories[resourceName]
+	if factory == nil {
+		return nil
+	}
+	if err := factory(kube)(ctx, mg); err != nil {
+		return fmt.Errorf("adopt hook for %s failed: %w", resourceName, err)
+	}
+	return nil
+}
+
 // adoptByNameInitializer seeds the resource identifier before the first observe so
 // Upjet's UUID-based Read adopts an existing resource instead of re-creating it.
 // A real UUID already in the observation (post-import/creation) is left untouched.
@@ -58,7 +83,10 @@ func seedImportIdentifier(ctx context.Context, kube client.Client, mg xpresource
 	// The Crossplane default external name is the resource name, which is not a UUID and falls through.
 	if en := stripClusterPrefix(meta.GetExternalName(mg), sep); en != "" {
 		if _, err := uuid.Parse(en); err == nil {
-			return seedIdentifier(mg, tr, obs, field, en)
+			if err := seedIdentifier(mg, tr, obs, field, en); err != nil {
+				return err
+			}
+			return runAdoptHook(ctx, kube, mg, resourceName)
 		}
 	}
 
@@ -74,7 +102,10 @@ func seedImportIdentifier(ctx context.Context, kube client.Client, mg xpresource
 		obs[field] = sentinelUUID
 		return tr.SetObservation(obs)
 	}
-	return seedIdentifier(mg, tr, obs, field, id)
+	if err := seedIdentifier(mg, tr, obs, field, id); err != nil {
+		return err
+	}
+	return runAdoptHook(ctx, kube, mg, resourceName)
 }
 
 // seedIdentifier writes id to both the observation and the external name

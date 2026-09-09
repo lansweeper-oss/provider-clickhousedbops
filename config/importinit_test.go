@@ -208,3 +208,98 @@ func TestAdoptByNameInitializer(t *testing.T) {
 		})
 	}
 }
+
+func TestAdoptHookInvocation(t *testing.T) {
+	const realUUID = "11111111-2222-3333-4444-555555555555"
+
+	cases := map[string]struct {
+		startVal      string // observation value before Initialize ("" means absent)
+		startExternal string // pre-set crossplane.io/external-name annotation
+		resolveOK     bool   // name resolver finds the resource
+		noHook        bool   // no adopt hook registered
+		hookErr       error
+
+		wantHookCalled bool
+		wantErr        bool
+	}{
+		"HookRunsOnNameAdoption": {
+			startVal:       "",
+			resolveOK:      true,
+			wantHookCalled: true,
+		},
+		"HookRunsOnUUIDExternalNameImport": {
+			startVal:       "",
+			startExternal:  realUUID,
+			wantHookCalled: true,
+		},
+		"HookSkippedWhenResourceAbsent": {
+			startVal:       "",
+			resolveOK:      false,
+			wantHookCalled: false,
+		},
+		"HookSkippedAfterAdoption": {
+			// Real UUID already in the observation: initializer early-returns,
+			// the hook must not run again on subsequent reconciles.
+			startVal:       realUUID,
+			resolveOK:      true,
+			wantHookCalled: false,
+		},
+		"HookErrorPropagatesForRetry": {
+			startVal:       "",
+			resolveOK:      true,
+			hookErr:        errors.New("alter user failed"),
+			wantHookCalled: true,
+			wantErr:        true,
+		},
+		"NoHookRegisteredIsFine": {
+			startVal:  "",
+			resolveOK: true,
+			noHook:    true,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			const resourceName = "clickhousedbops_user"
+			SetResolverFactory(resourceName, func(_ client.Client) UUIDResolver {
+				return func(_ context.Context, _ xpresource.Managed) (string, bool, error) {
+					return realUUID, tc.resolveOK, nil
+				}
+			})
+			t.Cleanup(func() { delete(resolverFactories, resourceName) })
+
+			hookCalled := false
+			if !tc.noHook {
+				SetAdoptHook(resourceName, func(_ client.Client) AdoptHook {
+					return func(_ context.Context, _ xpresource.Managed) error {
+						hookCalled = true
+						return tc.hookErr
+					}
+				})
+				t.Cleanup(func() { delete(adoptHookFactories, resourceName) })
+			}
+
+			obs := map[string]any{}
+			if tc.startVal != "" {
+				obs["id"] = tc.startVal
+			}
+			mg := &fakeManaged{Managed: &fake.Managed{}, obs: obs}
+			if tc.startExternal != "" {
+				meta.SetExternalName(mg, tc.startExternal)
+			}
+
+			init := adoptByNameInitializer(resourceName, "id")(nil)
+			err := init.Initialize(context.Background(), mg)
+
+			if tc.wantErr && err == nil {
+				t.Fatalf("expected error, got nil")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if hookCalled != tc.wantHookCalled {
+				t.Errorf("hook called = %v, want %v", hookCalled, tc.wantHookCalled)
+			}
+		})
+	}
+}
