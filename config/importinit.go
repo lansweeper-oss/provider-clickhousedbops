@@ -23,6 +23,37 @@ func SetResolverFactory(resourceName string, f func(client.Client) UUIDResolver)
 	resolverFactories[resourceName] = f
 }
 
+// AdoptHook runs when an existing resource is adopted (imported) instead of
+// created, so the provider can reconcile state that adoption would otherwise
+// skip. It runs before the resource identifier is seeded: on error the
+// identifier stays unseeded, the reconcile fails, and the next reconcile
+// retries the full adoption including the hook. Hooks must therefore be
+// idempotent. Observe-only resources are skipped.
+type AdoptHook func(ctx context.Context, mg xpresource.Managed) error
+
+// adoptHookFactories maps a Terraform resource name to the factory that builds its AdoptHook.
+var adoptHookFactories = map[string]func(client.Client) AdoptHook{}
+
+// SetAdoptHook registers the AdoptHook factory for a resource.
+func SetAdoptHook(resourceName string, f func(client.Client) AdoptHook) {
+	adoptHookFactories[resourceName] = f
+}
+
+// runAdoptHook invokes the resource's AdoptHook, if one is registered.
+func runAdoptHook(ctx context.Context, kube client.Client, mg xpresource.Managed, resourceName string) error {
+	factory := adoptHookFactories[resourceName]
+	if factory == nil {
+		return nil
+	}
+	if isObserveOnly(mg) {
+		return nil
+	}
+	if err := factory(kube)(ctx, mg); err != nil {
+		return fmt.Errorf("adopt hook for %s failed: %w", resourceName, err)
+	}
+	return nil
+}
+
 // adoptByNameInitializer seeds the resource identifier before the first observe so
 // Upjet's UUID-based Read adopts an existing resource instead of re-creating it.
 // A real UUID already in the observation (post-import/creation) is left untouched.
@@ -58,6 +89,12 @@ func seedImportIdentifier(ctx context.Context, kube client.Client, mg xpresource
 	// The Crossplane default external name is the resource name, which is not a UUID and falls through.
 	if en := stripClusterPrefix(meta.GetExternalName(mg), sep); en != "" {
 		if _, err := uuid.Parse(en); err == nil {
+			// The hook runs before the identifier is seeded: a seeded identifier
+			// makes the next reconcile early-return, so seeding first would turn
+			// a transient hook failure into a permanently skipped hook.
+			if err := runAdoptHook(ctx, kube, mg, resourceName); err != nil {
+				return err
+			}
 			return seedIdentifier(mg, tr, obs, field, en)
 		}
 	}
@@ -73,6 +110,10 @@ func seedImportIdentifier(ctx context.Context, kube client.Client, mg xpresource
 		// Absent (or no resolver): seed the sentinel so the provider reports "not found" and creation proceeds
 		obs[field] = sentinelUUID
 		return tr.SetObservation(obs)
+	}
+	// Hook before seeding - see the UUID-import branch above for the rationale.
+	if err := runAdoptHook(ctx, kube, mg, resourceName); err != nil {
+		return err
 	}
 	return seedIdentifier(mg, tr, obs, field, id)
 }

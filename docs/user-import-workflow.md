@@ -9,6 +9,19 @@ The import workflow has two phases:
 1. **Observe-only (read-only)**: Import the user without managing it.
 2. **Manage (create/update/delete)**: Take control of password and user properties.
 
+> **The import value for a user must be its UUID, never its name.** Unlike other
+> resources, users are never adopted by name: implicit name adoption would let any
+> manifest silently take over an existing user (issue #104). Creating a `User`
+> whose `name` already exists in ClickHouse without an explicit UUID import fails
+> loudly with `already exists` on `CREATE USER`.
+
+Find the UUID first and supply it as the resource's import value
+(see [Import by UUID](import.md#import-by-uuid-advanced)):
+
+```sql
+SELECT toString(id) FROM system.users WHERE name = 'existing_user_in_clickhouse'
+```
+
 ## Phase 1: Observe-Only Import
 
 Start with observe-only mode to safely read existing users without touching them.
@@ -38,6 +51,12 @@ In observe-only mode:
 
 Once the user is imported and you want to manage it with Crossplane, change the management policy.
 You must now provide a password via one of three methods:
+
+> **Tip:** you can also skip Phase 1 and import directly with full management
+> policies (a UUID import value plus one of the password options below). In that
+> case the provider applies the spec's password hash to the live user at import
+> time (`ALTER USER ... IDENTIFIED WITH sha256_hash`), so the connection secret
+> is correct from the moment of adoption.
 
 ### Option A: Auto-Generate New Password
 

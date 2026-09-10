@@ -185,11 +185,16 @@ func Configure(p *config.Provider) {
 			},
 		}
 
+		// PasswordGenerator must run before adoptByNameInitializer: the user's
+		// AdoptHook applies the password hash on explicit UUID import, so the
+		// hash (and passwordSha256HashSecretRef) must exist by the time the
+		// import fires. No name resolver is registered for users (issue #104),
+		// so a name collision falls through to CREATE USER and fails loudly.
 		r.InitializerFns = append(r.InitializerFns,
 			PasswordValidator(),
 			PasswordRefProcessor(),
-			adoptByNameInitializer("clickhousedbops_user", "id"),
 			PasswordGenerator("spec.forProvider.autoGeneratePassword"),
+			adoptByNameInitializer("clickhousedbops_user", "id"),
 		)
 
 		s, ok := r.TerraformResource.Schema["password_sha256_hash"]

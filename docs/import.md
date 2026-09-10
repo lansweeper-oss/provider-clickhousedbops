@@ -17,7 +17,7 @@ These resources use one or more parameters as their identity.
 Set the parameters (directly or via a selector) and Crossplane populates the external name automatically.
 
 | Resource | Required Identity Parameters |
-|----------|------------------------------|
+| -------- | ---------------------------- |
 | `Database` | `clusterName`, `name` |
 | `GrantPrivilege` | `granteeUserName`, `privilegeName`, `databaseName`, `tableName`, `columnName` |
 | `GrantRole` | `clusterName`, `granteeUserName`, `roleName` |
@@ -25,7 +25,13 @@ Set the parameters (directly or via a selector) and Crossplane populates the ext
 | `Setting` | `name`, `settingsProfileId` (**ref**) |
 | `SettingProfile` | `clusterName`, `name` |
 | `SettingProfileAssociation` | `roleId` (**ref**), `settingsProfileId` (**ref**) |
-| `User` | `name` |
+
+> **Users cannot be imported by name.** Adopting a user by name would silently take
+> over an existing user whose password the provider cannot observe or repair, so it
+> is rejected: creating a `User` whose `name` already exists in ClickHouse fails
+> loudly with `already exists` on `CREATE USER`. The import value for a `User` must
+> be the user's UUID, never its name — pinned via the `crossplane.io/external-name`
+> annotation; see [Importing a user](#importing-a-user-uuid-required).
 
 ## Example
 
@@ -39,13 +45,28 @@ You do **not** need to set the `crossplane.io/external-name` annotation, the pro
 builds it automatically from the identity parameters and updates it after the first
 successful observe.
 
-### Importing a user (cluster-scoped)
+### Importing a user (UUID required)
+
+Users are the exception: name-based adoption is disabled for them (see the note
+above), so the import value must be the user's UUID, never its name. Look it
+up first:
+
+```sql
+SELECT toString(id) FROM system.users WHERE name = 'jane'
+```
+
+and pin it as the `crossplane.io/external-name` annotation (see
+[Import by UUID (advanced)](#import-by-uuid-advanced)).
+
+Cluster-scoped:
 
 ```yaml
 apiVersion: clickhousedbops.crossplane.io/v1alpha1
 kind: User
 metadata:
   name: jane                   # any name you choose for the Crossplane resource
+  annotations:
+    crossplane.io/external-name: 4a8d6f1e-...   # UUID from system.users
 spec:
   forProvider:
     clusterName: cluster       # must match the existing ClickHouse cluster name
@@ -56,7 +77,7 @@ spec:
     name: default
 ```
 
-### Importing a user (namespaced)
+Namespaced:
 
 ```yaml
 apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
@@ -64,6 +85,8 @@ kind: User
 metadata:
   name: jane
   namespace: crossplane-system
+  annotations:
+    crossplane.io/external-name: 4a8d6f1e-...
 spec:
   forProvider:
     clusterName: cluster
@@ -75,12 +98,20 @@ spec:
     kind: ClusterProviderConfig
 ```
 
+When a user is imported by UUID **with full management policies** (not
+observe-only) and a password is configured in the spec, the provider applies the
+spec's password hash to the live user at import time (`ALTER USER ... IDENTIFIED
+WITH sha256_hash`), so the connection secret is truthful from the moment of
+adoption.
+
 Further information about strategies when importing Users might be found in its
 [dedicated document](user-import-workflow.md).
 
 After applying, Crossplane will:
-- Resolve the identity `name` to the resource's provider-assigned UUID and adopt the
-  existing resource (looking it up on the cluster when `clusterName` is set).
+
+- Adopt the existing resource by its UUID — resolved from the identity `name` for
+  name-importable resources (looking it up on the cluster when `clusterName` is
+  set), or taken from the pinned `crossplane.io/external-name` annotation for users.
 - Set `crossplane.io/external-name` to that UUID.
 - Populate `status.atProvider` with the full remote state.
 - Report the resource as `Ready` and `Synced` once the observe succeeds.
@@ -91,7 +122,8 @@ Instead of a name, you may pin `crossplane.io/external-name` directly to the
 resource's UUID. When the annotation is a UUID it takes precedence and name
 resolution is skipped; the plain resource name (the crossplane default external
 name) is not a UUID, so it falls through to name-based lookup. Both forms end up
-adopting the same resource.
+adopting the same resource. For `User` resources this is the **only** import
+path: name-based lookup is disabled for them.
 
 ## How adoption works internally
 
@@ -119,3 +151,15 @@ Background for maintainers (implementation in `config/importinit.go`):
 - Name resolution is cluster-aware: when `clusterName` is set the lookup runs
   across the cluster (`cluster(<name>, system.<table>)`), matching the provider's
   own behavior.
+- No name resolver is registered for `user`: adopting a user by name would
+  silently take over an existing user with a password the provider can neither
+  observe nor repair — and applying the spec's password on implicit adoption
+  would let anyone take over another user's account by claiming its name. A name
+  collision therefore falls through to `CREATE USER`, which fails loudly with
+  `already exists`. A pinned UUID external-name is the only user import path.
+- An `AdoptHook` (registered per resource in `cmd/provider/main.go`, implemented
+  in `internal/clients/adopt.go`) runs when a resource is adopted, before the
+  identifier is seeded — so a hook failure fails the reconcile and the whole
+  adoption retries. For `user`, the hook applies the spec's password hash to the
+  adopted user via `ALTER USER`, keeping the connection secret truthful.
+  Observe-only resources skip the hook.

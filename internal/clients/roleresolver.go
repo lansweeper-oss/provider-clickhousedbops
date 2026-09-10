@@ -4,9 +4,9 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"strings"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/fieldpath"
 	xpresource "github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,11 +25,6 @@ func NewRoleUUIDResolver(kube client.Client) config.UUIDResolver {
 // NewDatabaseUUIDResolver resolves a database's UUID by name from system.databases.
 func NewDatabaseUUIDResolver(kube client.Client) config.UUIDResolver {
 	return newUUIDResolver(kube, "system.databases", "uuid")
-}
-
-// NewUserUUIDResolver resolves a user's UUID by name from system.users.
-func NewUserUUIDResolver(kube client.Client) config.UUIDResolver {
-	return newUUIDResolver(kube, "system.users", "id")
 }
 
 // NewSettingsProfileUUIDResolver resolves a settings profile's UUID by name from system.settings_profiles.
@@ -63,11 +58,8 @@ func newUUIDResolver(kube client.Client, table, idField string) config.UUIDResol
 	}
 }
 
-// findUUIDByName runs SELECT toString(<idField>) FROM <from> WHERE name = ?, where
-// <from> is the plain table or cluster('<cluster>', <table>) when cluster is set.
-// name is bound as a query parameter; cluster is single-quote escaped because it is
-// a table-function identifier and cannot be bound.
-func findUUIDByName(ctx context.Context, params ConnParams, table, idField, name, cluster string) (string, bool, error) {
+// openConn opens a ClickHouse connection from provider config connection parameters.
+func openConn(params ConnParams) (driver.Conn, error) {
 	opts := &clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", params.Host, params.Port)},
 		Auth: clickhouse.Auth{
@@ -82,13 +74,25 @@ func findUUIDByName(ctx context.Context, params ConnParams, table, idField, name
 
 	conn, err := clickhouse.Open(opts)
 	if err != nil {
-		return "", false, fmt.Errorf("cannot open clickhouse connection: %w", err)
+		return nil, fmt.Errorf("cannot open clickhouse connection: %w", err)
+	}
+	return conn, nil
+}
+
+// findUUIDByName runs SELECT toString(<idField>) FROM <from> WHERE name = ?, where
+// <from> is the plain table or cluster('<cluster>', <table>) when cluster is set.
+// name is bound as a query parameter; cluster is escaped as a string literal
+// because it is a table-function argument and cannot be bound.
+func findUUIDByName(ctx context.Context, params ConnParams, table, idField, name, cluster string) (string, bool, error) {
+	conn, err := openConn(params)
+	if err != nil {
+		return "", false, err
 	}
 	defer func() { _ = conn.Close() }()
 
 	from := table
 	if cluster != "" {
-		from = fmt.Sprintf("cluster('%s', %s)", strings.ReplaceAll(cluster, "'", "\\'"), table)
+		from = fmt.Sprintf("cluster('%s', %s)", escapeStringLit(cluster), table)
 	}
 	query := fmt.Sprintf("SELECT toString(%s) AS id FROM %s WHERE name = ?", idField, from)
 

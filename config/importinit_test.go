@@ -8,6 +8,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	xpresource "github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource/fake"
+	xpv2 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -204,6 +205,155 @@ func TestAdoptByNameInitializer(t *testing.T) {
 			}
 			if resolved != tc.wantResolve {
 				t.Errorf("resolver consulted = %v, want %v", resolved, tc.wantResolve)
+			}
+		})
+	}
+}
+
+func TestAdoptHookInvocation(t *testing.T) {
+	const realUUID = "11111111-2222-3333-4444-555555555555"
+
+	cases := map[string]struct {
+		startVal      string // observation value before Initialize ("" means absent)
+		startExternal string // pre-set crossplane.io/external-name annotation
+		resolveOK     bool   // name resolver finds the resource
+		noResolver    bool   // no name resolver registered (the user resource after issue #104)
+		noHook        bool   // no adopt hook registered
+		observeOnly   bool   // management policy is observe-only
+		hookErr       error
+
+		wantHookCalled bool
+		wantErr        bool
+	}{
+		"HookRunsOnNameAdoption": {
+			startVal:       "",
+			resolveOK:      true,
+			wantHookCalled: true,
+		},
+		"HookRunsOnUUIDExternalNameImport": {
+			startVal:       "",
+			startExternal:  realUUID,
+			wantHookCalled: true,
+		},
+		"HookRunsOnUUIDImportWithoutResolver": {
+			// The user resource has no name resolver anymore (issue #104):
+			// explicit UUID import must still trigger the hook.
+			startVal:       "",
+			startExternal:  realUUID,
+			noResolver:     true,
+			wantHookCalled: true,
+		},
+		"HookSkippedWhenNoResolverAndNoUUIDImport": {
+			// No resolver and no pinned UUID: sentinel is seeded (force-create),
+			// the hook must not run - nothing was adopted.
+			startVal:       "",
+			noResolver:     true,
+			wantHookCalled: false,
+		},
+		"HookSkippedWhenResourceAbsent": {
+			startVal:       "",
+			resolveOK:      false,
+			wantHookCalled: false,
+		},
+		"HookSkippedAfterAdoption": {
+			// Real UUID already in the observation: initializer early-returns,
+			// the hook must not run again on subsequent reconciles.
+			startVal:       realUUID,
+			resolveOK:      true,
+			wantHookCalled: false,
+		},
+		"HookErrorPropagatesForRetry": {
+			startVal:       "",
+			resolveOK:      true,
+			hookErr:        errors.New("alter user failed"),
+			wantHookCalled: true,
+			wantErr:        true,
+		},
+		"HookSkippedForObserveOnly": {
+			startVal:       "",
+			resolveOK:      true,
+			observeOnly:    true,
+			wantHookCalled: false,
+		},
+		"HookErrorOnUUIDImportLeavesIdentifierUnseeded": {
+			// Same unseeded-on-failure guarantee for the UUID-external-name
+			// import branch as for name resolution.
+			startVal:       "",
+			startExternal:  realUUID,
+			hookErr:        errors.New("alter user failed"),
+			wantHookCalled: true,
+			wantErr:        true,
+		},
+		"NoHookRegisteredIsFine": {
+			startVal:  "",
+			resolveOK: true,
+			noHook:    true,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			const resourceName = "clickhousedbops_user"
+			if !tc.noResolver {
+				SetResolverFactory(resourceName, func(_ client.Client) UUIDResolver {
+					return func(_ context.Context, _ xpresource.Managed) (string, bool, error) {
+						return realUUID, tc.resolveOK, nil
+					}
+				})
+				t.Cleanup(func() { delete(resolverFactories, resourceName) })
+			}
+
+			hookCalled := false
+			if !tc.noHook {
+				SetAdoptHook(resourceName, func(_ client.Client) AdoptHook {
+					return func(_ context.Context, _ xpresource.Managed) error {
+						hookCalled = true
+						return tc.hookErr
+					}
+				})
+				t.Cleanup(func() { delete(adoptHookFactories, resourceName) })
+			}
+
+			obs := map[string]any{}
+			if tc.startVal != "" {
+				obs["id"] = tc.startVal
+			}
+			mg := &fakeManaged{Managed: &fake.Managed{}, obs: obs}
+			if tc.startExternal != "" {
+				meta.SetExternalName(mg, tc.startExternal)
+			}
+			if tc.observeOnly {
+				mg.SetManagementPolicies(xpv2.ManagementPolicies{xpv2.ManagementActionObserve})
+			}
+
+			init := adoptByNameInitializer(resourceName, "id")(nil)
+			err := init.Initialize(context.Background(), mg)
+
+			if tc.wantErr && err == nil {
+				t.Fatalf("expected error, got nil")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if hookCalled != tc.wantHookCalled {
+				t.Errorf("hook called = %v, want %v", hookCalled, tc.wantHookCalled)
+			}
+			if tc.wantErr {
+				// A failed hook must leave the identifier unseeded so the next
+				// reconcile retries the full adoption, hook included. Seeding
+				// first would permanently skip the hook after one transient
+				// failure.
+				if got := mg.obs["id"]; got == realUUID {
+					t.Errorf("observation id seeded to %v despite hook failure; must stay unseeded for retry", got)
+				}
+				if got := meta.GetExternalName(mg); tc.startExternal == "" && got != "" {
+					t.Errorf("external-name set to %q despite hook failure; must stay unset for retry", got)
+				}
+			}
+			if name == "HookSkippedWhenNoResolverAndNoUUIDImport" {
+				if got := mg.obs["id"]; got != sentinelUUID {
+					t.Errorf("observation id = %v, want sentinel %v (force-create so CREATE USER fails loudly on collision)", got, sentinelUUID)
+				}
 			}
 		})
 	}
