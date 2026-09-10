@@ -65,7 +65,8 @@ func applyAdoptedUserPassword(ctx context.Context, kube client.Client, mg xpreso
 
 	// ALTER targets the name while adoption is keyed by the pinned UUID; verify
 	// they identify the same user, or a stale/copied UUID would rewrite an
-	// unrelated user's credential.
+	// unrelated user's credential. A rename between this check and the ALTER
+	// can still race (ClickHouse has no ALTER-by-UUID); accepted.
 	pinned, err := pinnedImportUUID(mg)
 	if err != nil {
 		return err
@@ -90,14 +91,11 @@ func applyAdoptedUserPassword(ctx context.Context, kube client.Client, mg xpreso
 	return nil
 }
 
-// pinnedImportUUID extracts the UUID from the external-name annotation,
-// tolerating a "<cluster>:<uuid>" prefix.
+// pinnedImportUUID extracts the UUID from the external-name annotation using
+// the same cluster-prefix parsing as the import gate in config.
 func pinnedImportUUID(mg xpresource.Managed) (string, error) {
 	en := meta.GetExternalName(mg)
-	candidate := en
-	if i := strings.LastIndex(en, ":"); i >= 0 {
-		candidate = en[i+1:]
-	}
+	candidate := config.StripClusterPrefix(en)
 	if _, err := uuid.Parse(candidate); err != nil {
 		return "", fmt.Errorf("external name %q is not a UUID import value: %w", en, err)
 	}

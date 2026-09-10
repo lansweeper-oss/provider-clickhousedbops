@@ -64,6 +64,18 @@ spec:
                 - status: "True"
               ((status.conditions || `[]`)[?type == 'Ready']):
                 - status: "True"
+      # cleanup runs at test end even when this step's try fails, so the
+      # out-of-band user cannot leak; the MR delete drops the adopted user first.
+      cleanup:
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              name: impuser
+        - script:
+            content: |
+              kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
+                --user default --password e2epassword --query "DROP USER IF EXISTS impuser" || true
       catch:
         # Diagnostics: surface the reconcile error and provider logs on failure.
         - script:
@@ -88,15 +100,3 @@ spec:
                 echo "FAIL: pre-existing password still authenticates - spec password was not applied"
                 exit 1
               fi
-      finally:
-        # MR delete drops the user; DROP is a safety net for pre-adoption failures.
-        - delete:
-            ref:
-              apiVersion: clickhousedbops.crossplane.io/v1alpha1
-              kind: User
-              name: impuser
-        - script:
-            shell: bash
-            content: |
-              kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
-                --user default --password e2epassword --query "DROP USER IF EXISTS impuser" || true
