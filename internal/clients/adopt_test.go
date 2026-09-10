@@ -62,8 +62,9 @@ func TestApplyAdoptedUserPassword(t *testing.T) {
 		resolveErr error
 		execErr    error
 
-		wantSQL     string // "" means exec must not be called
-		wantErrPart string // "" means no error expected
+		wantSQL      string // "" means exec must not be called
+		wantErrPart  string // "" means no error expected
+		wantErrClean string // substring that must NOT appear in the error
 	}{
 		"AppliesHashOnAdoption": {
 			user:    testUser("app_user"),
@@ -103,10 +104,14 @@ func TestApplyAdoptedUserPassword(t *testing.T) {
 			secret:      hashSecret("hash", "not-a-sha256-hash'; DROP USER admin --"),
 			wantErrPart: "not a sha256 hex digest",
 		},
-		"NoopWithoutHashSecretRef": {
+		"ErrorWithoutHashSecretRef": {
+			// A full-management adoption without a hash ref (autoGeneratePassword
+			// without writeConnectionSecretToRef) must fail loudly: silently
+			// keeping the unknown password is the exact divergence of issue #104.
 			user: testUser("app_user", func(u *v1alpha1.User) {
 				u.Spec.ForProvider.PasswordSha256HashSecretRef = nil
 			}),
+			wantErrPart: "passwordSha256HashSecretRef is not set",
 		},
 		"ErrorWhenSecretMissing": {
 			user:        testUser("app_user"),
@@ -128,6 +133,16 @@ func TestApplyAdoptedUserPassword(t *testing.T) {
 			secret:      hashSecret("hash", testHash),
 			execErr:     errors.New("connection refused"),
 			wantErrPart: "connection refused",
+		},
+		"ExecErrorRedactsHash": {
+			// ClickHouse errors often echo the failing statement; the hash must
+			// not leak into the reconcile error (it surfaces on the Synced
+			// condition, readable by anyone who can get the MR).
+			user:         testUser("app_user"),
+			secret:       hashSecret("hash", testHash),
+			execErr:      errors.New("DB::Exception: Syntax error near IDENTIFIED WITH sha256_hash BY '" + testHash + "'"),
+			wantErrPart:  "[redacted]",
+			wantErrClean: testHash,
 		},
 	}
 
@@ -160,6 +175,9 @@ func TestApplyAdoptedUserPassword(t *testing.T) {
 				}
 			} else if err != nil {
 				t.Fatalf("unexpected error: %v", err)
+			}
+			if tc.wantErrClean != "" && err != nil && strings.Contains(err.Error(), tc.wantErrClean) {
+				t.Fatalf("error %q leaks %q", err, tc.wantErrClean)
 			}
 			if gotSQL != tc.wantSQL && tc.wantErrPart == "" {
 				t.Errorf("sql = %q, want %q", gotSQL, tc.wantSQL)

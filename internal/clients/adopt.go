@@ -2,6 +2,7 @@ package clients
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -50,8 +51,16 @@ func applyAdoptedUserPassword(ctx context.Context, kube client.Client, mg xpreso
 	cluster, _ := paved.GetString("spec.forProvider.clusterName")
 
 	hash, found, err := readPasswordHash(ctx, kube, mg, paved)
-	if err != nil || !found {
+	if err != nil {
 		return err
+	}
+	if !found {
+		// Adopting without a hash to apply would keep the user's unknown
+		// password while the MR turns Ready - the exact silent divergence of
+		// issue #104. Only reachable with autoGeneratePassword set but no
+		// writeConnectionSecretToRef, in which case PasswordGenerator skips
+		// generation and never materializes the ref.
+		return fmt.Errorf("cannot apply password to adopted user %q: spec.forProvider.passwordSha256HashSecretRef is not set (autoGeneratePassword requires writeConnectionSecretToRef)", name)
 	}
 
 	params, err := resolve(ctx, kube, mg)
@@ -60,17 +69,17 @@ func applyAdoptedUserPassword(ctx context.Context, kube client.Client, mg xpreso
 	}
 
 	if err := exec(ctx, params, alterUserPasswordSQL(name, cluster, hash)); err != nil {
-		return fmt.Errorf("cannot apply password hash to adopted user %q: %w", name, err)
+		// ClickHouse errors may echo the failing statement, hash included. The
+		// error ends up on the Synced condition, so redact before wrapping.
+		redacted := errors.New(strings.ReplaceAll(err.Error(), hash, "[redacted]"))
+		return fmt.Errorf("cannot apply password hash to adopted user %q: %w", name, redacted)
 	}
 	return nil
 }
 
 // readPasswordHash loads and validates the SHA256 hash referenced by
 // spec.forProvider.passwordSha256HashSecretRef. found=false without error means
-// the ref is absent: either no password management is configured, or
-// autoGeneratePassword is set without writeConnectionSecretToRef, in which case
-// PasswordGenerator silently skips generation and never materializes the ref -
-// the hook then no-ops and an adopted user keeps its unknown password.
+// the ref is absent; the caller turns that into a loud failure.
 func readPasswordHash(ctx context.Context, kube client.Client, mg xpresource.Managed, paved *fieldpath.Paved) (hash string, found bool, err error) {
 	refName, err := paved.GetString("spec.forProvider.passwordSha256HashSecretRef.name")
 	if fieldpath.IsNotFound(err) {

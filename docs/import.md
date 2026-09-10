@@ -17,7 +17,7 @@ These resources use one or more parameters as their identity.
 Set the parameters (directly or via a selector) and Crossplane populates the external name automatically.
 
 | Resource | Required Identity Parameters |
-| -------- | ---------------------------- |
+|----------|------------------------------|
 | `Database` | `clusterName`, `name` |
 | `GrantPrivilege` | `granteeUserName`, `privilegeName`, `databaseName`, `tableName`, `columnName` |
 | `GrantRole` | `clusterName`, `granteeUserName`, `roleName` |

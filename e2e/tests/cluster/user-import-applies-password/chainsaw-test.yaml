@@ -79,7 +79,7 @@ spec:
             shell: bash
             content: |
               set -euo pipefail
-              PASS=$(kubectl get secret impuser -n crossplane-system -o jsonpath='{.data.password}' | base64 -d)
+              PASS=$(kubectl get secret impuser -n crossplane-system -o go-template='{{.data.password | base64decode}}')
               RES=$(kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
                 --user impuser --password "$PASS" --query "SELECT 1")
               [ "$RES" = "1" ] || { echo "FAIL: secret password cannot authenticate"; exit 1; }
