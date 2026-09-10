@@ -4,8 +4,11 @@ metadata:
   name: user-observe-by-uuid
 # Explicit UUID import for a cluster-scoped User: users are never adopted by
 # name (#104), so an Observe-only sibling must pin crossplane.io/external-name
-# to the existing user's UUID to reach Synced/Ready. Dedicated name (obsuser);
-# uses the cluster-wide ProviderConfig "default".
+# to the existing user's UUID to reach Synced/Ready.
+#
+# Tests run concurrently against one shared ClickHouse, so this test owns the
+# username "obsuser". Credentials come from the cluster-wide ProviderConfig
+# "default" created by the e2e setup script.
 spec:
   # Provider deletes are async (create/poll), so cleanup can exceed the default
   # delete timeout; give finally/cleanup deletes room to finish.

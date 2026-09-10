@@ -4,7 +4,11 @@ metadata:
   name: user-import-applies-password-namespaced
 # UUID import of a pre-existing namespaced User with full management must apply
 # the spec's password (AdoptHook, #104): the secret's password must log in, the
-# old password must not. Dedicated name (nimpuser); ClusterProviderConfig "default".
+# old password must not.
+#
+# Tests run concurrently against one shared ClickHouse, so this test owns the
+# username "nimpuser". Credentials come from the ClusterProviderConfig
+# "default" created by the e2e setup script.
 spec:
   # Provider deletes are async (create/poll), so cleanup can exceed the default
   # delete timeout; give finally/cleanup deletes room to finish.

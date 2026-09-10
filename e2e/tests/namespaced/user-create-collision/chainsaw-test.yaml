@@ -4,7 +4,10 @@ metadata:
   name: user-create-collision-namespaced
 # Namespaced User colliding on forProvider.name must not adopt (#104):
 # CREATE USER fails and "already exists" surfaces as Synced=False on the MR.
-# Dedicated name (ncoluser); uses ClusterProviderConfig "default".
+#
+# Tests run concurrently against one shared ClickHouse, so this test owns the
+# username "ncoluser". Credentials come from the ClusterProviderConfig
+# "default" created by the e2e setup script.
 spec:
   # Provider deletes are async (create/poll), so cleanup can exceed the default
   # delete timeout; give finally/cleanup deletes room to finish.
