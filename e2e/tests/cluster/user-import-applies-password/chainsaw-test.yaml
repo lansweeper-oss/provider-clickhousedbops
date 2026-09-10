@@ -62,6 +62,13 @@ spec:
                   - status: "True"
                 (conditions[?type == 'Ready']):
                   - status: "True"
+      catch:
+        # Diagnostics: surface the reconcile error and provider logs on failure.
+        - script:
+            content: |
+              kubectl get user.clickhousedbops.crossplane.io impuser -o yaml || true
+              kubectl -n crossplane-system get pods -o name | grep provider-clickhousedbops | head -1 | \
+                xargs -r -I{} kubectl -n crossplane-system logs {} --tail=200 || true
 
     - name: verify-live-password-matches-secret
       try:
