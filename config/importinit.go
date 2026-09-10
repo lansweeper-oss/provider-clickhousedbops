@@ -51,11 +51,11 @@ func runAdoptHook(ctx context.Context, kube client.Client, mg xpresource.Managed
 	return nil
 }
 
-// adoptByNameInitializer seeds the resource identifier before the first observe so
+// importIdentifierInitializer seeds the resource identifier before the first observe so
 // Upjet's UUID-based Read adopts an existing resource instead of re-creating it.
 // A real UUID already in the observation (post-import/creation) is left untouched.
 // See docs/import.md for the rationale.
-func adoptByNameInitializer(resourceName, field string) config.NewInitializerFn {
+func importIdentifierInitializer(resourceName, field string) config.NewInitializerFn {
 	return func(kube client.Client) managed.Initializer {
 		return managed.InitializerFn(func(ctx context.Context, mg xpresource.Managed) error {
 			tr, ok := mg.(terraformedObservation)

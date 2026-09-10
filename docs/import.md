@@ -133,7 +133,7 @@ Background for maintainers (implementation in `config/importinit.go`):
   which looks a resource up by its **UUID**, not by name. It never calls
   `ImportState` (the only provider path that resolves a name to a UUID). So the
   UUID must be known before the first observe.
-- An initializer (`adoptByNameInitializer`) runs before observe. It determines the
+- An initializer (`importIdentifierInitializer`) runs before observe. It determines the
   UUID from, in order: an external-name that is already a UUID; a lookup by
   `spec.forProvider.name` against the ClickHouse `system.*` tables; otherwise a
   sentinel UUID that matches no row (so the provider reports "not found" and

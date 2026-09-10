@@ -31,7 +31,7 @@ func (f *fakeManaged) SetObservation(o map[string]any) error {
 	return nil
 }
 
-func TestAdoptByNameInitializer(t *testing.T) {
+func TestImportIdentifierInitializer(t *testing.T) {
 	const realUUID = "11111111-2222-3333-4444-555555555555"
 
 	cases := map[string]struct {
@@ -185,7 +185,7 @@ func TestAdoptByNameInitializer(t *testing.T) {
 				meta.SetExternalName(mg, tc.startExternal)
 			}
 
-			init := adoptByNameInitializer(tc.resourceName, tc.field)(nil)
+			init := importIdentifierInitializer(tc.resourceName, tc.field)(nil)
 			err := init.Initialize(context.Background(), mg)
 
 			if tc.wantErr {
@@ -322,7 +322,7 @@ func TestAdoptHookInvocation(t *testing.T) {
 				mg.SetManagementPolicies(xpv2.ManagementPolicies{xpv2.ManagementActionObserve})
 			}
 
-			init := adoptByNameInitializer(resourceName, "id")(nil)
+			init := importIdentifierInitializer(resourceName, "id")(nil)
 			err := init.Initialize(context.Background(), mg)
 
 			if tc.wantErr && err == nil {
