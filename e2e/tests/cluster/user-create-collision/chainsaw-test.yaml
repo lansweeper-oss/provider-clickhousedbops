@@ -2,14 +2,9 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   name: user-create-collision
-# Validates the issue #104 fix for a cluster-scoped User: a managed User whose
-# forProvider.name collides with an existing ClickHouse user must NOT silently
-# adopt it. With no name resolver for users, the provider proceeds to CREATE USER,
-# which fails loudly with "already exists" - surfaced on the MR as Synced=False.
-#
-# Legacy cluster-scoped resources use the cluster-wide clickhousedbops.crossplane.io
-# ProviderConfig "default" from the e2e setup script. A dedicated ClickHouse name
-# (coluser) avoids colliding with the other user tests and the uptest manifests.
+# Cluster-scoped User colliding on forProvider.name must not adopt (#104):
+# CREATE USER fails and "already exists" surfaces as Synced=False on the MR.
+# Dedicated name (coluser); uses the cluster-wide ProviderConfig "default".
 spec:
   # Provider deletes are async (create/poll), so cleanup can exceed the default
   # delete timeout; give finally/cleanup deletes room to finish.
@@ -64,9 +59,7 @@ spec:
                   namespace: crossplane-system
                 providerConfigRef:
                   name: default
-        # The colliding MR must fail loudly: CREATE USER hits "already exists"
-        # and the error surfaces on the Synced condition. It must never turn
-        # Ready - that would mean silent adoption.
+        # Loud failure on the Synced condition; Ready would mean silent adoption.
         - assert:
             timeout: 5m
             resource:
@@ -89,9 +82,8 @@ spec:
                 (conditions[?type == 'Ready']):
                   - status: "True"
       finally:
-        # Delete order matters: remove the managed resources while the test namespace
-        # still exists. The colliding MR never created its external resource, so its
-        # delete resolves via "not found"; the managed user then cleans up normally.
+        # Delete while the test namespace exists; the colliding MR resolves via
+        # "not found" (its external resource was never created).
         - delete:
             ref:
               apiVersion: clickhousedbops.crossplane.io/v1alpha1

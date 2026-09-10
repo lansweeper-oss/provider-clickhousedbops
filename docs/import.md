@@ -151,15 +151,9 @@ Background for maintainers (implementation in `config/importinit.go`):
 - Name resolution is cluster-aware: when `clusterName` is set the lookup runs
   across the cluster (`cluster(<name>, system.<table>)`), matching the provider's
   own behavior.
-- No name resolver is registered for `user`: adopting a user by name would
-  silently take over an existing user with a password the provider can neither
-  observe nor repair — and applying the spec's password on implicit adoption
-  would let anyone take over another user's account by claiming its name. A name
-  collision therefore falls through to `CREATE USER`, which fails loudly with
-  `already exists`. A pinned UUID external-name is the only user import path.
-- An `AdoptHook` (registered per resource in `cmd/provider/main.go`, implemented
-  in `internal/clients/adopt.go`) runs when a resource is adopted, before the
-  identifier is seeded — so a hook failure fails the reconcile and the whole
-  adoption retries. For `user`, the hook applies the spec's password hash to the
-  adopted user via `ALTER USER`, keeping the connection secret truthful.
-  Observe-only resources skip the hook.
+- No name resolver for `user`: name adoption would silently take over an
+  existing user (issue #104), so a collision falls through to `CREATE USER` and
+  fails with `already exists`. A pinned UUID external-name is the only import path.
+- An `AdoptHook` (`internal/clients/adopt.go`) runs on adoption, before the
+  identifier is seeded so failures retry. For `user` it applies the spec's
+  password hash via `ALTER USER`. Observe-only resources skip it.

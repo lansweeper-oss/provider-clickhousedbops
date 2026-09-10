@@ -16,22 +16,17 @@ import (
 	"github.com/lansweeper-oss/provider-clickhousedbops/config"
 )
 
-// sha256HexRe matches a lowercase hex-encoded SHA256 digest. The hash is
-// validated before being interpolated into the ALTER USER statement, so no
-// other escaping is needed for it.
+// sha256HexRe matches a lowercase hex SHA256 digest; validation makes the hash
+// safe to interpolate into SQL.
 var sha256HexRe = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 type connResolver func(ctx context.Context, kube client.Client, mg xpresource.Managed) (ConnParams, error)
 type stmtExec func(ctx context.Context, params ConnParams, sql string) error
 
-// NewUserAdoptPasswordApplier returns the AdoptHook for clickhousedbops_user.
-// Importing an existing ClickHouse user adopts a user whose password is unknown,
-// while the connection secret advertises the password the spec intends. Left
-// alone, the two diverge silently: Observe never reads password state and Update
-// only renames, so the MR reports Synced/Healthy with a dead credential. The
-// hook closes that gap by applying the spec's password hash to the adopted user.
-// Since issue #104 the user resource has no name resolver, so this only fires on
-// an explicit UUID external-name import - the deliberate takeover path.
+// NewUserAdoptPasswordApplier returns the AdoptHook for clickhousedbops_user:
+// it applies the spec's password hash to an adopted user, whose live password is
+// otherwise unknown and unrepairable (Observe never reads it, Update only
+// renames). Fires only on explicit UUID import - users have no name resolver (#104).
 func NewUserAdoptPasswordApplier(kube client.Client) config.AdoptHook {
 	return func(ctx context.Context, mg xpresource.Managed) error {
 		return applyAdoptedUserPassword(ctx, kube, mg, ResolveConnParams, execStatement)
@@ -55,11 +50,8 @@ func applyAdoptedUserPassword(ctx context.Context, kube client.Client, mg xpreso
 		return err
 	}
 	if !found {
-		// Adopting without a hash to apply would keep the user's unknown
-		// password while the MR turns Ready - the exact silent divergence of
-		// issue #104. Only reachable with autoGeneratePassword set but no
-		// writeConnectionSecretToRef, in which case PasswordGenerator skips
-		// generation and never materializes the ref.
+		// No hash to apply = adopted user keeps its unknown password (#104).
+		// Only reachable: autoGeneratePassword without writeConnectionSecretToRef.
 		return fmt.Errorf("cannot apply password to adopted user %q: spec.forProvider.passwordSha256HashSecretRef is not set (autoGeneratePassword requires writeConnectionSecretToRef)", name)
 	}
 
@@ -69,17 +61,16 @@ func applyAdoptedUserPassword(ctx context.Context, kube client.Client, mg xpreso
 	}
 
 	if err := exec(ctx, params, alterUserPasswordSQL(name, cluster, hash)); err != nil {
-		// ClickHouse errors may echo the failing statement, hash included. The
-		// error ends up on the Synced condition, so redact before wrapping.
+		// ClickHouse errors may echo the statement; redact the hash before it
+		// reaches the Synced condition.
 		redacted := errors.New(strings.ReplaceAll(err.Error(), hash, "[redacted]"))
 		return fmt.Errorf("cannot apply password hash to adopted user %q: %w", name, redacted)
 	}
 	return nil
 }
 
-// readPasswordHash loads and validates the SHA256 hash referenced by
-// spec.forProvider.passwordSha256HashSecretRef. found=false without error means
-// the ref is absent; the caller turns that into a loud failure.
+// readPasswordHash loads and validates the hash from
+// spec.forProvider.passwordSha256HashSecretRef; found=false means the ref is absent.
 func readPasswordHash(ctx context.Context, kube client.Client, mg xpresource.Managed, paved *fieldpath.Paved) (hash string, found bool, err error) {
 	refName, err := paved.GetString("spec.forProvider.passwordSha256HashSecretRef.name")
 	if fieldpath.IsNotFound(err) {
@@ -112,9 +103,8 @@ func readPasswordHash(ctx context.Context, kube client.Client, mg xpresource.Man
 	return hash, true, nil
 }
 
-// alterUserPasswordSQL builds the ALTER USER statement. The hash is already
-// validated as hex-64, the identifier is backtick-quoted and the cluster name
-// is escaped as a string literal.
+// alterUserPasswordSQL builds the ALTER USER statement; hash pre-validated,
+// name backtick-quoted, cluster escaped as string literal.
 func alterUserPasswordSQL(name, cluster, hash string) string {
 	onCluster := ""
 	if cluster != "" {
@@ -130,17 +120,15 @@ func quoteIdent(s string) string {
 	return "`" + s + "`"
 }
 
-// escapeStringLit escapes a value for use inside a single-quoted ClickHouse
-// string literal. Backslashes must be escaped before quotes, otherwise an
-// input like `x\'` would re-open the literal.
+// escapeStringLit escapes for a single-quoted ClickHouse string literal;
+// backslashes before quotes, or `x\'` would re-open the literal.
 func escapeStringLit(s string) string {
 	s = strings.ReplaceAll(s, `\`, `\\`)
 	s = strings.ReplaceAll(s, `'`, `\'`)
 	return s
 }
 
-// execStatement runs a single statement against ClickHouse using the provider
-// config connection parameters.
+// execStatement runs one statement using provider config connection params.
 func execStatement(ctx context.Context, params ConnParams, sql string) error {
 	conn, err := openConn(params)
 	if err != nil {

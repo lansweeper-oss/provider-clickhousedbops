@@ -23,12 +23,9 @@ func SetResolverFactory(resourceName string, f func(client.Client) UUIDResolver)
 	resolverFactories[resourceName] = f
 }
 
-// AdoptHook runs when an existing resource is adopted (imported) instead of
-// created, so the provider can reconcile state that adoption would otherwise
-// skip. It runs before the resource identifier is seeded: on error the
-// identifier stays unseeded, the reconcile fails, and the next reconcile
-// retries the full adoption including the hook. Hooks must therefore be
-// idempotent. Observe-only resources are skipped.
+// AdoptHook runs when an existing resource is adopted instead of created. It
+// runs before the identifier is seeded so a failure retries the full adoption;
+// hooks must be idempotent. Observe-only resources are skipped.
 type AdoptHook func(ctx context.Context, mg xpresource.Managed) error
 
 // adoptHookFactories maps a Terraform resource name to the factory that builds its AdoptHook.
@@ -89,9 +86,8 @@ func seedImportIdentifier(ctx context.Context, kube client.Client, mg xpresource
 	// The Crossplane default external name is the resource name, which is not a UUID and falls through.
 	if en := stripClusterPrefix(meta.GetExternalName(mg), sep); en != "" {
 		if _, err := uuid.Parse(en); err == nil {
-			// The hook runs before the identifier is seeded: a seeded identifier
-			// makes the next reconcile early-return, so seeding first would turn
-			// a transient hook failure into a permanently skipped hook.
+			// Hook before seeding: a seeded identifier early-returns next
+			// reconcile, permanently skipping a transiently failed hook.
 			if err := runAdoptHook(ctx, kube, mg, resourceName); err != nil {
 				return err
 			}

@@ -236,16 +236,14 @@ func TestAdoptHookInvocation(t *testing.T) {
 			wantHookCalled: true,
 		},
 		"HookRunsOnUUIDImportWithoutResolver": {
-			// The user resource has no name resolver anymore (issue #104):
-			// explicit UUID import must still trigger the hook.
+			// Users have no name resolver (#104); UUID import still hooks.
 			startVal:       "",
 			startExternal:  realUUID,
 			noResolver:     true,
 			wantHookCalled: true,
 		},
 		"HookSkippedWhenNoResolverAndNoUUIDImport": {
-			// No resolver and no pinned UUID: sentinel is seeded (force-create),
-			// the hook must not run - nothing was adopted.
+			// Sentinel seeded (force-create); nothing adopted, no hook.
 			startVal:       "",
 			noResolver:     true,
 			wantHookCalled: false,
@@ -256,8 +254,7 @@ func TestAdoptHookInvocation(t *testing.T) {
 			wantHookCalled: false,
 		},
 		"HookSkippedAfterAdoption": {
-			// Real UUID already in the observation: initializer early-returns,
-			// the hook must not run again on subsequent reconciles.
+			// Real UUID in observation: early return, no repeat hook.
 			startVal:       realUUID,
 			resolveOK:      true,
 			wantHookCalled: false,
@@ -276,8 +273,7 @@ func TestAdoptHookInvocation(t *testing.T) {
 			wantHookCalled: false,
 		},
 		"HookErrorOnUUIDImportLeavesIdentifierUnseeded": {
-			// Same unseeded-on-failure guarantee for the UUID-external-name
-			// import branch as for name resolution.
+			// Same unseeded-on-failure guarantee as the name branch.
 			startVal:       "",
 			startExternal:  realUUID,
 			hookErr:        errors.New("alter user failed"),
@@ -339,10 +335,8 @@ func TestAdoptHookInvocation(t *testing.T) {
 				t.Errorf("hook called = %v, want %v", hookCalled, tc.wantHookCalled)
 			}
 			if tc.wantErr {
-				// A failed hook must leave the identifier unseeded so the next
-				// reconcile retries the full adoption, hook included. Seeding
-				// first would permanently skip the hook after one transient
-				// failure.
+				// Failed hook must leave the identifier unseeded, else the next
+				// reconcile early-returns and the hook is permanently skipped.
 				if got := mg.obs["id"]; got == realUUID {
 					t.Errorf("observation id seeded to %v despite hook failure; must stay unseeded for retry", got)
 				}

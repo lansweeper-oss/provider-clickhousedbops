@@ -90,8 +90,7 @@ func TestApplyAdoptedUserPassword(t *testing.T) {
 			wantSQL: "ALTER USER `back\\\\slash` IDENTIFIED WITH sha256_hash BY '" + testHash + "'",
 		},
 		"EscapesQuotesAndBackslashesInClusterName": {
-			// A trailing backslash before a quote must not re-open the string
-			// literal: \ is escaped before ', yielding c\\\'x.
+			// \ escaped before ' so a trailing backslash can't re-open the literal.
 			user: testUser("app_user", func(u *v1alpha1.User) {
 				c := "c\\'x"
 				u.Spec.ForProvider.ClusterName = &c
@@ -105,9 +104,8 @@ func TestApplyAdoptedUserPassword(t *testing.T) {
 			wantErrPart: "not a sha256 hex digest",
 		},
 		"ErrorWithoutHashSecretRef": {
-			// A full-management adoption without a hash ref (autoGeneratePassword
-			// without writeConnectionSecretToRef) must fail loudly: silently
-			// keeping the unknown password is the exact divergence of issue #104.
+			// No hash ref = adoption would keep the unknown password (#104);
+			// must fail loudly.
 			user: testUser("app_user", func(u *v1alpha1.User) {
 				u.Spec.ForProvider.PasswordSha256HashSecretRef = nil
 			}),
@@ -135,9 +133,8 @@ func TestApplyAdoptedUserPassword(t *testing.T) {
 			wantErrPart: "connection refused",
 		},
 		"ExecErrorRedactsHash": {
-			// ClickHouse errors often echo the failing statement; the hash must
-			// not leak into the reconcile error (it surfaces on the Synced
-			// condition, readable by anyone who can get the MR).
+			// ClickHouse errors echo the statement; the hash must not leak
+			// into the Synced condition.
 			user:         testUser("app_user"),
 			secret:       hashSecret("hash", testHash),
 			execErr:      errors.New("DB::Exception: Syntax error near IDENTIFIED WITH sha256_hash BY '" + testHash + "'"),

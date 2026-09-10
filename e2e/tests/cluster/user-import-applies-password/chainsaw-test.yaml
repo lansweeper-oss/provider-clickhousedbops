@@ -2,16 +2,9 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   name: user-import-applies-password
-# Validates the AdoptHook half of the issue #104 fix for a cluster-scoped User:
-# importing an existing ClickHouse user by pinned UUID with full management
-# policies must apply the spec's password to the live user (ALTER USER ...
-# IDENTIFIED WITH sha256_hash), so the connection secret is truthful from the
-# moment of adoption. Proven by logging in with the secret's password and by
-# the pre-existing password no longer working.
-#
-# Legacy cluster-scoped resources use the cluster-wide clickhousedbops.crossplane.io
-# ProviderConfig "default" from the e2e setup script. A dedicated ClickHouse name
-# (impuser) avoids colliding with the other user tests and the uptest manifests.
+# UUID import of a pre-existing cluster-scoped User with full management must
+# apply the spec's password (AdoptHook, #104): the secret's password must log in,
+# the old password must not. Dedicated name (impuser); ProviderConfig "default".
 spec:
   # Provider deletes are async (create/poll), so cleanup can exceed the default
   # delete timeout; give finally/cleanup deletes room to finish.
@@ -22,8 +15,8 @@ spec:
   steps:
     - name: import-preexisting-user-by-uuid
       try:
-        # Create the user out-of-band (as if it predates Crossplane) and capture its
-        # UUID. Script and apply must share a step: bindings do not leak across steps.
+        # Create the user out-of-band and capture its UUID. Script and apply
+        # share a step: bindings do not leak across steps.
         - script:
             shell: bash
             content: |
@@ -72,9 +65,7 @@ spec:
 
     - name: verify-live-password-matches-secret
       try:
-        # The secret's password must authenticate (AdoptHook applied the spec's
-        # hash) and the pre-existing password must be dead (proof ALTER USER ran,
-        # not a silent adoption keeping the old credential).
+        # Secret's password must authenticate; pre-existing one must be dead.
         - script:
             shell: bash
             content: |
@@ -89,9 +80,7 @@ spec:
                 exit 1
               fi
       finally:
-        # Delete the MR while the test namespace still exists (cluster-scoped MRs
-        # outlive it); full management policies drop the ClickHouse user. The DROP
-        # is a best-effort safety net for runs that fail before adoption.
+        # MR delete drops the user; DROP is a safety net for pre-adoption failures.
         - delete:
             ref:
               apiVersion: clickhousedbops.crossplane.io/v1alpha1

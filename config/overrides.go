@@ -185,11 +185,9 @@ func Configure(p *config.Provider) {
 			},
 		}
 
-		// PasswordGenerator must run before adoptByNameInitializer: the user's
-		// AdoptHook applies the password hash on explicit UUID import, so the
-		// hash (and passwordSha256HashSecretRef) must exist by the time the
-		// import fires. No name resolver is registered for users (issue #104),
-		// so a name collision falls through to CREATE USER and fails loudly.
+		// PasswordGenerator before adoptByNameInitializer: the AdoptHook needs
+		// the hash ref to exist on UUID import. No name resolver for users
+		// (#104): a name collision fails loudly on CREATE USER.
 		r.InitializerFns = append(r.InitializerFns,
 			PasswordValidator(),
 			PasswordRefProcessor(),

@@ -2,17 +2,10 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   name: user-observe-by-uuid-namespaced
-# Validates explicit UUID import for a namespaced User
-# (clickhousedbops.m.crossplane.io, id observation field). Users are never adopted
-# by name (issue #104): a sibling Observe-only User must pin
-# crossplane.io/external-name to the existing user's UUID to be adopted
-# (Synced/Ready). Password validation is skipped for Observe-only resources, so
-# the sibling needs only the name and the pinned UUID.
-#
-# Namespaced (clickhousedbops.m.crossplane.io) resources use the cluster-scoped
-# ClusterProviderConfig "default" from the e2e setup script. A dedicated ClickHouse name
-# (nobsuser) avoids colliding with the cluster observe test and uptest manifests; creating
-# the same ClickHouse user twice fails with "already exists in local_directory".
+# Explicit UUID import for a namespaced User: users are never adopted by name
+# (#104), so an Observe-only sibling must pin crossplane.io/external-name to the
+# existing user's UUID to reach Synced/Ready. Dedicated name (nobsuser); uses
+# ClusterProviderConfig "default".
 spec:
   # Provider deletes are async (create/poll), so cleanup can exceed the default
   # delete timeout; give finally/cleanup deletes room to finish.
@@ -59,9 +52,8 @@ spec:
 
     - name: observe-sibling-by-uuid
       try:
-        # Capture the provider-assigned UUID (external-name) into a binding. Keeping this
-        # in the same step as the apply below is required for the $useruuid binding to be
-        # in scope; bindings do not leak across steps.
+        # Capture the UUID into a binding; same step as the apply below because
+        # bindings do not leak across steps.
         - script:
             shell: bash
             content: |
@@ -100,9 +92,7 @@ spec:
                 (conditions[?type == 'Ready']):
                   - status: "True"
       finally:
-        # Delete order matters: remove the managed resources while the test namespace
-        # still exists. Sibling first (Observe-only, no ClickHouse change) then the
-        # managed user, keeps cleanup deterministic and namespace-safe.
+        # Delete while the test namespace exists; sibling first, then the managed user.
         - delete:
             ref:
               apiVersion: clickhousedbops.m.crossplane.io/v1alpha1

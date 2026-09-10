@@ -2,17 +2,10 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   name: user-observe-by-uuid
-# Validates explicit UUID import for a cluster-scoped User
-# (clickhousedbops.crossplane.io, id observation field). Users are never adopted
-# by name (issue #104): a sibling Observe-only User must pin
-# crossplane.io/external-name to the existing user's UUID to be adopted
-# (Synced/Ready). Password validation is skipped for Observe-only resources, so
-# the sibling needs only the name and the pinned UUID.
-#
-# Legacy cluster-scoped resources use the cluster-wide clickhousedbops.crossplane.io
-# ProviderConfig "default" from the e2e setup script. A dedicated ClickHouse name
-# (obsuser) avoids colliding with the uptest manifest user (testuser); creating the
-# same ClickHouse user twice fails with "already exists in local_directory".
+# Explicit UUID import for a cluster-scoped User: users are never adopted by
+# name (#104), so an Observe-only sibling must pin crossplane.io/external-name
+# to the existing user's UUID to reach Synced/Ready. Dedicated name (obsuser);
+# uses the cluster-wide ProviderConfig "default".
 spec:
   # Provider deletes are async (create/poll), so cleanup can exceed the default
   # delete timeout; give finally/cleanup deletes room to finish.
@@ -61,9 +54,8 @@ spec:
 
     - name: observe-sibling-by-uuid
       try:
-        # Capture the provider-assigned UUID (external-name) into a binding. Keeping this
-        # in the same step as the apply below is required for the $useruuid binding to be
-        # in scope; bindings do not leak across steps.
+        # Capture the UUID into a binding; same step as the apply below because
+        # bindings do not leak across steps.
         - script:
             shell: bash
             content: |
@@ -101,12 +93,8 @@ spec:
                 (conditions[?type == 'Ready']):
                   - status: "True"
       finally:
-        # Delete order matters: remove the managed resources while the test namespace
-        # still exists. A cluster-scoped User outlives the ephemeral namespace, and on
-        # deletion it re-applies its connection secret; if the namespace is already gone
-        # the delete gets stuck ("namespaces ... not found"). Deleting here, sibling
-        # first (Observe-only, no ClickHouse change) then the managed user, keeps cleanup
-        # deterministic and namespace-safe.
+        # Delete while the test namespace exists (secret re-apply on delete gets
+        # stuck otherwise); sibling first, then the managed user.
         - delete:
             ref:
               apiVersion: clickhousedbops.crossplane.io/v1alpha1
