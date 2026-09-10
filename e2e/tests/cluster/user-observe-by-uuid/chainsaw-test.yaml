@@ -1,0 +1,119 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: user-observe-by-uuid
+# Validates explicit UUID import for a cluster-scoped User
+# (clickhousedbops.crossplane.io, id observation field). Users are never adopted
+# by name (issue #104): a sibling Observe-only User must pin
+# crossplane.io/external-name to the existing user's UUID to be adopted
+# (Synced/Ready). Password validation is skipped for Observe-only resources, so
+# the sibling needs only the name and the pinned UUID.
+#
+# Legacy cluster-scoped resources use the cluster-wide clickhousedbops.crossplane.io
+# ProviderConfig "default" from the e2e setup script. A dedicated ClickHouse name
+# (obsuser) avoids colliding with the uptest manifest user (testuser); creating the
+# same ClickHouse user twice fails with "already exists in local_directory".
+spec:
+  # Provider deletes are async (create/poll), so cleanup can exceed the default
+  # delete timeout; give finally/cleanup deletes room to finish.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
+  steps:
+    - name: apply-user
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: obsuser
+              spec:
+                forProvider:
+                  name: obsuser
+                  autoGeneratePassword: true
+                writeConnectionSecretToRef:
+                  name: obsuser
+                  # Cluster-scoped User (legacy API): write to a stable namespace so the
+                  # secret write survives ephemeral test-namespace teardown.
+                  namespace: crossplane-system
+                providerConfigRef:
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: obsuser
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+        - assert:
+            timeout: 2m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: obsuser
+                annotations:
+                  (crossplane.io/external-name != ''): true
+
+    - name: observe-sibling-by-uuid
+      try:
+        # Capture the provider-assigned UUID (external-name) into a binding. Keeping this
+        # in the same step as the apply below is required for the $useruuid binding to be
+        # in scope; bindings do not leak across steps.
+        - script:
+            shell: bash
+            content: |
+              set -euo pipefail
+              kubectl get user.clickhousedbops.crossplane.io obsuser \
+                -o go-template='{{index .metadata.annotations "crossplane.io/external-name"}}'
+            outputs:
+              - name: useruuid
+                value: (trim_space($stdout))
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: obsuser-observe
+                annotations:
+                  crossplane.io/external-name: ($useruuid)
+              spec:
+                forProvider:
+                  name: obsuser
+                managementPolicies:
+                  - Observe
+                providerConfigRef:
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: obsuser-observe
+              status:
+                (conditions[?type == 'Synced']):
+                  - status: "True"
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+      finally:
+        # Delete order matters: remove the managed resources while the test namespace
+        # still exists. A cluster-scoped User outlives the ephemeral namespace, and on
+        # deletion it re-applies its connection secret; if the namespace is already gone
+        # the delete gets stuck ("namespaces ... not found"). Deleting here, sibling
+        # first (Observe-only, no ClickHouse change) then the managed user, keeps cleanup
+        # deterministic and namespace-safe.
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              name: obsuser-observe
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              name: obsuser

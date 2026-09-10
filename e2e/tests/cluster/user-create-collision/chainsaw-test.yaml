@@ -1,17 +1,15 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: user-observe-by-name
-# Validates the adopt-by-name path for a cluster-scoped User
-# (clickhousedbops.crossplane.io, id observation field). A sibling Observe-only
-# User referencing an existing user by name must be adopted (Synced/Ready), not
-# re-created. Password validation is skipped for Observe-only resources, so the
-# sibling needs only the name.
+  name: user-create-collision
+# Validates the issue #104 fix for a cluster-scoped User: a managed User whose
+# forProvider.name collides with an existing ClickHouse user must NOT silently
+# adopt it. With no name resolver for users, the provider proceeds to CREATE USER,
+# which fails loudly with "already exists" - surfaced on the MR as Synced=False.
 #
 # Legacy cluster-scoped resources use the cluster-wide clickhousedbops.crossplane.io
 # ProviderConfig "default" from the e2e setup script. A dedicated ClickHouse name
-# (obsuser) avoids colliding with the uptest manifest user (testuser); creating the
-# same ClickHouse user twice fails with "already exists in local_directory".
+# (coluser) avoids colliding with the other user tests and the uptest manifests.
 spec:
   # Provider deletes are async (create/poll), so cleanup can exceed the default
   # delete timeout; give finally/cleanup deletes room to finish.
@@ -26,13 +24,13 @@ spec:
               apiVersion: clickhousedbops.crossplane.io/v1alpha1
               kind: User
               metadata:
-                name: obsuser
+                name: coluser
               spec:
                 forProvider:
-                  name: obsuser
+                  name: coluser
                   autoGeneratePassword: true
                 writeConnectionSecretToRef:
-                  name: obsuser
+                  name: coluser
                   # Cluster-scoped User (legacy API): write to a stable namespace so the
                   # secret write survives ephemeral test-namespace teardown.
                   namespace: crossplane-system
@@ -44,52 +42,63 @@ spec:
               apiVersion: clickhousedbops.crossplane.io/v1alpha1
               kind: User
               metadata:
-                name: obsuser
+                name: coluser
               status:
                 (conditions[?type == 'Ready']):
                   - status: "True"
 
-    - name: observe-sibling-by-name
+    - name: collide-on-name
       try:
         - apply:
             resource:
               apiVersion: clickhousedbops.crossplane.io/v1alpha1
               kind: User
               metadata:
-                name: obsuser-observe
+                name: coluser-collide
               spec:
                 forProvider:
-                  name: obsuser
-                managementPolicies:
-                  - Observe
+                  name: coluser
+                  autoGeneratePassword: true
+                writeConnectionSecretToRef:
+                  name: coluser-collide
+                  namespace: crossplane-system
                 providerConfigRef:
                   name: default
+        # The colliding MR must fail loudly: CREATE USER hits "already exists"
+        # and the error surfaces on the Synced condition. It must never turn
+        # Ready - that would mean silent adoption.
         - assert:
             timeout: 5m
             resource:
               apiVersion: clickhousedbops.crossplane.io/v1alpha1
               kind: User
               metadata:
-                name: obsuser-observe
+                name: coluser-collide
               status:
                 (conditions[?type == 'Synced']):
-                  - status: "True"
+                  - status: "False"
+                    (contains(message, 'already exists')): true
+        - error:
+            timeout: 30s
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: coluser-collide
+              status:
                 (conditions[?type == 'Ready']):
                   - status: "True"
       finally:
         # Delete order matters: remove the managed resources while the test namespace
-        # still exists. A cluster-scoped User outlives the ephemeral namespace, and on
-        # deletion it re-applies its connection secret; if the namespace is already gone
-        # the delete gets stuck ("namespaces ... not found"). Deleting here, sibling
-        # first (Observe-only, no ClickHouse change) then the managed user, keeps cleanup
-        # deterministic and namespace-safe.
+        # still exists. The colliding MR never created its external resource, so its
+        # delete resolves via "not found"; the managed user then cleans up normally.
         - delete:
             ref:
               apiVersion: clickhousedbops.crossplane.io/v1alpha1
               kind: User
-              name: obsuser-observe
+              name: coluser-collide
         - delete:
             ref:
               apiVersion: clickhousedbops.crossplane.io/v1alpha1
               kind: User
-              name: obsuser
+              name: coluser

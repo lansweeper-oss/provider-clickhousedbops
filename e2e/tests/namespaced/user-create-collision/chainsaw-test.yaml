@@ -1,0 +1,102 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: user-create-collision-namespaced
+# Validates the issue #104 fix for a namespaced User: a managed User whose
+# forProvider.name collides with an existing ClickHouse user must NOT silently
+# adopt it. With no name resolver for users, the provider proceeds to CREATE USER,
+# which fails loudly with "already exists" - surfaced on the MR as Synced=False.
+#
+# Namespaced (clickhousedbops.m.crossplane.io) resources use the cluster-scoped
+# ClusterProviderConfig "default" from the e2e setup script. A dedicated ClickHouse
+# name (ncoluser) avoids colliding with the other user tests and uptest manifests.
+spec:
+  # Provider deletes are async (create/poll), so cleanup can exceed the default
+  # delete timeout; give finally/cleanup deletes room to finish.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
+  steps:
+    - name: apply-user
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: ncoluser
+              spec:
+                forProvider:
+                  name: ncoluser
+                  autoGeneratePassword: true
+                writeConnectionSecretToRef:
+                  name: ncoluser
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: ncoluser
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+
+    - name: collide-on-name
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: ncoluser-collide
+              spec:
+                forProvider:
+                  name: ncoluser
+                  autoGeneratePassword: true
+                writeConnectionSecretToRef:
+                  name: ncoluser-collide
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        # The colliding MR must fail loudly: CREATE USER hits "already exists"
+        # and the error surfaces on the Synced condition. It must never turn
+        # Ready - that would mean silent adoption.
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: ncoluser-collide
+              status:
+                (conditions[?type == 'Synced']):
+                  - status: "False"
+                    (contains(message, 'already exists')): true
+        - error:
+            timeout: 30s
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: ncoluser-collide
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+      finally:
+        # Delete order matters: remove the managed resources while the test namespace
+        # still exists. The colliding MR never created its external resource, so its
+        # delete resolves via "not found"; the managed user then cleans up normally.
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              name: ncoluser-collide
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              name: ncoluser
