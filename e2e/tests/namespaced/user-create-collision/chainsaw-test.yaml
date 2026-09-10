@@ -58,6 +58,8 @@ spec:
                   kind: ClusterProviderConfig
                   name: default
         # Loud failure on the Synced condition; Ready would mean silent adoption.
+        # Null-guarded expression: a plain status: tree errors terminally (no
+        # retry) while the MR has no status yet.
         - assert:
             timeout: 5m
             resource:
@@ -65,10 +67,9 @@ spec:
               kind: User
               metadata:
                 name: ncoluser-collide
-              status:
-                (conditions[?type == 'Synced']):
-                  - status: "False"
-                    (contains(message, 'already exists')): true
+              ((status.conditions || `[]`)[?type == 'Synced']):
+                - status: "False"
+                  (contains(message, 'already exists')): true
         - error:
             timeout: 30s
             resource:
@@ -76,9 +77,8 @@ spec:
               kind: User
               metadata:
                 name: ncoluser-collide
-              status:
-                (conditions[?type == 'Ready']):
-                  - status: "True"
+              ((status.conditions || `[]`)[?type == 'Ready']):
+                - status: "True"
       finally:
         # Delete while the test namespace exists; the colliding MR resolves via
         # "not found" (its external resource was never created).
