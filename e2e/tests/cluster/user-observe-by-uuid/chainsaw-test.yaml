@@ -55,8 +55,10 @@ spec:
     - name: observe-sibling-by-uuid
       try:
         # Capture the UUID into a binding; same step as the apply below because
-        # bindings do not leak across steps.
+        # bindings do not leak across steps. Generous timeout: the default 30s
+        # got the script killed under CI load.
         - script:
+            timeout: 2m
             shell: bash
             content: |
               set -euo pipefail

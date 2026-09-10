@@ -16,12 +16,13 @@ spec:
     - name: import-preexisting-user-by-uuid
       try:
         # Create the user out-of-band and capture its UUID. Script and apply
-        # share a step: bindings do not leak across steps.
+        # share a step: bindings do not leak across steps. Only the SELECT may
+        # write to stdout - the $stdout binding captures the whole script.
         - script:
             shell: bash
             content: |
               set -euo pipefail
-              kubectl wait -n clickhouse deploy/clickhouse --for=condition=Available --timeout=120s
+              kubectl wait -n clickhouse deploy/clickhouse --for=condition=Available --timeout=120s >&2
               kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
                 --user default --password e2epassword --query \
                 "CREATE USER IF NOT EXISTS impuser IDENTIFIED WITH sha256_password BY 'preexisting-password'"
