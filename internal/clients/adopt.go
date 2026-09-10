@@ -63,23 +63,8 @@ func applyAdoptedUserPassword(ctx context.Context, kube client.Client, mg xpreso
 		return fmt.Errorf("cannot resolve connection params: %w", err)
 	}
 
-	// ALTER targets the name while adoption is keyed by the pinned UUID; verify
-	// they identify the same user, or a stale/copied UUID would rewrite an
-	// unrelated user's credential. A rename between this check and the ALTER
-	// can still race (ClickHouse has no ALTER-by-UUID); accepted.
-	pinned, err := pinnedImportUUID(mg)
-	if err != nil {
+	if err := verifyAdoptedUserIdentity(ctx, mg, params, name, cluster, lookup); err != nil {
 		return err
-	}
-	liveUUID, userFound, err := lookup(ctx, params, "system.users", "id", name, cluster)
-	if err != nil {
-		return fmt.Errorf("cannot verify adopted user %q: %w", name, err)
-	}
-	if !userFound {
-		return fmt.Errorf("cannot adopt user: no ClickHouse user named %q exists", name)
-	}
-	if !strings.EqualFold(liveUUID, pinned) {
-		return fmt.Errorf("cannot adopt user %q: its UUID %s does not match the pinned import UUID %s", name, liveUUID, pinned)
 	}
 
 	if err := exec(ctx, params, alterUserPasswordSQL(name, cluster, hash)); err != nil {
@@ -87,6 +72,29 @@ func applyAdoptedUserPassword(ctx context.Context, kube client.Client, mg xpreso
 		// reaches the Synced condition.
 		redacted := errors.New(strings.ReplaceAll(err.Error(), hash, "[redacted]"))
 		return fmt.Errorf("cannot apply password hash to adopted user %q: %w", name, redacted)
+	}
+	return nil
+}
+
+// verifyAdoptedUserIdentity checks that spec.forProvider.name and the pinned
+// import UUID identify the same ClickHouse user; ALTER targets the name while
+// adoption is keyed by the UUID, so a stale/copied UUID would otherwise rewrite
+// an unrelated user's credential. A rename between this check and the ALTER can
+// still race (ClickHouse has no ALTER-by-UUID); accepted.
+func verifyAdoptedUserIdentity(ctx context.Context, mg xpresource.Managed, params ConnParams, name, cluster string, lookup uuidLookup) error {
+	pinned, err := pinnedImportUUID(mg)
+	if err != nil {
+		return err
+	}
+	liveUUID, found, err := lookup(ctx, params, "system.users", "id", name, cluster)
+	if err != nil {
+		return fmt.Errorf("cannot verify adopted user %q: %w", name, err)
+	}
+	if !found {
+		return fmt.Errorf("cannot adopt user: no ClickHouse user named %q exists", name)
+	}
+	if !strings.EqualFold(liveUUID, pinned) {
+		return fmt.Errorf("cannot adopt user %q: its UUID %s does not match the pinned import UUID %s", name, liveUUID, pinned)
 	}
 	return nil
 }
