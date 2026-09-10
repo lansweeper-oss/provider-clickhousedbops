@@ -6,10 +6,13 @@ This document describes how to import existing ClickHouse users into Crossplane 
 
 There are two routes:
 
-1. **Direct import (recommended)**: import by UUID with full management policies
-   and a password configured — the provider takes over the user in one step.
-2. **Observe-first**: import read-only to inspect, optionally transition to
-   manage mode later (with caveats, see below).
+1. **Observe-only (default)**: import by UUID read-only. The import path should
+   not carry full management policies — this keeps an import free of side
+   effects on the live user.
+2. **Direct import**: import by UUID with full management policies and a
+   password configured — a deliberate single-step takeover of the user,
+   password included. Use only when Crossplane should own the user's
+   credentials from the start.
 
 > **The import value for a user must be its UUID, never its name.** Unlike other
 > resources, users are never adopted by name: implicit name adoption would let any
@@ -25,34 +28,7 @@ Find the UUID first and supply it as the resource's import value
 SELECT toString(id) FROM system.users WHERE name = 'existing_user_in_clickhouse'
 ```
 
-## Direct Import (recommended)
-
-Import with full management policies and one of the password options from the
-[transition section](#transitioning-to-manage-mode) below. At import time the
-provider applies the spec's password hash to the live user in place
-(`ALTER USER ... IDENTIFIED WITH sha256_hash`) — the user keeps its UUID, grants
-and settings, and the connection secret is correct from the moment of adoption.
-
-```yaml
-apiVersion: clickhousedbops.crossplane.io/v1alpha1
-kind: User
-metadata:
-  name: imported-user
-spec:
-  managementPolicies:
-    - "*"
-  forProvider:
-    name: existing_user_in_clickhouse
-    autoGeneratePassword: true      # or passwordSecretRef / passwordSha256HashSecretRef
-  writeConnectionSecretToRef:
-    name: imported-user-secret
-    namespace: crossplane-system
-  providerConfigRef:
-    kind: ClusterProviderConfig
-    name: default
-```
-
-## Observe-Only Import
+## Observe-Only Import (default)
 
 Use observe-only mode to safely read existing users without touching them.
 
@@ -77,6 +53,35 @@ In observe-only mode:
 - No changes are made to ClickHouse or Kubernetes secrets.
 - Safe to apply to an existing user without affecting it.
 
+## Direct Import (single-step takeover)
+
+Import with full management policies and one of the password options from the
+[transition section](#transitioning-to-manage-mode) below. At import time the
+provider applies the spec's password hash to the live user in place
+(`ALTER USER ... IDENTIFIED WITH sha256_hash`) — the user keeps its UUID, grants
+and settings, and the connection secret is correct from the moment of adoption.
+This deliberately changes the live user's password: use it only when Crossplane
+should own the credentials from the start, never on a side-effect-free import path.
+
+```yaml
+apiVersion: clickhousedbops.crossplane.io/v1alpha1
+kind: User
+metadata:
+  name: imported-user
+spec:
+  managementPolicies:
+    - "*"
+  forProvider:
+    name: existing_user_in_clickhouse
+    autoGeneratePassword: true      # or passwordSecretRef / passwordSha256HashSecretRef
+  writeConnectionSecretToRef:
+    name: imported-user-secret
+    namespace: crossplane-system
+  providerConfigRef:
+    kind: ClusterProviderConfig
+    name: default
+```
+
 ## Transitioning to Manage Mode
 
 To take over an observe-only imported user, change the management policy and
@@ -86,8 +91,8 @@ provide a password via one of three methods.
 > reconcile — it does not re-fire when you flip an already-imported user from
 > observe-only to manage. The password is then reconciled through the regular
 > Terraform diff, and a password change deletes and recreates the user (new
-> UUID, grants and settings lost). To keep the user intact, either use the
-> [direct import](#direct-import-recommended) route, or provide the user's
+> UUID, grants and settings lost). To keep the user intact, either use
+> [direct import](#direct-import-single-step-takeover), or provide the user's
 > *current* password (Option B) so no diff arises.
 
 ### Option A: Auto-Generate New Password
