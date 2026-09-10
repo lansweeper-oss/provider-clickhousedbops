@@ -1,0 +1,99 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: user-create-collision
+# Cluster-scoped User colliding on forProvider.name must not adopt (#104):
+# CREATE USER fails and "already exists" surfaces as Synced=False on the MR.
+#
+# Tests run concurrently against one shared ClickHouse, so this test owns the
+# username "coluser". Credentials come from the cluster-wide ProviderConfig
+# "default" created by the e2e setup script.
+spec:
+  # Provider deletes are async (create/poll), so cleanup can exceed the default
+  # delete timeout; give finally/cleanup deletes room to finish.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
+  steps:
+    - name: apply-user
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: coluser
+              spec:
+                forProvider:
+                  name: coluser
+                  autoGeneratePassword: true
+                writeConnectionSecretToRef:
+                  name: coluser
+                  # Cluster-scoped User (legacy API): write to a stable namespace so the
+                  # secret write survives ephemeral test-namespace teardown.
+                  namespace: crossplane-system
+                providerConfigRef:
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: coluser
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+
+    - name: collide-on-name
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: coluser-collide
+              spec:
+                forProvider:
+                  name: coluser
+                  autoGeneratePassword: true
+                writeConnectionSecretToRef:
+                  name: coluser-collide
+                  namespace: crossplane-system
+                providerConfigRef:
+                  name: default
+        # Loud failure on the Synced condition; Ready would mean silent adoption.
+        # Null-guarded expression: a plain status: tree errors terminally (no
+        # retry) while the MR has no status yet.
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: coluser-collide
+              ((status.conditions || `[]`)[?type == 'Synced']):
+                - status: "False"
+                  (contains(message || '', 'already exists')): true
+        - error:
+            timeout: 30s
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: coluser-collide
+              ((status.conditions || `[]`)[?type == 'Ready']):
+                - status: "True"
+      finally:
+        # Delete while the test namespace exists; the colliding MR resolves via
+        # "not found" (its external resource was never created).
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              name: coluser-collide
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              name: coluser

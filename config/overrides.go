@@ -61,12 +61,12 @@ func Configure(p *config.Provider) {
 		// When reconciling a clickhousedbops_database resource, the provider calls a Read operation
 		// to check if the resource exists by looking up the database by uuid.
 		// But it reads that uuid from the previous Terraform state, not from the resource name.
-		// Before that, adoptByNameInitializer seeds status.atProvider.uuid: the real UUID when a
+		// Before that, importIdentifierInitializer seeds status.atProvider.uuid: the real UUID when a
 		// database of that name already exists (adopt/import), otherwise the sentinelUUID.
 		// When upjet builds the Terraform state file from that observation, the provider now has a
 		// valid UUID to send to ClickHouse. A real UUID imports the existing database; the sentinel
 		// matches no row, which the provider maps to "not found", triggering resource creation.
-		r.InitializerFns = append(r.InitializerFns, adoptByNameInitializer("clickhousedbops_database", "uuid"))
+		r.InitializerFns = append(r.InitializerFns, importIdentifierInitializer("clickhousedbops_database", "uuid"))
 		r.UseAsync = true
 	})
 
@@ -107,10 +107,10 @@ func Configure(p *config.Provider) {
 		delete(r.TerraformResource.Schema, "id")
 		// Roles must be adoptable: after a backup restore the role already exists in
 		// ClickHouse and CREATE ROLE (which is not idempotent) fails with
-		// "already exists in `replicated`". adoptByNameInitializer looks the role up
+		// "already exists in `replicated`". importIdentifierInitializer looks the role up
 		// by name and seeds its real UUID when found, so upjet imports instead of
 		// re-creating; it falls back to the sentinel (force-create) when absent.
-		r.InitializerFns = append(r.InitializerFns, adoptByNameInitializer("clickhousedbops_role", "id"))
+		r.InitializerFns = append(r.InitializerFns, importIdentifierInitializer("clickhousedbops_role", "id"))
 	})
 
 	p.AddResourceConfigurator("clickhousedbops_row_policy", func(r *config.Resource) {
@@ -130,7 +130,7 @@ func Configure(p *config.Provider) {
 		// Same hasTFID=false trick as for clickhousedbops_user, prevents name-based
 		// id from being written to TF state on first reconcile, avoiding UUID parse errors.
 		delete(r.TerraformResource.Schema, "id")
-		r.InitializerFns = append(r.InitializerFns, adoptByNameInitializer("clickhousedbops_settings_profile", "id"))
+		r.InitializerFns = append(r.InitializerFns, importIdentifierInitializer("clickhousedbops_settings_profile", "id"))
 	})
 
 	p.AddResourceConfigurator("clickhousedbops_settings_profile_association", func(r *config.Resource) {
@@ -147,7 +147,7 @@ func Configure(p *config.Provider) {
 
 	p.AddResourceConfigurator("clickhousedbops_user", func(r *config.Resource) {
 		// Removing "id" from the schema keeps hasTFID=false, so EnsureTFState falls
-		// back to status.atProvider.id (seeded by adoptByNameInitializer). ClickHouse
+		// back to status.atProvider.id (seeded by importIdentifierInitializer). ClickHouse
 		// finds no rows for the sentinel UUID and returns zero rows, which the provider
 		// maps to "not found", triggering creation; a resolved real UUID imports the
 		// existing user instead. After creation, atProvider holds the real UUID and the
@@ -185,11 +185,14 @@ func Configure(p *config.Provider) {
 			},
 		}
 
+		// PasswordGenerator before importIdentifierInitializer: the AdoptHook needs
+		// the hash ref to exist on UUID import. No name resolver for users
+		// (#104): a name collision fails loudly on CREATE USER.
 		r.InitializerFns = append(r.InitializerFns,
 			PasswordValidator(),
 			PasswordRefProcessor(),
-			adoptByNameInitializer("clickhousedbops_user", "id"),
 			PasswordGenerator("spec.forProvider.autoGeneratePassword"),
+			importIdentifierInitializer("clickhousedbops_user", "id"),
 		)
 
 		s, ok := r.TerraformResource.Schema["password_sha256_hash"]

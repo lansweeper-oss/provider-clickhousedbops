@@ -168,10 +168,16 @@ func main() {
 
 	// Resources that already exist (e.g. after a restore, or an import by name) are
 	// adopted by their real UUID instead of being re-created.
+	// No user resolver: name adoption would silently take over an existing user
+	// (#104); collisions must fail loudly on CREATE USER, UUID import is the only
+	// takeover path.
 	config.SetResolverFactory("clickhousedbops_role", clients.NewRoleUUIDResolver)
 	config.SetResolverFactory("clickhousedbops_database", clients.NewDatabaseUUIDResolver)
-	config.SetResolverFactory("clickhousedbops_user", clients.NewUserUUIDResolver)
 	config.SetResolverFactory("clickhousedbops_settings_profile", clients.NewSettingsProfileUUIDResolver)
+
+	// On UUID import, apply the spec's password hash so the connection secret
+	// matches the live user (the provider cannot observe or update it otherwise).
+	config.SetAdoptHook("clickhousedbops_user", clients.NewUserAdoptPasswordApplier)
 
 	metricRecorder := managed.NewMRMetricRecorder()
 	stateMetrics := statemetrics.NewMRStateMetrics()

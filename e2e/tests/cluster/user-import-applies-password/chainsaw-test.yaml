@@ -1,0 +1,104 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: user-import-applies-password
+# UUID import of a pre-existing cluster-scoped User with full management must
+# apply the spec's password (AdoptHook, #104): the secret's password must log in,
+# the old password must not.
+#
+# Tests run concurrently against one shared ClickHouse, so this test owns the
+# username "impuser". Credentials come from the cluster-wide ProviderConfig
+# "default" created by the e2e setup script.
+spec:
+  # Provider deletes are async (create/poll), so cleanup can exceed the default
+  # delete timeout; give finally/cleanup deletes room to finish.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
+    exec: 3m
+  steps:
+    - name: import-preexisting-user-by-uuid
+      try:
+        # Create the user out-of-band and capture its UUID. Script and apply
+        # share a step: bindings do not leak across steps. Only the SELECT may
+        # write to stdout - the $stdout binding captures the whole script.
+        - script:
+            shell: bash
+            content: |
+              set -euo pipefail
+              kubectl wait -n clickhouse deploy/clickhouse --for=condition=Available --timeout=120s >&2
+              kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
+                --user default --password e2epassword --query \
+                "CREATE USER IF NOT EXISTS impuser IDENTIFIED WITH sha256_password BY 'preexisting-password'"
+              kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
+                --user default --password e2epassword --query \
+                "SELECT toString(id) FROM system.users WHERE name = 'impuser'"
+            outputs:
+              - name: useruuid
+                value: (trim_space($stdout))
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: impuser
+                annotations:
+                  crossplane.io/external-name: ($useruuid)
+              spec:
+                forProvider:
+                  name: impuser
+                  autoGeneratePassword: true
+                writeConnectionSecretToRef:
+                  name: impuser
+                  # Cluster-scoped User (legacy API): write to a stable namespace so the
+                  # secret write survives ephemeral test-namespace teardown.
+                  namespace: crossplane-system
+                providerConfigRef:
+                  name: default
+        # Null-guarded: plain status: errors terminally while status is unset.
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: impuser
+              ((status.conditions || `[]`)[?type == 'Synced']):
+                - status: "True"
+              ((status.conditions || `[]`)[?type == 'Ready']):
+                - status: "True"
+      # Runs at test end even if this step fails: no out-of-band user leak.
+      cleanup:
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.crossplane.io/v1alpha1
+              kind: User
+              name: impuser
+        - script:
+            content: |
+              kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
+                --user default --password e2epassword --query "DROP USER IF EXISTS impuser" || true
+      catch:
+        # Diagnostics: surface the reconcile error and provider logs on failure.
+        - script:
+            content: |
+              kubectl get user.clickhousedbops.crossplane.io impuser -o yaml || true
+              kubectl -n crossplane-system get pods -o name | grep provider-clickhousedbops | head -1 | \
+                xargs -r -I{} kubectl -n crossplane-system logs {} --tail=200 || true
+
+    - name: verify-live-password-matches-secret
+      try:
+        # Secret's password must authenticate; pre-existing one must be dead.
+        - script:
+            shell: bash
+            content: |
+              set -euo pipefail
+              PASS=$(kubectl get secret impuser -n crossplane-system -o go-template='{{.data.password | base64decode}}')
+              RES=$(kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
+                --user impuser --password "$PASS" --query "SELECT 1")
+              [ "$RES" = "1" ] || { echo "FAIL: secret password cannot authenticate"; exit 1; }
+              if kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
+                --user impuser --password 'preexisting-password' --query "SELECT 1" 2>/dev/null; then
+                echo "FAIL: pre-existing password still authenticates - spec password was not applied"
+                exit 1
+              fi
