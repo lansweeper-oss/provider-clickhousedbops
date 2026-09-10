@@ -152,7 +152,8 @@ Background for maintainers (implementation in `config/importinit.go`):
   across the cluster (`cluster(<name>, system.<table>)`), matching the provider's
   own behavior.
 - No name resolver for `user`: name adoption would silently take over an
-  existing user (issue #104), so a collision falls through to `CREATE USER` and
+  existing user ([issue #104](https://github.com/lansweeper-oss/provider-clickhousedbops/issues/104)),
+  so a collision falls through to `CREATE USER` and
   fails with `already exists`. A pinned UUID external-name is the only import path.
 - An `AdoptHook` (`internal/clients/adopt.go`) runs on adoption, before the
   identifier is seeded so failures retry. For `user` it applies the spec's
