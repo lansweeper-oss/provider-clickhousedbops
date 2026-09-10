@@ -149,8 +149,8 @@ func StripClusterPrefix(id string) string {
 }
 
 func stripClusterPrefix(id, sep string) string {
-	if _, after, ok := strings.Cut(id, sep); ok {
-		return after
+	if i := strings.Index(id, sep); i >= 0 {
+		return id[i+len(sep):]
 	}
 	return id
 }
