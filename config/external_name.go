@@ -143,8 +143,7 @@ func idWithStub() config.ExternalName {
 	return e
 }
 
-// StripClusterPrefix removes the "<cluster>:" prefix from an import identifier,
-// with the same semantics the import gate uses.
+// StripClusterPrefix removes the "<cluster>:" prefix from an import identifier.
 func StripClusterPrefix(id string) string {
 	return stripClusterPrefix(id, sep)
 }

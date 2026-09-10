@@ -49,8 +49,7 @@ spec:
                 providerConfigRef:
                   kind: ClusterProviderConfig
                   name: default
-        # Null-guarded like the collision tests: a plain status: tree errors
-        # terminally (no retry) while the MR has no status yet.
+        # Null-guarded: plain status: errors terminally while status is unset.
         - assert:
             timeout: 5m
             resource:
@@ -62,8 +61,7 @@ spec:
                 - status: "True"
               ((status.conditions || `[]`)[?type == 'Ready']):
                 - status: "True"
-      # cleanup runs at test end even when this step's try fails, so the
-      # out-of-band user cannot leak; the MR delete drops the adopted user first.
+      # Runs at test end even if this step fails: no out-of-band user leak.
       cleanup:
         - delete:
             ref:

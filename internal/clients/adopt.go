@@ -76,11 +76,10 @@ func applyAdoptedUserPassword(ctx context.Context, kube client.Client, mg xpreso
 	return nil
 }
 
-// verifyAdoptedUserIdentity checks that spec.forProvider.name and the pinned
-// import UUID identify the same ClickHouse user; ALTER targets the name while
-// adoption is keyed by the UUID, so a stale/copied UUID would otherwise rewrite
-// an unrelated user's credential. A rename between this check and the ALTER can
-// still race (ClickHouse has no ALTER-by-UUID); accepted.
+// verifyAdoptedUserIdentity fails closed when spec.forProvider.name and the
+// pinned import UUID identify different users - a stale/copied UUID would
+// otherwise rewrite an unrelated user's credential. A rename between check and
+// ALTER can still race (no ALTER-by-UUID); accepted.
 func verifyAdoptedUserIdentity(ctx context.Context, mg xpresource.Managed, params ConnParams, name, cluster string, lookup uuidLookup) error {
 	pinned, err := pinnedImportUUID(mg)
 	if err != nil {

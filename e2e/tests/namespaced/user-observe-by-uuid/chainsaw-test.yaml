@@ -81,8 +81,7 @@ spec:
                 providerConfigRef:
                   kind: ClusterProviderConfig
                   name: default
-        # Null-guarded: a plain status: tree errors terminally (no retry) while
-        # the MR has no status yet.
+        # Null-guarded: plain status: errors terminally while status is unset.
         - assert:
             timeout: 5m
             resource:
