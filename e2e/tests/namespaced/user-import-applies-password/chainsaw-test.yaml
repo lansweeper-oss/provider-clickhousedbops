@@ -49,6 +49,8 @@ spec:
                 providerConfigRef:
                   kind: ClusterProviderConfig
                   name: default
+        # Null-guarded like the collision tests: a plain status: tree errors
+        # terminally (no retry) while the MR has no status yet.
         - assert:
             timeout: 5m
             resource:
@@ -56,11 +58,10 @@ spec:
               kind: User
               metadata:
                 name: nimpuser
-              status:
-                (conditions[?type == 'Synced']):
-                  - status: "True"
-                (conditions[?type == 'Ready']):
-                  - status: "True"
+              ((status.conditions || `[]`)[?type == 'Synced']):
+                - status: "True"
+              ((status.conditions || `[]`)[?type == 'Ready']):
+                - status: "True"
       catch:
         # Diagnostics: surface the reconcile error and provider logs on failure.
         - script:

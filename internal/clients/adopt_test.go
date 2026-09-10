@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	xpresource "github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,7 +19,10 @@ import (
 	"github.com/lansweeper-oss/provider-clickhousedbops/apis/namespaced/clickhousedbops/v1alpha1"
 )
 
-const testHash = "aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f"
+const (
+	testHash   = "aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f"
+	importUUID = "11111111-2222-3333-4444-555555555555"
+)
 
 func testUser(name string, mut ...func(*v1alpha1.User)) *v1alpha1.User {
 	u := &v1alpha1.User{
@@ -33,6 +37,7 @@ func testUser(name string, mut ...func(*v1alpha1.User)) *v1alpha1.User {
 			},
 		},
 	}
+	meta.SetExternalName(u, importUUID)
 	for _, m := range mut {
 		m(u)
 	}
@@ -61,6 +66,10 @@ func TestApplyAdoptedUserPassword(t *testing.T) {
 		secret     *corev1.Secret
 		resolveErr error
 		execErr    error
+
+		lookupUUID   string // UUID returned for the name lookup; defaults to importUUID
+		lookupAbsent bool   // name lookup finds no user
+		lookupErr    error
 
 		wantSQL      string // "" means exec must not be called
 		wantErrPart  string // "" means no error expected
@@ -130,7 +139,35 @@ func TestApplyAdoptedUserPassword(t *testing.T) {
 			user:        testUser("app_user"),
 			secret:      hashSecret("hash", testHash),
 			execErr:     errors.New("connection refused"),
+			wantSQL:     "ALTER USER `app_user` IDENTIFIED WITH sha256_hash BY '" + testHash + "'",
 			wantErrPart: "connection refused",
+		},
+		"ErrorOnUUIDNameMismatch": {
+			// The pinned UUID and spec name identify different users: applying
+			// the password by name would rewrite an unrelated user's credential.
+			user:        testUser("app_user"),
+			secret:      hashSecret("hash", testHash),
+			lookupUUID:  "99999999-9999-9999-9999-999999999999",
+			wantErrPart: "does not match",
+		},
+		"ErrorWhenNamedUserAbsent": {
+			user:         testUser("app_user"),
+			secret:       hashSecret("hash", testHash),
+			lookupAbsent: true,
+			wantErrPart:  "no ClickHouse user named",
+		},
+		"LookupErrorPropagates": {
+			user:        testUser("app_user"),
+			secret:      hashSecret("hash", testHash),
+			lookupErr:   errors.New("system.users unreachable"),
+			wantErrPart: "system.users unreachable",
+		},
+		"ClusterPrefixedExternalNameMatches": {
+			user: testUser("app_user", func(u *v1alpha1.User) {
+				meta.SetExternalName(u, "main:"+importUUID)
+			}),
+			secret:  hashSecret("hash", testHash),
+			wantSQL: "ALTER USER `app_user` IDENTIFIED WITH sha256_hash BY '" + testHash + "'",
 		},
 		"ExecErrorRedactsHash": {
 			// ClickHouse errors echo the statement; the hash must not leak
@@ -138,6 +175,7 @@ func TestApplyAdoptedUserPassword(t *testing.T) {
 			user:         testUser("app_user"),
 			secret:       hashSecret("hash", testHash),
 			execErr:      errors.New("DB::Exception: Syntax error near IDENTIFIED WITH sha256_hash BY '" + testHash + "'"),
+			wantSQL:      "ALTER USER `app_user` IDENTIFIED WITH sha256_hash BY '" + testHash + "'",
 			wantErrPart:  "[redacted]",
 			wantErrClean: testHash,
 		},
@@ -164,7 +202,20 @@ func TestApplyAdoptedUserPassword(t *testing.T) {
 				return tc.execErr
 			}
 
-			err := applyAdoptedUserPassword(context.Background(), kube, tc.user, resolve, exec)
+			lookup := func(_ context.Context, _ ConnParams, _, _, name, _ string) (string, bool, error) {
+				if tc.lookupErr != nil {
+					return "", false, tc.lookupErr
+				}
+				if tc.lookupAbsent {
+					return "", false, nil
+				}
+				if tc.lookupUUID != "" {
+					return tc.lookupUUID, true, nil
+				}
+				return importUUID, true, nil
+			}
+
+			err := applyAdoptedUserPassword(context.Background(), kube, tc.user, resolve, exec, lookup)
 
 			if tc.wantErrPart != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.wantErrPart) {
@@ -176,11 +227,10 @@ func TestApplyAdoptedUserPassword(t *testing.T) {
 			if tc.wantErrClean != "" && err != nil && strings.Contains(err.Error(), tc.wantErrClean) {
 				t.Fatalf("error %q leaks %q", err, tc.wantErrClean)
 			}
-			if gotSQL != tc.wantSQL && tc.wantErrPart == "" {
+			// Unconditional: wantSQL "" means exec must not have been called,
+			// error cases included.
+			if gotSQL != tc.wantSQL {
 				t.Errorf("sql = %q, want %q", gotSQL, tc.wantSQL)
-			}
-			if tc.wantSQL == "" && gotSQL != "" && tc.execErr == nil && tc.wantErrPart == "" {
-				t.Errorf("exec called with %q, want no call", gotSQL)
 			}
 		})
 	}

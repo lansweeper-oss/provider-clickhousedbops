@@ -8,7 +8,9 @@ import (
 	"strings"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/fieldpath"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	xpresource "github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,6 +24,7 @@ var sha256HexRe = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 type connResolver func(ctx context.Context, kube client.Client, mg xpresource.Managed) (ConnParams, error)
 type stmtExec func(ctx context.Context, params ConnParams, sql string) error
+type uuidLookup func(ctx context.Context, params ConnParams, table, idField, name, cluster string) (string, bool, error)
 
 // NewUserAdoptPasswordApplier returns the AdoptHook for clickhousedbops_user:
 // it applies the spec's password hash to an adopted user, whose live password is
@@ -29,11 +32,11 @@ type stmtExec func(ctx context.Context, params ConnParams, sql string) error
 // renames). Fires only on explicit UUID import - users have no name resolver (#104).
 func NewUserAdoptPasswordApplier(kube client.Client) config.AdoptHook {
 	return func(ctx context.Context, mg xpresource.Managed) error {
-		return applyAdoptedUserPassword(ctx, kube, mg, ResolveConnParams, execStatement)
+		return applyAdoptedUserPassword(ctx, kube, mg, ResolveConnParams, execStatement, findUUIDByName)
 	}
 }
 
-func applyAdoptedUserPassword(ctx context.Context, kube client.Client, mg xpresource.Managed, resolve connResolver, exec stmtExec) error {
+func applyAdoptedUserPassword(ctx context.Context, kube client.Client, mg xpresource.Managed, resolve connResolver, exec stmtExec, lookup uuidLookup) error {
 	paved, err := fieldpath.PaveObject(mg)
 	if err != nil {
 		return fmt.Errorf("cannot pave managed resource: %w", err)
@@ -60,6 +63,24 @@ func applyAdoptedUserPassword(ctx context.Context, kube client.Client, mg xpreso
 		return fmt.Errorf("cannot resolve connection params: %w", err)
 	}
 
+	// ALTER targets the name while adoption is keyed by the pinned UUID; verify
+	// they identify the same user, or a stale/copied UUID would rewrite an
+	// unrelated user's credential.
+	pinned, err := pinnedImportUUID(mg)
+	if err != nil {
+		return err
+	}
+	liveUUID, userFound, err := lookup(ctx, params, "system.users", "id", name, cluster)
+	if err != nil {
+		return fmt.Errorf("cannot verify adopted user %q: %w", name, err)
+	}
+	if !userFound {
+		return fmt.Errorf("cannot adopt user: no ClickHouse user named %q exists", name)
+	}
+	if !strings.EqualFold(liveUUID, pinned) {
+		return fmt.Errorf("cannot adopt user %q: its UUID %s does not match the pinned import UUID %s", name, liveUUID, pinned)
+	}
+
 	if err := exec(ctx, params, alterUserPasswordSQL(name, cluster, hash)); err != nil {
 		// ClickHouse errors may echo the statement; redact the hash before it
 		// reaches the Synced condition.
@@ -67,6 +88,20 @@ func applyAdoptedUserPassword(ctx context.Context, kube client.Client, mg xpreso
 		return fmt.Errorf("cannot apply password hash to adopted user %q: %w", name, redacted)
 	}
 	return nil
+}
+
+// pinnedImportUUID extracts the UUID from the external-name annotation,
+// tolerating a "<cluster>:<uuid>" prefix.
+func pinnedImportUUID(mg xpresource.Managed) (string, error) {
+	en := meta.GetExternalName(mg)
+	candidate := en
+	if i := strings.LastIndex(en, ":"); i >= 0 {
+		candidate = en[i+1:]
+	}
+	if _, err := uuid.Parse(candidate); err != nil {
+		return "", fmt.Errorf("external name %q is not a UUID import value: %w", en, err)
+	}
+	return candidate, nil
 }
 
 // readPasswordHash loads and validates the hash from

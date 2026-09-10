@@ -82,6 +82,8 @@ spec:
                   - Observe
                 providerConfigRef:
                   name: default
+        # Null-guarded: a plain status: tree errors terminally (no retry) while
+        # the MR has no status yet.
         - assert:
             timeout: 5m
             resource:
@@ -89,11 +91,10 @@ spec:
               kind: User
               metadata:
                 name: obsuser-observe
-              status:
-                (conditions[?type == 'Synced']):
-                  - status: "True"
-                (conditions[?type == 'Ready']):
-                  - status: "True"
+              ((status.conditions || `[]`)[?type == 'Synced']):
+                - status: "True"
+              ((status.conditions || `[]`)[?type == 'Ready']):
+                - status: "True"
       finally:
         # Delete while the test namespace exists (secret re-apply on delete gets
         # stuck otherwise); sibling first, then the managed user.
