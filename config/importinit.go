@@ -2,9 +2,8 @@ package config
 
 import (
 	"context"
-	"fmt"
-
 	"encoding/json"
+	"fmt"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
@@ -43,7 +42,6 @@ func adoptByNameInitializer(resourceName, field string) config.NewInitializerFn 
 				return fmt.Errorf("cannot get observation for %s import initializer: %w", resourceName, err)
 			}
 			if val, _ := obs[field].(string); val != "" && val != sentinelUUID {
-				// Real UUID already set (post-import/creation)
 				return nil
 			}
 			if obs == nil {
@@ -58,8 +56,6 @@ func adoptByNameInitializer(resourceName, field string) config.NewInitializerFn 
 // otherwise resolves the UUID from spec.forProvider.name (import by name), or seeds
 // the sentinel (force-create) when the resource is absent or no resolver is wired.
 func seedImportIdentifier(ctx context.Context, kube client.Client, mg xpresource.Managed, tr terraformedObservation, obs map[string]any, resourceName, field string) error {
-	// A pinned external name that is a UUID takes precedence over name resolution.
-	// The Crossplane default external name is the resource name, which is not a UUID and falls through.
 	if en := stripClusterPrefix(meta.GetExternalName(mg), sep); en != "" {
 		if _, err := uuid.Parse(en); err == nil {
 			return seedIdentifier(mg, tr, obs, field, en)
@@ -74,23 +70,36 @@ func seedImportIdentifier(ctx context.Context, kube client.Client, mg xpresource
 		}
 	}
 	if !found {
-		if !isObserveOnly(mg) {
-			chName, _ := extractResourceName(mg)
-			if chName != "" {
-				if err := ensureNoPeerConflict(ctx, kube, mg, chName, "name", peerForProviderName); err != nil {
-					return err
-				}
-			}
+		if err := guardConflictOnCreate(ctx, kube, mg); err != nil {
+			return err
 		}
 		obs[field] = sentinelUUID
 		return tr.SetObservation(obs)
 	}
-	if !isObserveOnly(mg) {
-		if err := ensureNoPeerConflict(ctx, kube, mg, id, "UUID", peerExternalName); err != nil {
-			return err
-		}
+	if err := guardConflictOnAdopt(ctx, kube, mg, id); err != nil {
+		return err
 	}
 	return seedIdentifier(mg, tr, obs, field, id)
+}
+
+// guardConflictOnCreate checks name uniqueness before seeding the sentinel (create path).
+func guardConflictOnCreate(ctx context.Context, kube client.Client, mg xpresource.Managed) error {
+	if isObserveOnly(mg) {
+		return nil
+	}
+	chName, _ := extractResourceName(mg)
+	if chName == "" {
+		return nil
+	}
+	return ensureNoPeerConflict(ctx, kube, mg, chName, "name", peerForProviderName)
+}
+
+// guardConflictOnAdopt checks UUID uniqueness before adopting an existing resource.
+func guardConflictOnAdopt(ctx context.Context, kube client.Client, mg xpresource.Managed, id string) error {
+	if isObserveOnly(mg) {
+		return nil
+	}
+	return ensureNoPeerConflict(ctx, kube, mg, id, "UUID", peerExternalName)
 }
 
 // peerFieldExtractor reads a comparison value from an unstructured peer resource.
@@ -98,10 +107,12 @@ type peerFieldExtractor func(item *unstructured.Unstructured) string
 
 // ensureNoPeerConflict lists all managed resources of the same GVK and rejects
 // if any peer (different UID, non-observe) already holds the given value for the
-// field described by extract. This is the single conflict guard for both UUID-based
-// adoption and name-based creation.
+// field described by extract.
 func ensureNoPeerConflict(ctx context.Context, kube client.Client, mg xpresource.Managed, value, description string, extract peerFieldExtractor) error {
-	gvk := mg.GetObjectKind().GroupVersionKind()
+	gvk, err := resolveGVK(kube, mg)
+	if err != nil {
+		return fmt.Errorf("cannot determine GVK for %s conflict check: %w", description, err)
+	}
 	listGVK := schema.GroupVersionKind{
 		Group:   gvk.Group,
 		Version: gvk.Version,
@@ -131,6 +142,21 @@ func ensureNoPeerConflict(ctx context.Context, kube client.Client, mg xpresource
 	return nil
 }
 
+// resolveGVK returns the GVK for a managed resource. It prefers the scheme
+// (works even when controller-runtime cache strips TypeMeta) and falls back
+// to GetObjectKind.
+func resolveGVK(kube client.Client, mg xpresource.Managed) (schema.GroupVersionKind, error) {
+	gvks, _, err := kube.Scheme().ObjectKinds(mg)
+	if err == nil && len(gvks) > 0 {
+		return gvks[0], nil
+	}
+	gvk := mg.GetObjectKind().GroupVersionKind()
+	if gvk.Kind != "" {
+		return gvk, nil
+	}
+	return schema.GroupVersionKind{}, fmt.Errorf("scheme lookup failed (%w) and TypeMeta empty", err)
+}
+
 // peerExternalName extracts the UUID portion of a peer's external name annotation.
 func peerExternalName(item *unstructured.Unstructured) string {
 	return stripClusterPrefix(meta.GetExternalName(item), sep)
@@ -142,7 +168,7 @@ func peerForProviderName(item *unstructured.Unstructured) string {
 	return name
 }
 
-// resourceName extracts spec.forProvider.name from a managed resource via JSON round-trip.
+// extractResourceName reads spec.forProvider.name from a managed resource via JSON round-trip.
 func extractResourceName(mg xpresource.Managed) (string, error) {
 	data, err := json.Marshal(mg)
 	if err != nil {
