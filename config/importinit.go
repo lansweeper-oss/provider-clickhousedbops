@@ -74,17 +74,21 @@ func seedImportIdentifier(ctx context.Context, kube client.Client, mg xpresource
 		}
 	}
 	if !found {
-		chName, _ := extractResourceName(mg)
-		if chName != "" {
-			if err := ensureNoPeerConflict(ctx, kube, mg, chName, "name", peerForProviderName); err != nil {
-				return err
+		if !isObserveOnly(mg) {
+			chName, _ := extractResourceName(mg)
+			if chName != "" {
+				if err := ensureNoPeerConflict(ctx, kube, mg, chName, "name", peerForProviderName); err != nil {
+					return err
+				}
 			}
 		}
 		obs[field] = sentinelUUID
 		return tr.SetObservation(obs)
 	}
-	if err := ensureNoPeerConflict(ctx, kube, mg, id, "UUID", peerExternalName); err != nil {
-		return err
+	if !isObserveOnly(mg) {
+		if err := ensureNoPeerConflict(ctx, kube, mg, id, "UUID", peerExternalName); err != nil {
+			return err
+		}
 	}
 	return seedIdentifier(mg, tr, obs, field, id)
 }
