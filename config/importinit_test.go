@@ -8,17 +8,33 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	xpresource "github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource/fake"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+// fakeObjectKind stores a GVK, unlike schema.EmptyObjectKind.
+type fakeObjectKind struct {
+	gvk schema.GroupVersionKind
+}
+
+func (f *fakeObjectKind) SetGroupVersionKind(gvk schema.GroupVersionKind) { f.gvk = gvk }
+func (f *fakeObjectKind) GroupVersionKind() schema.GroupVersionKind       { return f.gvk }
 
 // fakeManaged is a managed resource that also exposes the Terraform observation
 // (status.atProvider) so the initializer under test can read/write the id field.
 type fakeManaged struct {
 	*fake.Managed
+	kind   fakeObjectKind
 	obs    map[string]any
 	getErr error
 	setErr error
 }
+
+func (f *fakeManaged) GetObjectKind() schema.ObjectKind { return &f.kind }
 
 func (f *fakeManaged) GetObservation() (map[string]any, error) { return f.obs, f.getErr }
 
@@ -28,6 +44,194 @@ func (f *fakeManaged) SetObservation(o map[string]any) error {
 	}
 	f.obs = o
 	return nil
+}
+
+func TestEnsureNoConflict(t *testing.T) {
+	const (
+		resolvedUUID = "11111111-2222-3333-4444-555555555555"
+		selfUID      = "self-uid-1234"
+	)
+	gvk := schema.GroupVersionKind{
+		Group:   "clickhousedbops.crossplane.io",
+		Version: "v1alpha1",
+		Kind:    "User",
+	}
+
+	cases := map[string]struct {
+		existing []unstructured.Unstructured
+		wantErr  bool
+	}{
+		"NoConflictWhenNoOtherResources": {},
+		"NoConflictWhenSameResource": {
+			existing: []unstructured.Unstructured{
+				existingResource(gvk, "default", "myuser", selfUID, resolvedUUID),
+			},
+		},
+		"ConflictWhenDifferentResourceOwnsUUID": {
+			existing: []unstructured.Unstructured{
+				existingResource(gvk, "default", "shadow-user", "other-uid", resolvedUUID),
+			},
+			wantErr: true,
+		},
+		"NoConflictWhenDifferentUUID": {
+			existing: []unstructured.Unstructured{
+				existingResource(gvk, "default", "other-user", "other-uid", "99999999-9999-9999-9999-999999999999"),
+			},
+		},
+		"ConflictWhenPeerHasSameUUIDInAtProvider": {
+			existing: []unstructured.Unstructured{
+				existingResource(gvk, "default", "shadow-user", "other-uid", resolvedUUID),
+			},
+			wantErr: true,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			mg := &fakeManaged{
+				Managed: &fake.Managed{},
+				kind:    fakeObjectKind{gvk: gvk},
+			}
+			mg.SetUID(selfUID)
+
+			objs := make([]runtime.Object, len(tc.existing))
+			for i := range tc.existing {
+				objs[i] = &tc.existing[i]
+			}
+
+			scheme := runtime.NewScheme()
+			scheme.AddKnownTypeWithName(
+				schema.GroupVersionKind{Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind + "List"},
+				&unstructured.UnstructuredList{},
+			)
+			kube := fakeclient.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
+
+			err := ensureNoPeerConflict(context.Background(), kube, mg, resolvedUUID, "UUID", peerAtProvider("id"))
+			if tc.wantErr && err == nil {
+				t.Fatal("expected conflict error, got nil")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func existingResource(gvk schema.GroupVersionKind, namespace, name, uid, atProviderID string) unstructured.Unstructured {
+	u := unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": gvk.Group + "/" + gvk.Version,
+		"kind":       gvk.Kind,
+		"metadata": map[string]any{
+			"namespace": namespace,
+			"name":      name,
+			"uid":       uid,
+		},
+		"status": map[string]any{
+			"atProvider": map[string]any{
+				"id": atProviderID,
+			},
+		},
+	}}
+	return u
+}
+
+func TestEnsureNoNameConflict(t *testing.T) {
+	const selfUID = "self-uid-5678"
+	gvk := schema.GroupVersionKind{
+		Group:   "clickhousedbops.crossplane.io",
+		Version: "v1alpha1",
+		Kind:    "User",
+	}
+
+	cases := map[string]struct {
+		existing []unstructured.Unstructured
+		wantErr  bool
+	}{
+		"NoConflictWhenNoOtherResources": {},
+		"NoConflictWhenSameResource": {
+			existing: []unstructured.Unstructured{
+				existingResourceWithName(gvk, "default", "myuser", selfUID, "myuser", nil),
+			},
+		},
+		"ConflictWhenDifferentResourceHasSameName": {
+			existing: []unstructured.Unstructured{
+				existingResourceWithName(gvk, "default", "shadow", "other-uid", "myuser", nil),
+			},
+			wantErr: true,
+		},
+		"NoConflictWhenDifferentName": {
+			existing: []unstructured.Unstructured{
+				existingResourceWithName(gvk, "default", "other", "other-uid", "otheruser", nil),
+			},
+		},
+		"NoConflictWhenObserveOnly": {
+			existing: []unstructured.Unstructured{
+				existingResourceWithName(gvk, "default", "observer", "other-uid", "myuser", []string{"Observe"}),
+			},
+		},
+		"ConflictWhenFullManagementSameName": {
+			existing: []unstructured.Unstructured{
+				existingResourceWithName(gvk, "default", "managed", "other-uid", "myuser", []string{"*"}),
+			},
+			wantErr: true,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			mg := &fakeManaged{
+				Managed: &fake.Managed{},
+				kind:    fakeObjectKind{gvk: gvk},
+			}
+			mg.SetUID(selfUID)
+
+			objs := make([]runtime.Object, len(tc.existing))
+			for i := range tc.existing {
+				objs[i] = &tc.existing[i]
+			}
+
+			scheme := runtime.NewScheme()
+			scheme.AddKnownTypeWithName(
+				schema.GroupVersionKind{Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind + "List"},
+				&unstructured.UnstructuredList{},
+			)
+			kube := fakeclient.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
+
+			err := ensureNoPeerConflict(context.Background(), kube, mg, "myuser", "name", peerForProviderName)
+			if tc.wantErr && err == nil {
+				t.Fatal("expected name conflict error, got nil")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func existingResourceWithName(gvk schema.GroupVersionKind, namespace, crName, uid, chName string, policies []string) unstructured.Unstructured {
+	u := unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": gvk.Group + "/" + gvk.Version,
+		"kind":       gvk.Kind,
+		"metadata": map[string]any{
+			"namespace": namespace,
+			"name":      crName,
+			"uid":       uid,
+		},
+		"spec": map[string]any{
+			"forProvider": map[string]any{
+				"name": chName,
+			},
+		},
+	}}
+	if policies != nil {
+		spec := u.Object["spec"].(map[string]any)
+		policySlice := make([]any, len(policies))
+		for i, p := range policies {
+			policySlice[i] = p
+		}
+		spec["managementPolicies"] = policySlice
+	}
+	return u
 }
 
 func TestAdoptByNameInitializer(t *testing.T) {
@@ -162,7 +366,7 @@ func TestAdoptByNameInitializer(t *testing.T) {
 		},
 	}
 
-	for name, tc := range cases {
+	for name, tc := range cases { //nolint:paralleltest // resolverFactories is global state
 		t.Run(name, func(t *testing.T) {
 			resolved := false
 			if !tc.noResolver {
@@ -179,12 +383,27 @@ func TestAdoptByNameInitializer(t *testing.T) {
 			if tc.startVal != "" {
 				obs[tc.field] = tc.startVal
 			}
-			mg := &fakeManaged{Managed: &fake.Managed{}, obs: obs}
+			mg := &fakeManaged{
+				Managed: &fake.Managed{},
+				kind: fakeObjectKind{gvk: schema.GroupVersionKind{
+					Group:   "clickhousedbops.crossplane.io",
+					Version: "v1alpha1",
+					Kind:    "Role",
+				}},
+				obs: obs,
+			}
+			mg.SetUID(types.UID("self-uid"))
 			if tc.startExternal != "" {
 				meta.SetExternalName(mg, tc.startExternal)
 			}
 
-			init := adoptByNameInitializer(tc.resourceName, tc.field)(nil)
+			scheme := runtime.NewScheme()
+			scheme.AddKnownTypeWithName(
+				schema.GroupVersionKind{Group: "clickhousedbops.crossplane.io", Version: "v1alpha1", Kind: "RoleList"},
+				&unstructured.UnstructuredList{},
+			)
+			kube := fakeclient.NewClientBuilder().WithScheme(scheme).Build()
+			init := adoptByNameInitializer(tc.resourceName, tc.field)(kube)
 			err := init.Initialize(context.Background(), mg)
 
 			if tc.wantErr {

@@ -1,0 +1,79 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: user-shadow-conflict-namespaced
+# Validates that a second namespaced User CR targeting the same ClickHouse user
+# (by name) is rejected by the conflict check in adoptByNameInitializer. This
+# prevents a shadow resource from hijacking password control of an existing user.
+spec:
+  timeouts:
+    delete: 5m
+    cleanup: 5m
+  steps:
+    - name: create-legitimate-user
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: nshadowtest-user
+              spec:
+                forProvider:
+                  name: nshadowtest
+                  autoGeneratePassword: true
+                writeConnectionSecretToRef:
+                  name: nshadowtest-user
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: nshadowtest-user
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+
+    - name: attempt-shadow-user
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: nshadowtest-hijack
+              spec:
+                forProvider:
+                  name: nshadowtest
+                  autoGeneratePassword: true
+                writeConnectionSecretToRef:
+                  name: nshadowtest-hijack
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 2m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              metadata:
+                name: nshadowtest-hijack
+              status:
+                conditions:
+                  - type: Synced
+                    status: "False"
+      finally:
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              name: nshadowtest-hijack
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: User
+              name: nshadowtest-user

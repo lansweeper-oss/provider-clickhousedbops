@@ -119,3 +119,25 @@ Background for maintainers (implementation in `config/importinit.go`):
 - Name resolution is cluster-aware: when `clusterName` is set the lookup runs
   across the cluster (`cluster(<name>, system.<table>)`), matching the provider's
   own behavior.
+
+## Shadow resource protection
+
+A conflict guard prevents two non-observe managed resources from targeting the
+same ClickHouse entity. Before seeding the identifier, `adoptByNameInitializer`
+lists all resources of the same kind and rejects if another non-observe CR already
+claims the same identity:
+
+- **Name-based (create path):** if no existing ClickHouse resource is found, the
+  guard checks whether another non-observe CR has the same
+  `spec.forProvider.name`. This prevents two CRs from racing to create the same
+  entity.
+- **UUID-based (adopt path):** if an existing ClickHouse resource is found, the
+  guard checks whether another non-observe CR already uses that UUID as its
+  external name. This prevents a shadow resource from hijacking an adopted entity
+  (e.g. taking over password control of an imported user).
+
+Observe-only resources are exempt from both checks, since they do not manage the
+ClickHouse resource and can coexist with a managed CR.
+
+This protection applies to all resources that use `adoptByNameInitializer`:
+`Database`, `Role`, `SettingProfile`, and `User`.
