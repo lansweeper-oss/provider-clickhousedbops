@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"encoding/json"
+
 	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	xpresource "github.com/crossplane/crossplane-runtime/v2/pkg/resource"
@@ -72,20 +74,29 @@ func seedImportIdentifier(ctx context.Context, kube client.Client, mg xpresource
 		}
 	}
 	if !found {
-		// Absent (or no resolver): seed the sentinel so the provider reports "not found" and creation proceeds
+		chName, _ := extractResourceName(mg)
+		if chName != "" {
+			if err := ensureNoPeerConflict(ctx, kube, mg, chName, "name", peerForProviderName); err != nil {
+				return err
+			}
+		}
 		obs[field] = sentinelUUID
 		return tr.SetObservation(obs)
 	}
-	if err := ensureNoConflict(ctx, kube, mg, id); err != nil {
+	if err := ensureNoPeerConflict(ctx, kube, mg, id, "UUID", peerExternalName); err != nil {
 		return err
 	}
 	return seedIdentifier(mg, tr, obs, field, id)
 }
 
-// ensureNoConflict verifies that no other managed resource of the same kind already
-// claims the given UUID as its external name. Prevents a shadow resource from hijacking
-// an existing ClickHouse entity (e.g. taking over password control of an imported user).
-func ensureNoConflict(ctx context.Context, kube client.Client, mg xpresource.Managed, resolvedUUID string) error {
+// peerFieldExtractor reads a comparison value from an unstructured peer resource.
+type peerFieldExtractor func(item *unstructured.Unstructured) string
+
+// ensureNoPeerConflict lists all managed resources of the same GVK and rejects
+// if any peer (different UID, non-observe) already holds the given value for the
+// field described by extract. This is the single conflict guard for both UUID-based
+// adoption and name-based creation.
+func ensureNoPeerConflict(ctx context.Context, kube client.Client, mg xpresource.Managed, value, description string, extract peerFieldExtractor) error {
 	gvk := mg.GetObjectKind().GroupVersionKind()
 	listGVK := schema.GroupVersionKind{
 		Group:   gvk.Group,
@@ -95,23 +106,61 @@ func ensureNoConflict(ctx context.Context, kube client.Client, mg xpresource.Man
 	list := &unstructured.UnstructuredList{}
 	list.SetGroupVersionKind(listGVK)
 	if err := kube.List(ctx, list); err != nil {
-		return fmt.Errorf("cannot list %s resources for conflict check: %w", gvk.Kind, err)
+		return fmt.Errorf("cannot list %s resources for %s conflict check: %w", gvk.Kind, description, err)
 	}
 	for i := range list.Items {
 		item := &list.Items[i]
 		if item.GetUID() == mg.GetUID() {
 			continue
 		}
-		en := stripClusterPrefix(meta.GetExternalName(item), sep)
-		if en == resolvedUUID {
+		if isUnstructuredObserveOnly(item) {
+			continue
+		}
+		if extract(item) == value {
 			return fmt.Errorf(
-				"%s %s/%s already manages the ClickHouse resource with UUID %s; "+
-					"remove the conflicting resource before adopting",
-				gvk.Kind, item.GetNamespace(), item.GetName(), resolvedUUID,
+				"%s %s/%s already manages ClickHouse resource with %s %q; "+
+					"remove the conflicting resource first",
+				gvk.Kind, item.GetNamespace(), item.GetName(), description, value,
 			)
 		}
 	}
 	return nil
+}
+
+// peerExternalName extracts the UUID portion of a peer's external name annotation.
+func peerExternalName(item *unstructured.Unstructured) string {
+	return stripClusterPrefix(meta.GetExternalName(item), sep)
+}
+
+// peerForProviderName extracts spec.forProvider.name from a peer resource.
+func peerForProviderName(item *unstructured.Unstructured) string {
+	name, _, _ := unstructured.NestedString(item.Object, "spec", "forProvider", "name")
+	return name
+}
+
+// resourceName extracts spec.forProvider.name from a managed resource via JSON round-trip.
+func extractResourceName(mg xpresource.Managed) (string, error) {
+	data, err := json.Marshal(mg)
+	if err != nil {
+		return "", fmt.Errorf("cannot marshal managed resource: %w", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return "", fmt.Errorf("cannot unmarshal managed resource: %w", err)
+	}
+	spec, _ := raw["spec"].(map[string]any)
+	fp, _ := spec["forProvider"].(map[string]any)
+	name, _ := fp["name"].(string)
+	return name, nil
+}
+
+// isUnstructuredObserveOnly checks if an unstructured resource has Observe-only management policy.
+func isUnstructuredObserveOnly(item *unstructured.Unstructured) bool {
+	policies, found, err := unstructured.NestedStringSlice(item.Object, "spec", "managementPolicies")
+	if err != nil || !found {
+		return false
+	}
+	return len(policies) == 1 && policies[0] == "Observe"
 }
 
 // seedIdentifier writes id to both the observation and the external name

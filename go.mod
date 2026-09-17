@@ -1,6 +1,6 @@
 module github.com/lansweeper-oss/provider-clickhousedbops
 
-go 1.26.7
+go 1.26.8
 
 tool golang.org/x/tools/cmd/goimports
 

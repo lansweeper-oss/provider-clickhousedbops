@@ -106,7 +106,7 @@ func TestEnsureNoConflict(t *testing.T) {
 			)
 			kube := fakeclient.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
 
-			err := ensureNoConflict(context.Background(), kube, mg, resolvedUUID)
+			err := ensureNoPeerConflict(context.Background(), kube, mg, resolvedUUID, "UUID", peerExternalName)
 			if tc.wantErr && err == nil {
 				t.Fatal("expected conflict error, got nil")
 			}
@@ -126,6 +126,105 @@ func existingResource(gvk schema.GroupVersionKind, namespace, name, uid, externa
 	u.SetAnnotations(map[string]string{
 		"crossplane.io/external-name": externalName,
 	})
+	return u
+}
+
+func TestEnsureNoNameConflict(t *testing.T) {
+	const selfUID = "self-uid-5678"
+	gvk := schema.GroupVersionKind{
+		Group:   "clickhousedbops.crossplane.io",
+		Version: "v1alpha1",
+		Kind:    "User",
+	}
+
+	cases := map[string]struct {
+		existing []unstructured.Unstructured
+		wantErr  bool
+	}{
+		"NoConflictWhenNoOtherResources": {},
+		"NoConflictWhenSameResource": {
+			existing: []unstructured.Unstructured{
+				existingResourceWithName(gvk, "default", "myuser", selfUID, "myuser", nil),
+			},
+		},
+		"ConflictWhenDifferentResourceHasSameName": {
+			existing: []unstructured.Unstructured{
+				existingResourceWithName(gvk, "default", "shadow", "other-uid", "myuser", nil),
+			},
+			wantErr: true,
+		},
+		"NoConflictWhenDifferentName": {
+			existing: []unstructured.Unstructured{
+				existingResourceWithName(gvk, "default", "other", "other-uid", "otheruser", nil),
+			},
+		},
+		"NoConflictWhenObserveOnly": {
+			existing: []unstructured.Unstructured{
+				existingResourceWithName(gvk, "default", "observer", "other-uid", "myuser", []string{"Observe"}),
+			},
+		},
+		"ConflictWhenFullManagementSameName": {
+			existing: []unstructured.Unstructured{
+				existingResourceWithName(gvk, "default", "managed", "other-uid", "myuser", []string{"*"}),
+			},
+			wantErr: true,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			mg := &fakeManaged{
+				Managed: &fake.Managed{},
+				kind:    fakeObjectKind{gvk: gvk},
+			}
+			mg.SetUID(selfUID)
+
+			objs := make([]runtime.Object, len(tc.existing))
+			for i := range tc.existing {
+				objs[i] = &tc.existing[i]
+			}
+
+			scheme := runtime.NewScheme()
+			scheme.AddKnownTypeWithName(
+				schema.GroupVersionKind{Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind + "List"},
+				&unstructured.UnstructuredList{},
+			)
+			kube := fakeclient.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
+
+			err := ensureNoPeerConflict(context.Background(), kube, mg, "myuser", "name", peerForProviderName)
+			if tc.wantErr && err == nil {
+				t.Fatal("expected name conflict error, got nil")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func existingResourceWithName(gvk schema.GroupVersionKind, namespace, crName, uid, chName string, policies []string) unstructured.Unstructured {
+	u := unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": gvk.Group + "/" + gvk.Version,
+		"kind":       gvk.Kind,
+		"metadata": map[string]any{
+			"namespace": namespace,
+			"name":      crName,
+			"uid":       uid,
+		},
+		"spec": map[string]any{
+			"forProvider": map[string]any{
+				"name": chName,
+			},
+		},
+	}}
+	if policies != nil {
+		spec := u.Object["spec"].(map[string]any)
+		policySlice := make([]any, len(policies))
+		for i, p := range policies {
+			policySlice[i] = p
+		}
+		spec["managementPolicies"] = policySlice
+	}
 	return u
 }
 
