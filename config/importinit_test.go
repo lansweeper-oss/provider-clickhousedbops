@@ -78,9 +78,9 @@ func TestEnsureNoConflict(t *testing.T) {
 				existingResource(gvk, "default", "other-user", "other-uid", "99999999-9999-9999-9999-999999999999"),
 			},
 		},
-		"ConflictWithClusterPrefixedExternalName": {
+		"ConflictWhenPeerHasSameUUIDInAtProvider": {
 			existing: []unstructured.Unstructured{
-				existingResource(gvk, "default", "shadow-user", "other-uid", "mycluster:"+resolvedUUID),
+				existingResource(gvk, "default", "shadow-user", "other-uid", resolvedUUID),
 			},
 			wantErr: true,
 		},
@@ -106,7 +106,7 @@ func TestEnsureNoConflict(t *testing.T) {
 			)
 			kube := fakeclient.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
 
-			err := ensureNoPeerConflict(context.Background(), kube, mg, resolvedUUID, "UUID", peerExternalName)
+			err := ensureNoPeerConflict(context.Background(), kube, mg, resolvedUUID, "UUID", peerAtProvider("id"))
 			if tc.wantErr && err == nil {
 				t.Fatal("expected conflict error, got nil")
 			}
@@ -117,15 +117,21 @@ func TestEnsureNoConflict(t *testing.T) {
 	}
 }
 
-func existingResource(gvk schema.GroupVersionKind, namespace, name, uid, externalName string) unstructured.Unstructured {
-	u := unstructured.Unstructured{}
-	u.SetGroupVersionKind(gvk)
-	u.SetNamespace(namespace)
-	u.SetName(name)
-	u.SetUID(types.UID(uid))
-	u.SetAnnotations(map[string]string{
-		"crossplane.io/external-name": externalName,
-	})
+func existingResource(gvk schema.GroupVersionKind, namespace, name, uid, atProviderID string) unstructured.Unstructured {
+	u := unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": gvk.Group + "/" + gvk.Version,
+		"kind":       gvk.Kind,
+		"metadata": map[string]any{
+			"namespace": namespace,
+			"name":      name,
+			"uid":       uid,
+		},
+		"status": map[string]any{
+			"atProvider": map[string]any{
+				"id": atProviderID,
+			},
+		},
+	}}
 	return u
 }
 

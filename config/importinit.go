@@ -76,7 +76,7 @@ func seedImportIdentifier(ctx context.Context, kube client.Client, mg xpresource
 		obs[field] = sentinelUUID
 		return tr.SetObservation(obs)
 	}
-	if err := guardConflictOnAdopt(ctx, kube, mg, id); err != nil {
+	if err := guardConflictOnAdopt(ctx, kube, mg, id, field); err != nil {
 		return err
 	}
 	return seedIdentifier(mg, tr, obs, field, id)
@@ -95,11 +95,13 @@ func guardConflictOnCreate(ctx context.Context, kube client.Client, mg xpresourc
 }
 
 // guardConflictOnAdopt checks UUID uniqueness before adopting an existing resource.
-func guardConflictOnAdopt(ctx context.Context, kube client.Client, mg xpresource.Managed, id string) error {
+// field is the observation key (e.g. "id" or "uuid") used to find the peer's UUID
+// in status.atProvider, since the external-name annotation may not be persisted.
+func guardConflictOnAdopt(ctx context.Context, kube client.Client, mg xpresource.Managed, id, field string) error {
 	if isObserveOnly(mg) {
 		return nil
 	}
-	return ensureNoPeerConflict(ctx, kube, mg, id, "UUID", peerExternalName)
+	return ensureNoPeerConflict(ctx, kube, mg, id, "UUID", peerAtProvider(field))
 }
 
 // peerFieldExtractor reads a comparison value from an unstructured peer resource.
@@ -157,9 +159,13 @@ func resolveGVK(kube client.Client, mg xpresource.Managed) (schema.GroupVersionK
 	return schema.GroupVersionKind{}, fmt.Errorf("scheme lookup failed (%w) and TypeMeta empty", err)
 }
 
-// peerExternalName extracts the UUID portion of a peer's external name annotation.
-func peerExternalName(item *unstructured.Unstructured) string {
-	return stripClusterPrefix(meta.GetExternalName(item), sep)
+// peerAtProvider returns an extractor that reads status.atProvider.<field> from a peer.
+// This is more reliable than the external-name annotation, which may not be persisted.
+func peerAtProvider(field string) peerFieldExtractor {
+	return func(item *unstructured.Unstructured) string {
+		val, _, _ := unstructured.NestedString(item.Object, "status", "atProvider", field)
+		return val
+	}
 }
 
 // peerForProviderName extracts spec.forProvider.name from a peer resource.
