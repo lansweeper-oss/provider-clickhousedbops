@@ -64,16 +64,6 @@ CHAINSAW_VERSION = 0.2.15
 CROSSPLANE_VERSION = 2.4.0
 -include build/makelib/k8s_tools.mk
 
-# Override Crossplane CLI download and install (https://github.com/crossplane/build/pull/59)
-$(CROSSPLANE_CLI):
-	@$(INFO) installing Crossplane CLI $(CROSSPLANE_CLI_VERSION)
-	@mkdir -p $(TOOLS_HOST_DIR) || $(FAIL)
-	@curl -fsSL https://raw.githubusercontent.com/crossplane/crossplane/main/install.sh | XP_CHANNEL=$(CROSSPLANE_CLI_CHANNEL) XP_VERSION=$(CROSSPLANE_CLI_VERSION) sh || $(FAIL)
-	@mv crossplane $(CROSSPLANE_CLI) || $(FAIL)
-	@chmod +x $(CROSSPLANE_CLI)
-	@$(OK) installing Crossplane CLI $(CROSSPLANE_CLI_VERSION)
-
-
 # ====================================================================================
 # Setup Images
 

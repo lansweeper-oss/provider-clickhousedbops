@@ -238,6 +238,32 @@ one of autoGeneratePassword or passwordSecretRef must be set.
 - **Method 3 (hash-only):** no plaintext in cluster at all.
 - All methods: the Terraform provider only ever sees the SHA256 hash, never the plaintext.
 
+## Imported Users and Password Management
+
+When a User resource is imported with an `Observe`-only management policy, password management
+is fully skipped: the validator, generator, and ref processor all short-circuit. The user
+retains whatever password ClickHouse currently has.
+
+**The provider cannot detect whether the ClickHouse password differs from what is stored in
+Kubernetes.** ClickHouse stores `password_sha256_hex` in `system.users`, but the Terraform
+provider does not expose it in state, so there is no value to compare against.
+
+### Taking control of an imported user's password
+
+After verifying that `status.atProvider` matches the desired spec:
+
+1. **Auto-generate a new password:** set `autoGeneratePassword: true` and
+   `writeConnectionSecretToRef`, then switch the management policy to full.
+   On the next reconcile the controller detects no hash in the connection secret,
+   generates a new password, and pushes it to ClickHouse.
+
+2. **Bring your own password:** create a secret with the desired plaintext, set
+   `passwordSecretRef`, then switch the management policy to full.
+   On the next reconcile the controller computes the hash and pushes it to ClickHouse.
+
+In both cases the ClickHouse user password is replaced. Any application using the
+old password will break until updated.
+
 ## See Also
 
 - [User Examples](../examples/)

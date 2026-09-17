@@ -9,6 +9,8 @@ import (
 	xpresource "github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	"github.com/crossplane/upjet/v2/pkg/config"
 	"github.com/google/uuid"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -74,7 +76,42 @@ func seedImportIdentifier(ctx context.Context, kube client.Client, mg xpresource
 		obs[field] = sentinelUUID
 		return tr.SetObservation(obs)
 	}
+	if err := ensureNoConflict(ctx, kube, mg, id); err != nil {
+		return err
+	}
 	return seedIdentifier(mg, tr, obs, field, id)
+}
+
+// ensureNoConflict verifies that no other managed resource of the same kind already
+// claims the given UUID as its external name. Prevents a shadow resource from hijacking
+// an existing ClickHouse entity (e.g. taking over password control of an imported user).
+func ensureNoConflict(ctx context.Context, kube client.Client, mg xpresource.Managed, resolvedUUID string) error {
+	gvk := mg.GetObjectKind().GroupVersionKind()
+	listGVK := schema.GroupVersionKind{
+		Group:   gvk.Group,
+		Version: gvk.Version,
+		Kind:    gvk.Kind + "List",
+	}
+	list := &unstructured.UnstructuredList{}
+	list.SetGroupVersionKind(listGVK)
+	if err := kube.List(ctx, list); err != nil {
+		return fmt.Errorf("cannot list %s resources for conflict check: %w", gvk.Kind, err)
+	}
+	for i := range list.Items {
+		item := &list.Items[i]
+		if item.GetUID() == mg.GetUID() {
+			continue
+		}
+		en := stripClusterPrefix(meta.GetExternalName(item), sep)
+		if en == resolvedUUID {
+			return fmt.Errorf(
+				"%s %s/%s already manages the ClickHouse resource with UUID %s; "+
+					"remove the conflicting resource before adopting",
+				gvk.Kind, item.GetNamespace(), item.GetName(), resolvedUUID,
+			)
+		}
+	}
+	return nil
 }
 
 // seedIdentifier writes id to both the observation and the external name

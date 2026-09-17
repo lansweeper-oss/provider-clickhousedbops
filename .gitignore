@@ -1,19 +1,14 @@
-/.cache
-/.work
+.*
+**/.*
 /_output
 cover.out
 /vendor
-/.vendor-new
-.DS_Store
-
 # generated files
 config/generated.lst
 examples-generated
 extensions
 
-# ignore IDE folders
-.vscode/
-.idea/
-
-.claude/
-__pycache__/
+!.github/
+!.gitignore
+!.gitmodules
+!.golangci.yml
