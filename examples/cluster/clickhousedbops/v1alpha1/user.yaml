@@ -8,4 +8,13 @@ metadata:
   name: example
 spec:
   forProvider:
+    auth:
+      sha256Hash:
+      - valueWoSecretRef:
+          key: example-key
+          name: example-secret
+          namespace: upbound-system
+        valueWoVersion: 1
+      sslCertificate:
+      - commonName: example-service
     name: example

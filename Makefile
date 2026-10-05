@@ -45,7 +45,7 @@ NPROCS ?= 1
 GO_TEST_PARALLEL := $(shell echo $$(( $(NPROCS) / 2 )))
 
 GO_REQUIRED_VERSION ?= $(shell grep '^go ' go.mod | awk '{print $$2}')
-GOLANGCILINT_VERSION ?= 2.12.2
+GOLANGCILINT_VERSION ?= 2.14.0
 GO_STATIC_PACKAGES = $(GO_PROJECT)/cmd/provider $(GO_PROJECT)/cmd/generator
 GO_LDFLAGS += -X $(GO_PROJECT)/internal/version.Version=$(VERSION)
 GO_SUBDIRS += cmd internal apis
@@ -61,18 +61,8 @@ CRDDIFF_VERSION = v0.12.1
 CROSSPLANE_CLI_VERSION = v2.5.0
 CHAINSAW_VERSION = 0.2.15
 # for e2e testing
-CROSSPLANE_VERSION = 2.4.0
+CROSSPLANE_VERSION = 2.4.2
 -include build/makelib/k8s_tools.mk
-
-# Override Crossplane CLI download and install (https://github.com/crossplane/build/pull/59)
-$(CROSSPLANE_CLI):
-	@$(INFO) installing Crossplane CLI $(CROSSPLANE_CLI_VERSION)
-	@mkdir -p $(TOOLS_HOST_DIR) || $(FAIL)
-	@curl -fsSL https://raw.githubusercontent.com/crossplane/crossplane/main/install.sh | XP_CHANNEL=$(CROSSPLANE_CLI_CHANNEL) XP_VERSION=$(CROSSPLANE_CLI_VERSION) sh || $(FAIL)
-	@mv crossplane $(CROSSPLANE_CLI) || $(FAIL)
-	@chmod +x $(CROSSPLANE_CLI)
-	@$(OK) installing Crossplane CLI $(CROSSPLANE_CLI_VERSION)
-
 
 # ====================================================================================
 # Setup Images
@@ -138,6 +128,7 @@ TERRAFORM_PROVIDER_CLI_CONFIG := $(TERRAFORM_WORKDIR)/dev.tfrc
 
 $(TERRAFORM_PROVIDER_SCHEMA): $(TERRAFORM)
 	@$(INFO) generating provider schema for $(TERRAFORM_PROVIDER_SOURCE) $(TERRAFORM_PROVIDER_VERSION)
+	@rm -rf $(TERRAFORM_PROVIDER_PLUGIN_DIR)
 	@mkdir -p $(TERRAFORM_WORKDIR) $(TERRAFORM_PROVIDER_PLUGIN_DIR)
 	@curl -fsSL $(TERRAFORM_PROVIDER_DOWNLOAD_URL_PREFIX)/$(TERRAFORM_PROVIDER_DOWNLOAD_NAME)_$(TERRAFORM_PROVIDER_VERSION)_$(SAFEHOST_PLATFORM).zip \
 		-o $(TERRAFORM_WORKDIR)/provider.zip
