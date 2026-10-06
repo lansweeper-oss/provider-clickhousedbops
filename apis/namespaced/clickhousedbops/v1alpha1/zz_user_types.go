@@ -45,7 +45,7 @@ type AuthInitParameters struct {
 
 	// is exclusive — it cannot be combined with any other method.
 	// Passwordless authentication. Cannot be combined with any other method.
-	NoPassword []NoPasswordInitParameters `json:"noPassword,omitempty" tf:"no_password,omitempty"`
+	NoPassword *NoPasswordInitParameters `json:"noPassword,omitempty" tf:"no_password,omitempty"`
 
 	// (Block List) Plaintext password authentication. (see below for nested schema)
 	// Plaintext password authentication.
@@ -100,7 +100,7 @@ type AuthObservation struct {
 
 	// is exclusive — it cannot be combined with any other method.
 	// Passwordless authentication. Cannot be combined with any other method.
-	NoPassword []NoPasswordParameters `json:"noPassword,omitempty" tf:"no_password,omitempty"`
+	NoPassword *NoPasswordParameters `json:"noPassword,omitempty" tf:"no_password,omitempty"`
 
 	// (Block List) Plaintext password authentication. (see below for nested schema)
 	// Plaintext password authentication.
@@ -163,7 +163,7 @@ type AuthParameters struct {
 	// is exclusive — it cannot be combined with any other method.
 	// Passwordless authentication. Cannot be combined with any other method.
 	// +kubebuilder:validation:Optional
-	NoPassword []NoPasswordParameters `json:"noPassword,omitempty" tf:"no_password,omitempty"`
+	NoPassword *NoPasswordParameters `json:"noPassword,omitempty" tf:"no_password,omitempty"`
 
 	// (Block List) Plaintext password authentication. (see below for nested schema)
 	// Plaintext password authentication.
@@ -658,6 +658,10 @@ type Sha256PasswordParameters struct {
 
 type UserInitParameters struct {
 
+	// (Block, Optional) Authentication methods for the user. Methods may be combined and each block (except no_password) may be repeated. (see below for nested schema)
+	// Authentication methods for the user. Methods may be combined and each block (except no_password) may be repeated.
+	Auth *AuthInitParameters `json:"auth,omitempty" tf:"auth,omitempty"`
+
 	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
@@ -675,7 +679,7 @@ type UserInitParameters struct {
 	// Name of the user
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
 
-	// (String, Sensitive, Deprecated) SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
+	// (String, Sensitive, Deprecated) SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field update the user in place.
 	// Reference to a secret containing the SHA256 hash of the password. This field is automatically set.
 	PasswordSha256HashSecretRef *v2.LocalSecretKeySelector `json:"passwordSha256HashSecretRef,omitempty" tf:"-"`
 }
@@ -684,7 +688,7 @@ type UserObservation struct {
 
 	// (Block, Optional) Authentication methods for the user. Methods may be combined and each block (except no_password) may be repeated. (see below for nested schema)
 	// Authentication methods for the user. Methods may be combined and each block (except no_password) may be repeated.
-	Auth []AuthObservation `json:"auth,omitempty" tf:"auth,omitempty"`
+	Auth *AuthObservation `json:"auth,omitempty" tf:"auth,omitempty"`
 
 	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
 	// This field must be left null when using a ClickHouse Cloud cluster.
@@ -708,6 +712,11 @@ type UserObservation struct {
 }
 
 type UserParameters struct {
+
+	// (Block, Optional) Authentication methods for the user. Methods may be combined and each block (except no_password) may be repeated. (see below for nested schema)
+	// Authentication methods for the user. Methods may be combined and each block (except no_password) may be repeated.
+	// +kubebuilder:validation:Optional
+	Auth *AuthParameters `json:"auth,omitempty" tf:"auth,omitempty"`
 
 	// If true, a password is auto-generated and stored in the secret referenced by writeConnectionSecretToRef under keys 'password' (plaintext) and 'hash' (SHA256). The passwordSha256HashSecretRef field is set automatically - no other password fields need to be configured.
 	// +upjet:crd:field:TFTag=-
@@ -740,7 +749,7 @@ type UserParameters struct {
 	// +mapType=granular
 	PasswordSecretRef map[string]*string `json:"passwordSecretRef,omitempty" tf:"-"`
 
-	// (String, Sensitive, Deprecated) SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
+	// (String, Sensitive, Deprecated) SHA256 hash of the password to be set for the user.11. Conflicts with password_sha256_hash_wo. Changes to this field update the user in place.
 	// Reference to a secret containing the SHA256 hash of the password. This field is automatically set.
 	// +kubebuilder:validation:Optional
 	PasswordSha256HashSecretRef *v2.LocalSecretKeySelector `json:"passwordSha256HashSecretRef,omitempty" tf:"-"`
@@ -773,7 +782,7 @@ type UserStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
-// User is the Schema for the Users API. You can use the clickhousedbops_user resource to create a user in a ClickHouse instance. Password can be either autogenerated or referenced from an existing Kubernetes Secret. Changing the password will cause the database user to be deleted and recreated
+// User is the Schema for the Users API. You can use the clickhousedbops_user resource to create a user in a ClickHouse instance. Password can be either autogenerated or referenced from an existing Kubernetes Secret. Changing the password updates the user in place
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane\\.io/external-name"

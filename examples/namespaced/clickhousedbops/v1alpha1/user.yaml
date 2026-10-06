@@ -9,4 +9,12 @@ metadata:
   namespace: crossplane-system
 spec:
   forProvider:
+    auth:
+      sha256Hash:
+      - valueWoSecretRef:
+          key: example-key
+          name: example-secret
+        valueWoVersion: 1
+      sslCertificate:
+      - commonName: example-service
     name: example

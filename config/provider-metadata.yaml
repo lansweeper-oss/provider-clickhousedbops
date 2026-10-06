@@ -100,7 +100,7 @@ resources:
         importStatements: []
     clickhousedbops_grant_role:
         subCategory: ""
-        description: 'You can use the clickhousedbops_grant_role resource to grant a clickhousedbops_role to either a clickhousedbops_user or to another clickhousedbops_role. Known limitations: It''s not possible to grant the same clickhousedbops_role to both a clickhousedbops_user and a clickhousedbops_role using a single clickhousedbops_grant_role stanza. You can do that using two different stanzas, one with grantee_user_name and the other with grantee_role_name fields set.Importing clickhousedbops_grant_role resources into terraform is not supported.'
+        description: 'You can use the clickhousedbops_grant_role resource to grant a clickhousedbops_role to either a clickhousedbops_user or to another clickhousedbops_role. Known limitations: It''s not possible to grant the same clickhousedbops_role to both a clickhousedbops_user and a clickhousedbops_role using a single clickhousedbops_grant_role stanza. You can do that using two different stanzas, one with grantee_user_name and the other with grantee_role_name fields set.It''s not possible to grant a role to a grantee role when a user with the same name exists: ClickHouse resolves grantee names to users first, so the grant would silently target the user instead. The provider rejects such grants.Importing clickhousedbops_grant_role resources into terraform is not supported.'
         name: clickhousedbops_grant_role
         title: clickhousedbops_grant_role Resource - clickhousedbops
         examples:
@@ -469,10 +469,10 @@ resources:
             name: (String) Name of the user
             no_password: (Block, Optional) Passwordless authentication. Cannot be combined with any other method. (see below for nested schema)
             no_password.no_password: is exclusive — it cannot be combined with any other method.
-            password_sha256_hash: (String, Sensitive, Deprecated) SHA256 hash of the password to be set for the user. Use this for Terraform/OpenTofu < 1.11. Conflicts with password_sha256_hash_wo. Changes to this field will replace the user.
+            password_sha256_hash: (String, Sensitive, Deprecated) SHA256 hash of the password to be set for the user. Use this for Terraform/OpenTofu < 1.11. Conflicts with password_sha256_hash_wo. Changes to this field update the user in place.
             password_sha256_hash.*_version: to force a re-apply of a write-only value.
             password_sha256_hash_wo: (String, Sensitive, Deprecated, Write-only) SHA256 hash of the password to be set for the user. Use this for Terraform/OpenTofu >= 1.11. Conflicts with password_sha256_hash.
-            password_sha256_hash_wo_version: (Number, Deprecated) Version of the password_sha256_hash_wo field. Bump this value to require a force update of the password on the user.
+            password_sha256_hash_wo_version: (Number, Deprecated) Version of the password_sha256_hash_wo field. Bump this value to update the password on the user.
             plaintext_password: (Block List) Plaintext password authentication. (see below for nested schema)
             public_key: (String) SSH public key.
             realm: (String) Optional Kerberos realm to restrict authentication to.
