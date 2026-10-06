@@ -143,7 +143,15 @@ $(TERRAFORM_PROVIDER_SCHEMA): $(TERRAFORM)
 	@TF_CLI_CONFIG_FILE=$(abspath $(TERRAFORM_PROVIDER_CLI_CONFIG)) $(TERRAFORM) -chdir=$(TERRAFORM_WORKDIR) providers schema -json=true > $(TERRAFORM_PROVIDER_SCHEMA) 2>> $(TERRAFORM_WORKDIR)/terraform-logs.txt
 	@$(OK) generating provider schema for $(TERRAFORM_PROVIDER_SOURCE) $(TERRAFORM_PROVIDER_VERSION)
 
-pull-docs:
+# Per-version stamp: bumping TERRAFORM_PROVIDER_VERSION invalidates the cached
+# docs clone.
+PROVIDER_VERSION_STAMP := $(WORK_DIR)/.provider-version-$(TERRAFORM_PROVIDER_VERSION)
+
+$(PROVIDER_VERSION_STAMP):
+	@rm -rf $(WORK_DIR)/.provider-version-* "$(WORK_DIR)/$(TERRAFORM_PROVIDER_SOURCE)"
+	@mkdir -p $(WORK_DIR) && touch $@
+
+pull-docs: $(PROVIDER_VERSION_STAMP)
 	@if [ ! -d "$(WORK_DIR)/$(TERRAFORM_PROVIDER_SOURCE)" ]; then \
   		mkdir -p "$(WORK_DIR)/$(TERRAFORM_PROVIDER_SOURCE)" && \
 		git clone -c advice.detachedHead=false --depth 1 --filter=blob:none --branch "v$(TERRAFORM_PROVIDER_VERSION)" --sparse "$(TERRAFORM_PROVIDER_REPO)" "$(WORK_DIR)/$(TERRAFORM_PROVIDER_SOURCE)"; \
