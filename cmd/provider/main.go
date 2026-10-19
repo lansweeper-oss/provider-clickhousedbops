@@ -256,6 +256,8 @@ func main() {
 			Logger:                  log,
 			Gate:                    crdGate,
 			MaxConcurrentReconciles: 1,
+			// Only watch this provider's CRDs, not every CRD in the cluster.
+			Groups: []string{clusterProvider.RootGroup, namespacedProvider.RootGroup},
 		}), "Cannot setup CRD gate")
 		log.Info("Registering gated controllers (controllers start when their CRDs become established)")
 		ctx.FatalIfErrorf(controllerCluster.SetupGated(mgr, clusterOpts), "Cannot setup cluster-scoped provider-clickhousedbops controllers")
