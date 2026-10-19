@@ -227,3 +227,27 @@ func TestIDFromClusterName(t *testing.T) {
 		})
 	}
 }
+
+func TestNameFromState_GetExternalNameFn(t *testing.T) {
+	e := nameFromState()
+
+	cases := map[string]struct {
+		tfstate  map[string]any
+		wantName string
+	}{
+		"StateWithName":    {tfstate: map[string]any{"name": "s3_prod", "cluster_name": "c1"}, wantName: "s3_prod"},
+		"StateWithoutName": {tfstate: map[string]any{}, wantName: ""},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			got, err := e.GetExternalNameFn(tc.tfstate)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.wantName {
+				t.Errorf("GetExternalNameFn() = %q, want %q", got, tc.wantName)
+			}
+		})
+	}
+}

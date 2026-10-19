@@ -1,0 +1,23 @@
+apiVersion: clickhousedbops.crossplane.io/v1alpha1
+kind: NamedCollection
+metadata:
+  annotations:
+    meta.upbound.io/example-id: clickhousedbops/v1alpha1/namedcollection
+  labels:
+    testing.upbound.io/example-name: s3_prod
+  name: s3-prod
+spec:
+  forProvider:
+    keys:
+      access_key_id: AKIAEXAMPLE
+      format: CSV
+      url: https://s3.amazonaws.com/bucket/
+    notOverridableKeys:
+    - secret_access_key
+    overridableKeys:
+    - url
+    secretKeysWoSecretRef:
+      key: example-key
+      name: example-secret
+      namespace: upbound-system
+    secretKeysWoVersion: 1

@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: testcollection-secret
+  namespace: crossplane-system
+stringData:
+  secret_access_key: s3cr3t
+---
+apiVersion: clickhousedbops.crossplane.io/v1alpha1
+kind: NamedCollection
+metadata:
+  annotations:
+    meta.upbound.io/example-id: clickhousedbops/v1alpha1/namedcollection
+  labels:
+    testing.upbound.io/example-name: testcollection
+  name: testcollection
+spec:
+  forProvider:
+    name: testcollection
+    keys:
+      format: CSV
+      url: https://example.com/bucket/
+    overridableKeys:
+      - url
+    notOverridableKeys:
+      - secret_access_key
+    secretKeysWoSecretRef:
+      name: testcollection-secret
+      namespace: crossplane-system
+    secretKeysWoVersion: 1

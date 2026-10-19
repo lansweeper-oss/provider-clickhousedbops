@@ -27,6 +27,7 @@ var ExternalNameConfigs = map[string]config.ExternalName{
 	"clickhousedbops_grant_privilege":              idWithStub(),                  // cannot be imported
 	"clickhousedbops_grant_role":                   idWithStub(),                  // cannot be imported
 	"clickhousedbops_masking_policy":               config.IdentifierFromProvider, // overridden
+	"clickhousedbops_named_collection":             nameFromState(),
 	"clickhousedbops_role":                         idWithClusterName(),
 	"clickhousedbops_row_policy":                   config.IdentifierFromProvider, // overridden
 	"clickhousedbops_setting":                      idWithStub(),                  // cannot be imported
@@ -139,6 +140,19 @@ func idWithStub() config.ExternalName {
 	e.GetExternalNameFn = func(tfstate map[string]any) (string, error) {
 		en, _ := config.IDAsExternalName(tfstate)
 		return en, nil
+	}
+	return e
+}
+
+// nameFromState is config.NameAsIdentifier for resources without an "id"
+// attribute: the external name is read back from the "name" attribute.
+// Returns "" when name is absent, as with idWithStub, because Terraform drops
+// the resource from state when refresh signals "not found".
+func nameFromState() config.ExternalName {
+	e := config.NameAsIdentifier
+	e.GetExternalNameFn = func(tfstate map[string]any) (string, error) {
+		name, _ := tfstate["name"].(string)
+		return name, nil
 	}
 	return e
 }

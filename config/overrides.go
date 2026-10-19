@@ -27,6 +27,10 @@ var gkvOverrideMap = map[string]schema.GroupVersionKind{
 		Group: "",
 		Kind:  "MaskingPolicy",
 	},
+	"clickhousedbops_named_collection": {
+		Group: "",
+		Kind:  "NamedCollection",
+	},
 	"clickhousedbops_settings_profile": {
 		Group: "",
 		Kind:  "SettingProfile",

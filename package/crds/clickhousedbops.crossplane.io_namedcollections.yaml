@@ -1,0 +1,389 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.23.0
+  name: namedcollections.clickhousedbops.crossplane.io
+spec:
+  group: clickhousedbops.crossplane.io
+  names:
+    categories:
+    - crossplane
+    - managed
+    - clickhousedbops
+    kind: NamedCollection
+    listKind: NamedCollectionList
+    plural: namedcollections
+    singular: namedcollection
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=='Synced')].status
+      name: SYNCED
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: READY
+      type: string
+    - jsonPath: .metadata.annotations.crossplane\.io/external-name
+      name: EXTERNAL-NAME
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: 'NamedCollection is the Schema for the NamedCollections API.
+          You can use the clickhousedbops_named_collection resource to create a Named
+          Collection https://clickhouse.com/docs/operations/named-collections in a
+          ClickHouse instance. On ClickHouse Cloud, DDL named collections are only
+          enabled on select services: contact ClickHouse support to confirm availability.
+          On self-hosted instances, managing them with DDL needs the named_collection_control
+          privilege, which is not granted with GRANT: it is enabled per user in the
+          server config, usually a file in /etc/clickhouse-server/users.d/.11. ClickHouse
+          never returns these values, so the provider cannot tell when one changes:
+          bump secret_keys_wo_version to re-apply all of them.keys is stored in the
+          state. Both maps write into the same set of keys in ClickHouse, so a key
+          name can only appear in one of them. Known limitations ClickHouse hides
+          named collection values in system tables unless the current user is granted
+          SHOW NAMED COLLECTIONS SECRETS. Without that grant the provider only detects
+          drift on the set of key names, not on the values of keys.ClickHouse can''t
+          reset a key''s flag back to the server default. Removing a key from overridable_keys
+          or not_overridable_keys while keeping it in the collection destroys and
+          recreates the collection. Moving it to the other list is done in place.Renaming
+          a collection is not supported by ClickHouse, so changing name (or cluster_name)
+          destroys and recreates the collection.When importing an existing collection,
+          values are imported as the literal [HIDDEN] placeholder unless the user
+          can see secrets.'
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: NamedCollectionSpec defines the desired state of NamedCollection
+            properties:
+              deletionPolicy:
+                default: Delete
+                description: |-
+                  DeletionPolicy specifies what will happen to the underlying external
+                  when this managed resource is deleted - either "Delete" or "Orphan" the
+                  external resource.
+                  This field is planned to be deprecated in favor of the ManagementPolicies
+                  field in a future release. Currently, both could be set independently and
+                  non-default values would be honored if the feature flag is enabled.
+                  See the design doc for more information: https://github.com/crossplane/crossplane/blob/499895a25d1a1a0ba1604944ef98ac7a1a71f197/design/design-doc-observe-only-resources.md?plain=1#L223
+                enum:
+                - Orphan
+                - Delete
+                type: string
+              forProvider:
+                properties:
+                  clusterName:
+                    description: |-
+                      Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+                      This field must be left null when using a ClickHouse Cloud cluster.
+                      When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and 'named_collections_storage' is not 'keeper' or 'zookeeper'.
+                    type: string
+                  keys:
+                    additionalProperties:
+                      type: string
+                    description: is stored in the state. Values from variables marked
+                      'sensitive = true' are redacted from CLI output. For secrets
+                      you don't want in state at all, use 'secret_keys_wo'.
+                    type: object
+                    x-kubernetes-map-type: granular
+                  notOverridableKeys:
+                    description: |-
+                      Names of keys to mark as NOT OVERRIDABLE.
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: set
+                  overridableKeys:
+                    description: |-
+                      Names of keys to mark as OVERRIDABLE. Keys listed in neither 'overridable_keys' nor 'not_overridable_keys' use the server default, which comes from the 'allow_named_collection_override_by_default' setting.
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: set
+                  secretKeysWoSecretRef:
+                    description: '11. ClickHouse never returns these values, so the
+                      provider cannot tell when one changes: bump secret_keys_wo_version
+                      to re-apply all of them.11. Bump ''secret_keys_wo_version''
+                      to re-apply the values, ClickHouse never returns them so the
+                      provider cannot detect that they changed.'
+                    properties:
+                      name:
+                        description: Name of the secret.
+                        type: string
+                      namespace:
+                        description: Namespace of the secret.
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  secretKeysWoVersion:
+                    description: |-
+                      Version of 'secret_keys_wo'. Bump it to re-apply every write-only value.
+                    type: number
+                type: object
+              initProvider:
+                description: |-
+                  THIS IS A BETA FIELD. It will be honored
+                  unless the Management Policies feature flag is disabled.
+                  InitProvider holds the same fields as ForProvider, with the exception
+                  of Identifier and other resource reference fields. The fields that are
+                  in InitProvider are merged into ForProvider when the resource is created.
+                  The same fields are also added to the terraform ignore_changes hook, to
+                  avoid updating them after creation. This is useful for fields that are
+                  required on creation, but we do not desire to update them after creation,
+                  for example because of an external controller is managing them, like an
+                  autoscaler.
+                properties:
+                  clusterName:
+                    description: |-
+                      Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+                      This field must be left null when using a ClickHouse Cloud cluster.
+                      When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and 'named_collections_storage' is not 'keeper' or 'zookeeper'.
+                    type: string
+                  keys:
+                    additionalProperties:
+                      type: string
+                    description: is stored in the state. Values from variables marked
+                      'sensitive = true' are redacted from CLI output. For secrets
+                      you don't want in state at all, use 'secret_keys_wo'.
+                    type: object
+                    x-kubernetes-map-type: granular
+                  notOverridableKeys:
+                    description: |-
+                      Names of keys to mark as NOT OVERRIDABLE.
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: set
+                  overridableKeys:
+                    description: |-
+                      Names of keys to mark as OVERRIDABLE. Keys listed in neither 'overridable_keys' nor 'not_overridable_keys' use the server default, which comes from the 'allow_named_collection_override_by_default' setting.
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: set
+                  secretKeysWoSecretRef:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  secretKeysWoVersion:
+                    description: |-
+                      Version of 'secret_keys_wo'. Bump it to re-apply every write-only value.
+                    type: number
+                type: object
+              managementPolicies:
+                default:
+                - '*'
+                description: |-
+                  THIS IS A BETA FIELD. It is on by default but can be opted out
+                  through a Crossplane feature flag.
+                  ManagementPolicies specify the array of actions Crossplane is allowed to
+                  take on the managed and external resources.
+                  This field is planned to replace the DeletionPolicy field in a future
+                  release. Currently, both could be set independently and non-default
+                  values would be honored if the feature flag is enabled. If both are
+                  custom, the DeletionPolicy field will be ignored.
+                  See the design doc for more information: https://github.com/crossplane/crossplane/blob/499895a25d1a1a0ba1604944ef98ac7a1a71f197/design/design-doc-observe-only-resources.md?plain=1#L223
+                  and this one: https://github.com/crossplane/crossplane/blob/444267e84783136daa93568b364a5f01228cacbe/design/one-pager-ignore-changes.md
+                items:
+                  description: |-
+                    A ManagementAction represents an action that the Crossplane controllers
+                    can take on an external resource.
+                  enum:
+                  - Observe
+                  - Create
+                  - Update
+                  - Delete
+                  - LateInitialize
+                  - '*'
+                  type: string
+                type: array
+              providerConfigRef:
+                default:
+                  name: default
+                description: |-
+                  ProviderConfigReference specifies how the provider that will be used to
+                  create, observe, update, and delete this managed resource should be
+                  configured.
+                properties:
+                  name:
+                    description: Name of the referenced object.
+                    type: string
+                  policy:
+                    description: Policies for referencing.
+                    properties:
+                      resolution:
+                        default: Required
+                        description: |-
+                          Resolution specifies whether resolution of this reference is required.
+                          The default is 'Required', which means the reconcile will fail if the
+                          reference cannot be resolved. 'Optional' means this reference will be
+                          a no-op if it cannot be resolved.
+                        enum:
+                        - Required
+                        - Optional
+                        type: string
+                      resolve:
+                        description: |-
+                          Resolve specifies when this reference should be resolved. The default
+                          is 'IfNotPresent', which will attempt to resolve the reference only when
+                          the corresponding field is not present. Use 'Always' to resolve the
+                          reference on every reconcile.
+                        enum:
+                        - Always
+                        - IfNotPresent
+                        type: string
+                    type: object
+                required:
+                - name
+                type: object
+              writeConnectionSecretToRef:
+                description: |-
+                  WriteConnectionSecretToReference specifies the namespace and name of a
+                  Secret to which any connection details for this managed resource should
+                  be written. Connection details frequently include the endpoint, username,
+                  and password required to connect to the managed resource.
+                properties:
+                  name:
+                    description: Name of the secret.
+                    type: string
+                  namespace:
+                    description: Namespace of the secret.
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
+            required:
+            - forProvider
+            type: object
+          status:
+            description: NamedCollectionStatus defines the observed state of NamedCollection.
+            properties:
+              atProvider:
+                properties:
+                  clusterName:
+                    description: |-
+                      Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
+                      This field must be left null when using a ClickHouse Cloud cluster.
+                      When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and 'named_collections_storage' is not 'keeper' or 'zookeeper'.
+                    type: string
+                  id:
+                    type: string
+                  keys:
+                    additionalProperties:
+                      type: string
+                    description: is stored in the state. Values from variables marked
+                      'sensitive = true' are redacted from CLI output. For secrets
+                      you don't want in state at all, use 'secret_keys_wo'.
+                    type: object
+                    x-kubernetes-map-type: granular
+                  notOverridableKeys:
+                    description: |-
+                      Names of keys to mark as NOT OVERRIDABLE.
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: set
+                  overridableKeys:
+                    description: |-
+                      Names of keys to mark as OVERRIDABLE. Keys listed in neither 'overridable_keys' nor 'not_overridable_keys' use the server default, which comes from the 'allow_named_collection_override_by_default' setting.
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: set
+                  secretKeysWoVersion:
+                    description: |-
+                      Version of 'secret_keys_wo'. Bump it to re-apply every write-only value.
+                    type: number
+                type: object
+              conditions:
+                description: Conditions of the resource.
+                items:
+                  description: A Condition that may apply to a resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        LastTransitionTime is the last time this condition transitioned from one
+                        status to another.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        A Message containing details about this condition's last transition from
+                        one status to another, if any.
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        ObservedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      type: integer
+                    reason:
+                      description: A Reason for this condition's last transition from
+                        one status to another.
+                      type: string
+                    status:
+                      description: Status of this condition; is it currently True,
+                        False, or Unknown?
+                      type: string
+                    type:
+                      description: |-
+                        Type of this condition. At most one of each condition type may apply to
+                        a resource at any point in time.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              lastHandledReconcileAt:
+                description: |-
+                  LastHandledReconcileAt holds the value of the most recent
+                  reconcile-requested-at annotation token that the controller has
+                  processed. Users can compare this to the annotation to determine
+                  whether a reconcile request has been handled.
+                type: string
+              observedGeneration:
+                description: |-
+                  ObservedGeneration is the latest metadata.generation
+                  which resulted in either a ready state, or stalled due to error
+                  it can not recover from without human intervention.
+                format: int64
+                type: integer
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
