@@ -99,14 +99,20 @@ spec:
                       This field must be left null when using a ClickHouse Cloud cluster.
                       When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and 'named_collections_storage' is not 'keeper' or 'zookeeper'.
                     type: string
-                  keys:
-                    additionalProperties:
-                      type: string
-                    description: is stored in the state. Values from variables marked
-                      'sensitive = true' are redacted from CLI output. For secrets
-                      you don't want in state at all, use 'secret_keys_wo'.
+                  keysSecretRef:
+                    description: |-
+                      Map of key/value pairs stored in the named collection, read from the referenced Secret.
+                    properties:
+                      name:
+                        description: Name of the secret.
+                        type: string
+                      namespace:
+                        description: Namespace of the secret.
+                        type: string
+                    required:
+                    - name
+                    - namespace
                     type: object
-                    x-kubernetes-map-type: granular
                   notOverridableKeys:
                     description: |-
                       Names of keys to mark as NOT OVERRIDABLE.
@@ -121,27 +127,6 @@ spec:
                       type: string
                     type: array
                     x-kubernetes-list-type: set
-                  secretKeysWoSecretRef:
-                    description: '11. ClickHouse never returns these values, so the
-                      provider cannot tell when one changes: bump secret_keys_wo_version
-                      to re-apply all of them.11. Bump ''secret_keys_wo_version''
-                      to re-apply the values, ClickHouse never returns them so the
-                      provider cannot detect that they changed.'
-                    properties:
-                      name:
-                        description: Name of the secret.
-                        type: string
-                      namespace:
-                        description: Namespace of the secret.
-                        type: string
-                    required:
-                    - name
-                    - namespace
-                    type: object
-                  secretKeysWoVersion:
-                    description: |-
-                      Version of 'secret_keys_wo'. Bump it to re-apply every write-only value.
-                    type: number
                 type: object
               initProvider:
                 description: |-
@@ -162,14 +147,10 @@ spec:
                       This field must be left null when using a ClickHouse Cloud cluster.
                       When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and 'named_collections_storage' is not 'keeper' or 'zookeeper'.
                     type: string
-                  keys:
+                  keysSecretRef:
                     additionalProperties:
                       type: string
-                    description: is stored in the state. Values from variables marked
-                      'sensitive = true' are redacted from CLI output. For secrets
-                      you don't want in state at all, use 'secret_keys_wo'.
                     type: object
-                    x-kubernetes-map-type: granular
                   notOverridableKeys:
                     description: |-
                       Names of keys to mark as NOT OVERRIDABLE.
@@ -184,14 +165,6 @@ spec:
                       type: string
                     type: array
                     x-kubernetes-list-type: set
-                  secretKeysWoSecretRef:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  secretKeysWoVersion:
-                    description: |-
-                      Version of 'secret_keys_wo'. Bump it to re-apply every write-only value.
-                    type: number
                 type: object
               managementPolicies:
                 default:
@@ -292,14 +265,6 @@ spec:
                     type: string
                   id:
                     type: string
-                  keys:
-                    additionalProperties:
-                      type: string
-                    description: is stored in the state. Values from variables marked
-                      'sensitive = true' are redacted from CLI output. For secrets
-                      you don't want in state at all, use 'secret_keys_wo'.
-                    type: object
-                    x-kubernetes-map-type: granular
                   notOverridableKeys:
                     description: |-
                       Names of keys to mark as NOT OVERRIDABLE.
@@ -314,10 +279,6 @@ spec:
                       type: string
                     type: array
                     x-kubernetes-list-type: set
-                  secretKeysWoVersion:
-                    description: |-
-                      Version of 'secret_keys_wo'. Bump it to re-apply every write-only value.
-                    type: number
                 type: object
               conditions:
                 description: Conditions of the resource.

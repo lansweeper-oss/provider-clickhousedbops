@@ -9,15 +9,9 @@ metadata:
   namespace: crossplane-system
 spec:
   forProvider:
-    keys:
-      access_key_id: AKIAEXAMPLE
-      format: CSV
-      url: https://s3.amazonaws.com/bucket/
+    keysSecretRef:
+      name: example-named-collection-keys
     notOverridableKeys:
     - secret_access_key
     overridableKeys:
     - url
-    secretKeysWoSecretRef:
-      key: example-key
-      name: example-secret
-    secretKeysWoVersion: 1

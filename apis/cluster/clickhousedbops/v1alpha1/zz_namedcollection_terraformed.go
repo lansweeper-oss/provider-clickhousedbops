@@ -21,7 +21,7 @@ func (mg *NamedCollection) GetTerraformResourceType() string {
 
 // GetConnectionDetailsMapping for this NamedCollection
 func (tr *NamedCollection) GetConnectionDetailsMapping() map[string]string {
-	return map[string]string{"secret_keys_wo": "secretKeysWoSecretRef"}
+	return map[string]string{"keys": "keysSecretRef"}
 }
 
 // GetObservation of this NamedCollection

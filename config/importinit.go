@@ -39,7 +39,20 @@ func adoptByNameInitializer(resourceName, field string) config.NewInitializerFn 
 				return fmt.Errorf("cannot get observation for %s import initializer: %w", resourceName, err)
 			}
 			if val, _ := obs[field].(string); val != "" && val != sentinelUUID {
-				// Real UUID already set (post-import/creation)
+				// Real UUID already set (post-import/creation).
+				// GetIDFn builds the Terraform ID from the external name only, so the external name
+				// must hold the same UUID.
+				// It does not when the provider restarts after the create but before it saves the
+				// external name.
+				// Observe would then look up the sentinel and create the resource again.
+				// Save the annotation here: Observe sets the same value, sees no
+				// change, and would not save it.
+				if !isRealUUID(stripClusterPrefix(meta.GetExternalName(mg), sep)) {
+					meta.SetExternalName(mg, stripClusterPrefix(val, sep))
+					if err := kube.Update(ctx, mg); err != nil {
+						return fmt.Errorf("cannot save external name of %s: %w", resourceName, err)
+					}
+				}
 				return nil
 			}
 			if obs == nil {
@@ -82,4 +95,10 @@ func seedIdentifier(mg xpresource.Managed, tr terraformedObservation, obs map[st
 	meta.SetExternalName(mg, id)
 	obs[field] = id
 	return tr.SetObservation(obs)
+}
+
+// isRealUUID reports whether s is a UUID that ClickHouse can have assigned.
+func isRealUUID(s string) bool {
+	_, err := uuid.Parse(s)
+	return err == nil && s != sentinelUUID
 }

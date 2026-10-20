@@ -1,9 +1,11 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: testcollection-secret
+  name: testcollection-keys
   namespace: crossplane-system
 stringData:
+  format: CSV
+  url: https://example.com/bucket/
   secret_access_key: s3cr3t
 ---
 apiVersion: clickhousedbops.crossplane.io/v1alpha1
@@ -16,15 +18,10 @@ metadata:
   name: testcollection
 spec:
   forProvider:
-    name: testcollection
-    keys:
-      format: CSV
-      url: https://example.com/bucket/
+    keysSecretRef:
+      name: testcollection-keys
+      namespace: crossplane-system
     overridableKeys:
       - url
     notOverridableKeys:
       - secret_access_key
-    secretKeysWoSecretRef:
-      name: testcollection-secret
-      namespace: crossplane-system
-    secretKeysWoVersion: 1

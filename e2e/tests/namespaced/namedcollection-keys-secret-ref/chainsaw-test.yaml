@@ -1,0 +1,117 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: namedcollection-keys-secret-ref-namespaced
+# Validates a namespaced NamedCollection that reads its keys from a Kubernetes
+# Secret (keysSecretRef). Every key of the Secret must land in ClickHouse, the
+# values must stay out of status.atProvider, and a key added to the Secret must
+# reach ClickHouse on a later reconcile.
+#
+# ClickHouse masks named collection values in system tables, so the scripts
+# compare key names only.
+#
+# Uses the cluster-scoped ClusterProviderConfig "default" from the e2e setup
+# script. A dedicated ClickHouse name (nkr) avoids colliding with uptest manifests.
+spec:
+  # Provider deletes are async (create/poll), so cleanup can exceed the default
+  # delete timeout; give finally/cleanup deletes room to finish.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
+  steps:
+    - name: apply-collection
+      try:
+        - apply:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: nkr-keys
+              stringData:
+                url: https://example.com/bucket/
+                secret_access_key: s3cr3t
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: NamedCollection
+              metadata:
+                name: nkr
+              spec:
+                forProvider:
+                  keysSecretRef:
+                    name: nkr-keys
+                  notOverridableKeys:
+                    - secret_access_key
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: NamedCollection
+              metadata:
+                name: nkr
+              status:
+                atProvider:
+                  notOverridableKeys:
+                    - secret_access_key
+                  # The values come from the Secret and must not be copied to the status.
+                  (keys == null): true
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+                (conditions[?type == 'Synced']):
+                  - status: "True"
+        - script:
+            shell: bash
+            content: |
+              set -euo pipefail
+              KEYS=$(kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
+                --user default --password e2epassword \
+                --query "SELECT arraySort(mapKeys(collection)) FROM system.named_collections WHERE name = 'nkr'")
+              [ "$KEYS" = "['secret_access_key','url']" ] || { echo "FAIL: unexpected keys $KEYS"; exit 1; }
+
+    - name: add-key-to-secret
+      try:
+        - apply:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: nkr-keys
+              stringData:
+                url: https://example.com/bucket/
+                secret_access_key: s3cr3t
+                format: CSV
+        - script:
+            timeout: 5m
+            shell: bash
+            content: |
+              set -euo pipefail
+              for _ in $(seq 1 60); do
+                KEYS=$(kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
+                  --user default --password e2epassword \
+                  --query "SELECT arraySort(mapKeys(collection)) FROM system.named_collections WHERE name = 'nkr'")
+                [ "$KEYS" = "['format','secret_access_key','url']" ] && exit 0
+                sleep 5
+              done
+              echo "FAIL: expected format to be added, got $KEYS"; exit 1
+      finally:
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: NamedCollection
+              name: nkr
+        - script:
+            timeout: 5m
+            shell: bash
+            content: |
+              set -euo pipefail
+              for _ in $(seq 1 60); do
+                N=$(kubectl exec -n clickhouse deploy/clickhouse -- clickhouse-client \
+                  --user default --password e2epassword \
+                  --query "SELECT count() FROM system.named_collections WHERE name = 'nkr'")
+                [ "$N" -eq 0 ] && exit 0
+                sleep 5
+              done
+              echo "FAIL: named collection nkr still exists"; exit 1

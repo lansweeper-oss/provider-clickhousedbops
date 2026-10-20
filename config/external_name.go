@@ -96,8 +96,19 @@ func ExternalNameFromClusterName(sep string) func(tfstate map[string]any) (strin
 		if err != nil {
 			return "", err
 		}
-		return stripClusterPrefix(idStr, sep), nil
+		return externalNameFromID(stripClusterPrefix(idStr, sep)), nil
 	}
+}
+
+// externalNameFromID returns "" for the sentinel. The sentinel only means "not
+// created yet". If upjet wrote it to the annotation after a failed create, the
+// resource would look up the sentinel on every reconcile and never adopt the
+// existing resource.
+func externalNameFromID(id string) string {
+	if id == sentinelUUID {
+		return ""
+	}
+	return id
 }
 
 func idWithClusterName() config.ExternalName {
@@ -113,7 +124,7 @@ func idWithClusterNameDatabase() config.ExternalName {
 	e.GetIDFn = IDFromClusterName(sep)
 	e.GetExternalNameFn = func(tfstate map[string]any) (string, error) {
 		if uuidVal, ok := tfstate["uuid"].(string); ok && uuidVal != "" {
-			return stripClusterPrefix(uuidVal, sep), nil
+			return externalNameFromID(stripClusterPrefix(uuidVal, sep)), nil
 		}
 		// Fall back to the id-based extraction for safety.
 		return ExternalNameFromClusterName(sep)(tfstate)

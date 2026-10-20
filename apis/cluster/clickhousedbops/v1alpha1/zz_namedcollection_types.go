@@ -23,9 +23,7 @@ type NamedCollectionInitParameters struct {
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and 'named_collections_storage' is not 'keeper' or 'zookeeper'.
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
-	// is stored in the state. Values from variables marked 'sensitive = true' are redacted from CLI output. For secrets you don't want in state at all, use 'secret_keys_wo'.
-	// +mapType=granular
-	Keys map[string]*string `json:"keys,omitempty" tf:"keys,omitempty"`
+	Keys map[string]*string `json:"keysSecretRef,omitempty" tf:"-"`
 
 	// (Set of String) Names of keys to mark as NOT OVERRIDABLE.
 	// Names of keys to mark as NOT OVERRIDABLE.
@@ -36,12 +34,6 @@ type NamedCollectionInitParameters struct {
 	// Names of keys to mark as OVERRIDABLE. Keys listed in neither 'overridable_keys' nor 'not_overridable_keys' use the server default, which comes from the 'allow_named_collection_override_by_default' setting.
 	// +listType=set
 	OverridableKeys []*string `json:"overridableKeys,omitempty" tf:"overridable_keys,omitempty"`
-
-	SecretKeysWo map[string]*string `json:"secretKeysWoSecretRef,omitempty" tf:"-"`
-
-	// apply every write-only value.
-	// Version of 'secret_keys_wo'. Bump it to re-apply every write-only value.
-	SecretKeysWoVersion *float64 `json:"secretKeysWoVersion,omitempty" tf:"secret_keys_wo_version,omitempty"`
 }
 
 type NamedCollectionObservation struct {
@@ -56,10 +48,6 @@ type NamedCollectionObservation struct {
 
 	ID *string `json:"id,omitempty" tf:"id,omitempty"`
 
-	// is stored in the state. Values from variables marked 'sensitive = true' are redacted from CLI output. For secrets you don't want in state at all, use 'secret_keys_wo'.
-	// +mapType=granular
-	Keys map[string]*string `json:"keys,omitempty" tf:"keys,omitempty"`
-
 	// (Set of String) Names of keys to mark as NOT OVERRIDABLE.
 	// Names of keys to mark as NOT OVERRIDABLE.
 	// +listType=set
@@ -69,10 +57,6 @@ type NamedCollectionObservation struct {
 	// Names of keys to mark as OVERRIDABLE. Keys listed in neither 'overridable_keys' nor 'not_overridable_keys' use the server default, which comes from the 'allow_named_collection_override_by_default' setting.
 	// +listType=set
 	OverridableKeys []*string `json:"overridableKeys,omitempty" tf:"overridable_keys,omitempty"`
-
-	// apply every write-only value.
-	// Version of 'secret_keys_wo'. Bump it to re-apply every write-only value.
-	SecretKeysWoVersion *float64 `json:"secretKeysWoVersion,omitempty" tf:"secret_keys_wo_version,omitempty"`
 }
 
 type NamedCollectionParameters struct {
@@ -86,10 +70,10 @@ type NamedCollectionParameters struct {
 	// +kubebuilder:validation:Optional
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
-	// is stored in the state. Values from variables marked 'sensitive = true' are redacted from CLI output. For secrets you don't want in state at all, use 'secret_keys_wo'.
+	// Map of key/value pairs stored in the named collection, read from the referenced Secret.
+	// Map of key/value pairs stored in the named collection, read from the referenced Secret.
 	// +kubebuilder:validation:Optional
-	// +mapType=granular
-	Keys map[string]*string `json:"keys,omitempty" tf:"keys,omitempty"`
+	KeysSecretRef *v2.SecretReference `json:"keysSecretRef,omitempty" tf:"-"`
 
 	// (Set of String) Names of keys to mark as NOT OVERRIDABLE.
 	// Names of keys to mark as NOT OVERRIDABLE.
@@ -102,15 +86,6 @@ type NamedCollectionParameters struct {
 	// +kubebuilder:validation:Optional
 	// +listType=set
 	OverridableKeys []*string `json:"overridableKeys,omitempty" tf:"overridable_keys,omitempty"`
-
-	// 11. ClickHouse never returns these values, so the provider cannot tell when one changes: bump secret_keys_wo_version to re-apply all of them.11. Bump 'secret_keys_wo_version' to re-apply the values, ClickHouse never returns them so the provider cannot detect that they changed.
-	// +kubebuilder:validation:Optional
-	SecretKeysWoSecretRef *v2.SecretReference `json:"secretKeysWoSecretRef,omitempty" tf:"-"`
-
-	// apply every write-only value.
-	// Version of 'secret_keys_wo'. Bump it to re-apply every write-only value.
-	// +kubebuilder:validation:Optional
-	SecretKeysWoVersion *float64 `json:"secretKeysWoVersion,omitempty" tf:"secret_keys_wo_version,omitempty"`
 }
 
 // NamedCollectionSpec defines the desired state of NamedCollection
