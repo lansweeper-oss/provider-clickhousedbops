@@ -27,6 +27,7 @@ var ExternalNameConfigs = map[string]config.ExternalName{
 	"clickhousedbops_grant_privilege":              idWithStub(),                  // cannot be imported
 	"clickhousedbops_grant_role":                   idWithStub(),                  // cannot be imported
 	"clickhousedbops_masking_policy":               config.IdentifierFromProvider, // overridden
+	"clickhousedbops_named_collection":             nameFromState(),
 	"clickhousedbops_role":                         idWithClusterName(),
 	"clickhousedbops_row_policy":                   config.IdentifierFromProvider, // overridden
 	"clickhousedbops_setting":                      idWithStub(),                  // cannot be imported
@@ -95,8 +96,19 @@ func ExternalNameFromClusterName(sep string) func(tfstate map[string]any) (strin
 		if err != nil {
 			return "", err
 		}
-		return stripClusterPrefix(idStr, sep), nil
+		return externalNameFromID(stripClusterPrefix(idStr, sep)), nil
 	}
+}
+
+// externalNameFromID returns "" for the sentinel. The sentinel only means "not
+// created yet". If upjet wrote it to the annotation after a failed create, the
+// resource would look up the sentinel on every reconcile and never adopt the
+// existing resource.
+func externalNameFromID(id string) string {
+	if id == sentinelUUID {
+		return ""
+	}
+	return id
 }
 
 func idWithClusterName() config.ExternalName {
@@ -112,7 +124,7 @@ func idWithClusterNameDatabase() config.ExternalName {
 	e.GetIDFn = IDFromClusterName(sep)
 	e.GetExternalNameFn = func(tfstate map[string]any) (string, error) {
 		if uuidVal, ok := tfstate["uuid"].(string); ok && uuidVal != "" {
-			return stripClusterPrefix(uuidVal, sep), nil
+			return externalNameFromID(stripClusterPrefix(uuidVal, sep)), nil
 		}
 		// Fall back to the id-based extraction for safety.
 		return ExternalNameFromClusterName(sep)(tfstate)
@@ -139,6 +151,19 @@ func idWithStub() config.ExternalName {
 	e.GetExternalNameFn = func(tfstate map[string]any) (string, error) {
 		en, _ := config.IDAsExternalName(tfstate)
 		return en, nil
+	}
+	return e
+}
+
+// nameFromState is config.NameAsIdentifier for resources without an "id"
+// attribute: the external name is read back from the "name" attribute.
+// Returns "" when name is absent, as with idWithStub, because Terraform drops
+// the resource from state when refresh signals "not found".
+func nameFromState() config.ExternalName {
+	e := config.NameAsIdentifier
+	e.GetExternalNameFn = func(tfstate map[string]any) (string, error) {
+		name, _ := tfstate["name"].(string)
+		return name, nil
 	}
 	return e
 }

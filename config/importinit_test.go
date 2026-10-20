@@ -30,6 +30,18 @@ func (f *fakeManaged) SetObservation(o map[string]any) error {
 	return nil
 }
 
+// updateRecorder counts Update calls. The initializer saves the external name
+// itself when it syncs it from the observation.
+type updateRecorder struct {
+	client.Client
+	updates int
+}
+
+func (u *updateRecorder) Update(context.Context, client.Object, ...client.UpdateOption) error {
+	u.updates++
+	return nil
+}
+
 func TestAdoptByNameInitializer(t *testing.T) {
 	const realUUID = "11111111-2222-3333-4444-555555555555"
 
@@ -48,6 +60,7 @@ func TestAdoptByNameInitializer(t *testing.T) {
 		wantExternalName string // crossplane.io/external-name expected after Initialize
 		wantErr          bool
 		wantResolve      bool // whether the resolver must have been consulted
+		wantSaved        bool // whether the initializer must save the external name
 	}{
 		"AdoptsExistingResourceOnRestore": {
 			// The bug: a restored resource already exists, so it must be adopted by its
@@ -82,11 +95,56 @@ func TestAdoptByNameInitializer(t *testing.T) {
 		},
 		"LeavesRealUUIDUntouched": {
 			// Post-import/creation: a real UUID is present, resolver must not run.
-			resourceName: "clickhousedbops_role",
-			field:        "id",
-			startVal:     realUUID,
-			wantVal:      realUUID,
-			wantResolve:  false,
+			resourceName:     "clickhousedbops_role",
+			field:            "id",
+			startVal:         realUUID,
+			startExternal:    realUUID,
+			wantVal:          realUUID,
+			wantExternalName: realUUID,
+			wantResolve:      false,
+		},
+		"SyncsEmptyExternalNameToRealUUID": {
+			// The provider restarted after the create but before it saved the external
+			// name. GetIDFn reads only the external name, so without the sync Observe
+			// looks up the sentinel, finds nothing, and the create fails with 493.
+			resourceName:     "clickhousedbops_role",
+			field:            "id",
+			startVal:         realUUID,
+			wantVal:          realUUID,
+			wantExternalName: realUUID,
+			wantResolve:      false,
+			wantSaved:        true,
+		},
+		"ReplacesSentinelExternalNameWithRealUUID": {
+			resourceName:     "clickhousedbops_role",
+			field:            "id",
+			startVal:         realUUID,
+			startExternal:    sentinelUUID,
+			wantVal:          realUUID,
+			wantExternalName: realUUID,
+			wantResolve:      false,
+			wantSaved:        true,
+		},
+		"ReplacesDefaultExternalNameWithRealUUID": {
+			// The crossplane default external name is the resource name, which
+			// GetIDFn also maps to the sentinel.
+			resourceName:     "clickhousedbops_role",
+			field:            "id",
+			startVal:         realUUID,
+			startExternal:    "myrole",
+			wantVal:          realUUID,
+			wantExternalName: realUUID,
+			wantResolve:      false,
+			wantSaved:        true,
+		},
+		"SyncsExternalNameFromClusterPrefixedID": {
+			resourceName:     "clickhousedbops_role",
+			field:            "id",
+			startVal:         "mycluster:" + realUUID,
+			wantVal:          "mycluster:" + realUUID,
+			wantExternalName: realUUID,
+			wantResolve:      false,
+			wantSaved:        true,
 		},
 		"ReturnsErrorForRetryOnLookupFailure": {
 			// Must surface the error so the reconcile retries, never force-create.
@@ -184,7 +242,8 @@ func TestAdoptByNameInitializer(t *testing.T) {
 				meta.SetExternalName(mg, tc.startExternal)
 			}
 
-			init := adoptByNameInitializer(tc.resourceName, tc.field)(nil)
+			kube := &updateRecorder{}
+			init := adoptByNameInitializer(tc.resourceName, tc.field)(kube)
 			err := init.Initialize(context.Background(), mg)
 
 			if tc.wantErr {
@@ -204,6 +263,9 @@ func TestAdoptByNameInitializer(t *testing.T) {
 			}
 			if resolved != tc.wantResolve {
 				t.Errorf("resolver consulted = %v, want %v", resolved, tc.wantResolve)
+			}
+			if saved := kube.updates > 0; saved != tc.wantSaved {
+				t.Errorf("external name saved = %v, want %v", saved, tc.wantSaved)
 			}
 		})
 	}

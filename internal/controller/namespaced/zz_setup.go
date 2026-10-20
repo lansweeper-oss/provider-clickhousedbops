@@ -13,6 +13,7 @@ import (
 	grantprivilege "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/namespaced/clickhousedbops/grantprivilege"
 	grantrole "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/namespaced/clickhousedbops/grantrole"
 	maskingpolicy "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/namespaced/clickhousedbops/maskingpolicy"
+	namedcollection "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/namespaced/clickhousedbops/namedcollection"
 	role "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/namespaced/clickhousedbops/role"
 	rowpolicy "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/namespaced/clickhousedbops/rowpolicy"
 	setting "github.com/lansweeper-oss/provider-clickhousedbops/internal/controller/namespaced/clickhousedbops/setting"
@@ -30,6 +31,7 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		grantprivilege.Setup,
 		grantrole.Setup,
 		maskingpolicy.Setup,
+		namedcollection.Setup,
 		role.Setup,
 		rowpolicy.Setup,
 		setting.Setup,
@@ -53,6 +55,7 @@ func SetupGated(mgr ctrl.Manager, o controller.Options) error {
 		grantprivilege.SetupGated,
 		grantrole.SetupGated,
 		maskingpolicy.SetupGated,
+		namedcollection.SetupGated,
 		role.SetupGated,
 		rowpolicy.SetupGated,
 		setting.SetupGated,
@@ -75,6 +78,7 @@ func SetupWebhookWithManager(mgr ctrl.Manager) error {
 		grantprivilege.SetupWebhookWithManager,
 		grantrole.SetupWebhookWithManager,
 		maskingpolicy.SetupWebhookWithManager,
+		namedcollection.SetupWebhookWithManager,
 		role.SetupWebhookWithManager,
 		rowpolicy.SetupWebhookWithManager,
 		setting.SetupWebhookWithManager,

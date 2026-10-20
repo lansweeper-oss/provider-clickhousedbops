@@ -1,0 +1,155 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: grant-recovers-after-unreachable-start-namespaced
+# The upstream dbops client runs GetVersion once and keeps the first error for
+# its whole lifetime. GrantPrivilege reads call it on every reconcile. If the
+# provider caches a client whose first GetVersion failed, every grant on that
+# config fails until the client cache TTL expires (30m by default).
+#
+# This test points a dedicated ClusterProviderConfig at a Service with no
+# endpoints, so the first GetVersion fails. It then points the Service at
+# ClickHouse. The host does not change, so the config and its cache key stay the
+# same. The grant must recover well before the 30m TTL.
+#
+# The Service name contains the test namespace, so the host and the cache key
+# are unique per run. A rerun on the same provider pod cannot get a healthy
+# client that a previous run cached. Other tests are not affected either. The role uses the default config so that only the grant goes through
+# the unreachable host.
+spec:
+  # Provider deletes are async (create/poll), so cleanup can exceed the default
+  # delete timeout; give finally/cleanup deletes room to finish.
+  timeouts:
+    delete: 5m
+    cleanup: 5m
+  steps:
+    - name: create-role
+      try:
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: nflakyrole
+              spec:
+                forProvider:
+                  name: nflakyrole
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+        - assert:
+            timeout: 5m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: nflakyrole
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+
+    - name: grant-through-unreachable-host
+      try:
+        # No pod has this label, so the Service has no endpoints.
+        - apply:
+            resource:
+              apiVersion: v1
+              kind: Service
+              metadata:
+                name: (join('-', ['flaky', $namespace]))
+                namespace: clickhouse
+              spec:
+                selector:
+                  app: clickhouse-unreachable
+                ports:
+                  - name: native
+                    port: 9000
+                    targetPort: 9000
+        - apply:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: nflaky-provider-secret
+                namespace: crossplane-system
+              stringData:
+                credentials: (join('', ['{"host":"flaky-', $namespace, '.clickhouse.svc.cluster.local","port":9000,"protocol":"native","auth_config":{"strategy":"password","username":"default","password":"e2epassword"}}']))
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1beta1
+              kind: ClusterProviderConfig
+              metadata:
+                name: nflaky
+              spec:
+                credentials:
+                  source: Secret
+                  secretRef:
+                    name: nflaky-provider-secret
+                    namespace: crossplane-system
+                    key: credentials
+        - apply:
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: GrantPrivilege
+              metadata:
+                name: nflakyrole-select
+              spec:
+                forProvider:
+                  databaseName: system
+                  tableName: numbers
+                  granteeRoleName: nflakyrole
+                  privilegeName: SELECT
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: nflaky
+        # The first GetVersion of the client for nflaky has failed.
+        - assert:
+            timeout: 3m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: GrantPrivilege
+              metadata:
+                name: nflakyrole-select
+              status:
+                (conditions[?type == 'Synced']):
+                  - status: "False"
+                    (contains(message || '', 'error executing query')): true
+
+    - name: host-becomes-reachable
+      try:
+        - patch:
+            resource:
+              apiVersion: v1
+              kind: Service
+              metadata:
+                name: (join('-', ['flaky', $namespace]))
+                namespace: clickhouse
+              spec:
+                selector:
+                  app: clickhouse
+        # Without the fix, the cached client returns the stored error until the
+        # 30m TTL expires and this assert times out.
+        - assert:
+            timeout: 4m
+            resource:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: GrantPrivilege
+              metadata:
+                name: nflakyrole-select
+              status:
+                (conditions[?type == 'Synced']):
+                  - status: "True"
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+      finally:
+        # Delete the managed resources while the provider config still exists.
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: GrantPrivilege
+              name: nflakyrole-select
+        - delete:
+            ref:
+              apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+              kind: Role
+              name: nflakyrole

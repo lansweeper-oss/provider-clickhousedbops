@@ -1,6 +1,8 @@
 package config
 
 import (
+	"slices"
+
 	"github.com/crossplane/upjet/v2/pkg/config"
 	"github.com/crossplane/upjet/v2/pkg/types/comments"
 	tfschema "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -26,6 +28,10 @@ var gkvOverrideMap = map[string]schema.GroupVersionKind{
 	"clickhousedbops_masking_policy": {
 		Group: "",
 		Kind:  "MaskingPolicy",
+	},
+	"clickhousedbops_named_collection": {
+		Group: "",
+		Kind:  "NamedCollection",
 	},
 	"clickhousedbops_settings_profile": {
 		Group: "",
@@ -100,6 +106,27 @@ func Configure(p *config.Provider) {
 		r.References["database_name"] = config.Reference{
 			TerraformName: "clickhousedbops_database",
 		}
+	})
+
+	p.AddResourceConfigurator("clickhousedbops_named_collection", func(r *config.Resource) {
+		// Omit the write-only fields.
+		// Upstream Read recognizes them through Terraform private state, which upjet does not keep
+		// for Plugin Framework resources, so every reconcile would update the collection again.
+		// Secret values go through keysSecretRef instead.
+		r.ExternalName.OmittedFields = append(slices.Clone(r.ExternalName.OmittedFields),
+			"secret_keys_wo",
+			"secret_keys_wo_version",
+		)
+		// Named collections usually hold credentials. Sensitive makes upjet read
+		// keys from a Secret (keysSecretRef) and keep the values out of the spec
+		// and out of status.atProvider.
+		keysDoc := "Map of key/value pairs stored in the named collection, read from the referenced Secret."
+		r.MetaResource.ArgumentDocs["keys"] = keysDoc
+		if s, ok := r.TerraformResource.Schema["keys"]; ok {
+			s.Description = keysDoc
+			s.Sensitive = true
+		}
+		keysFromSecretInExamples(r, p.ExampleManifestConfiguration.ManagedResourceNamespace == "")
 	})
 
 	p.AddResourceConfigurator("clickhousedbops_role", func(r *config.Resource) {
@@ -207,6 +234,29 @@ func Configure(p *config.Provider) {
 			"password_sha256_hash_wo_version",
 		}
 	})
+}
+
+// keysFromSecretInExamples replaces "keys" in the examples with a reference to
+// a whole Secret. The example generator writes a "key" field for every
+// sensitive field, but a sensitive map reads all keys of the Secret and its
+// reference has no "key" field. The generator keeps fields that are not in the
+// Terraform schema as they are.
+func keysFromSecretInExamples(r *config.Resource, clusterScoped bool) {
+	if r.MetaResource == nil {
+		return
+	}
+	for _, ex := range r.MetaResource.Examples {
+		m := ex.Paved.UnstructuredContent()
+		if _, ok := m["keys"]; !ok {
+			continue
+		}
+		delete(m, "keys")
+		ref := map[string]any{"name": "example-named-collection-keys"}
+		if clusterScoped {
+			ref["namespace"] = "crossplane-system"
+		}
+		m["keysSecretRef"] = ref
+	}
 }
 
 // unwrapSingleBlockInExamples rewrites a single nested block that the docs

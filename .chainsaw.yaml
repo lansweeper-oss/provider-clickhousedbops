@@ -1,0 +1,10 @@
+# Default chainsaw configuration, loaded from the working directory.
+apiVersion: chainsaw.kyverno.io/v1alpha2
+kind: Configuration
+metadata:
+  name: configuration
+spec:
+  timeouts:
+    # The default of 5s is too short for kubectl and clickhouse-client calls on a
+    # loaded CI runner: chainsaw kills the script and the test fails.
+    exec: 1m

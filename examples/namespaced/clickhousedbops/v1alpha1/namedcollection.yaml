@@ -1,0 +1,17 @@
+apiVersion: clickhousedbops.m.crossplane.io/v1alpha1
+kind: NamedCollection
+metadata:
+  annotations:
+    meta.upbound.io/example-id: clickhousedbops/v1alpha1/namedcollection
+  labels:
+    testing.upbound.io/example-name: s3_prod
+  name: s3-prod
+  namespace: crossplane-system
+spec:
+  forProvider:
+    keysSecretRef:
+      name: example-named-collection-keys
+    notOverridableKeys:
+    - secret_access_key
+    overridableKeys:
+    - url

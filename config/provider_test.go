@@ -17,6 +17,7 @@ func TestProviderResources(t *testing.T) {
 		"clickhousedbops_database",
 		"clickhousedbops_grant_privilege",
 		"clickhousedbops_grant_role",
+		"clickhousedbops_named_collection",
 		"clickhousedbops_role",
 		"clickhousedbops_setting",
 		"clickhousedbops_settings_profile",
