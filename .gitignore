@@ -1,5 +1,6 @@
 .*
 **/.*
+!.chainsaw.yaml
 !.github
 !.gitignore
 !.gitmodules
