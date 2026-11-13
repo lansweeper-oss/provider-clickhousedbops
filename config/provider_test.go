@@ -17,6 +17,7 @@ func TestProviderResources(t *testing.T) {
 		"clickhousedbops_database",
 		"clickhousedbops_grant_privilege",
 		"clickhousedbops_grant_role",
+		"clickhousedbops_named_collection",
 		"clickhousedbops_role",
 		"clickhousedbops_setting",
 		"clickhousedbops_settings_profile",
@@ -287,5 +288,24 @@ func TestGetExternalNameFnAfterCreate(t *testing.T) {
 	}
 	if id != "" {
 		t.Errorf("expected empty ID for external name %q, got %q", externalName, id)
+	}
+}
+
+func TestUserExampleAuthIsObject(t *testing.T) {
+	r := GetProvider().Resources["clickhousedbops_user"]
+	if r.MetaResource == nil || len(r.MetaResource.Examples) == 0 {
+		t.Fatal("clickhousedbops_user has no examples")
+	}
+	found := false
+	for _, ex := range r.MetaResource.Examples {
+		if a, ok := ex.Paved.UnstructuredContent()["auth"]; ok {
+			found = true
+			if _, ok := a.(map[string]any); !ok {
+				t.Errorf("example %q: auth is %T, want object", ex.Name, a)
+			}
+		}
+	}
+	if !found {
+		t.Error("no clickhousedbops_user example sets auth")
 	}
 }

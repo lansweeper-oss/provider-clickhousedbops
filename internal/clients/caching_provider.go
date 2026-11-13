@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 
@@ -89,6 +90,16 @@ func (p *cachingProvider) Configure(ctx context.Context, req provider.ConfigureR
 		return
 	}
 
+	if err := probeCapabilities(ctx, resp.ResourceData); err != nil {
+		// The upstream dbops client runs GetVersion with sync.Once and keeps the
+		// first error for its whole lifetime. A transient failure, such as a reset
+		// on the first connection to a new service, would then fail every grant
+		// read on this config until the TTL expires. Use this client for this
+		// reconcile only and build a new one on the next Configure.
+		p.logger.Debug("Not caching provider configuration, capability probe failed", "hash", h[:12], "error", err)
+		return
+	}
+
 	p.logger.Debug("Cached new provider configuration", "hash", h[:12])
 
 	p.mu.Lock()
@@ -122,4 +133,19 @@ func configHash(req provider.ConfigureRequest) string {
 	raw := req.Config.Raw.String()
 	sum := sha256.Sum256([]byte(raw))
 	return fmt.Sprintf("%x", sum)
+}
+
+// probeCapabilities calls GetCapabilityFlags on the upstream dbops client and
+// returns its error. The upstream client (terraform-provider-clickhousedbops,
+// internal/dbops/impl.go) runs GetVersion only once and keeps the first error,
+// so after a failed probe every grant read on that client fails.
+// It uses reflection because the return type is in an internal upstream package.
+// It returns nil when the method is missing or has a different signature.
+func probeCapabilities(ctx context.Context, client any) error {
+	m := reflect.ValueOf(client).MethodByName("GetCapabilityFlags")
+	if !m.IsValid() || m.Type().NumIn() != 1 || m.Type().NumOut() != 2 {
+		return nil
+	}
+	err, _ := m.Call([]reflect.Value{reflect.ValueOf(ctx)})[1].Interface().(error)
+	return err
 }

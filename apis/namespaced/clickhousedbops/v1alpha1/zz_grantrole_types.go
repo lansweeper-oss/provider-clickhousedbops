@@ -182,7 +182,7 @@ type GrantRoleStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
-// GrantRole is the Schema for the GrantRoles API. You can use the clickhousedbops_grant_role resource to grant a clickhousedbops_role to either a clickhousedbops_user or to another clickhousedbops_role. Known limitations: It's not possible to grant the same clickhousedbops_role to both a clickhousedbops_user and a clickhousedbops_role using a single clickhousedbops_grant_role stanza. You can do that using two different stanzas, one with grantee_user_name and the other with grantee_role_name fields set.
+// GrantRole is the Schema for the GrantRoles API. You can use the clickhousedbops_grant_role resource to grant a clickhousedbops_role to either a clickhousedbops_user or to another clickhousedbops_role. Known limitations: It's not possible to grant the same clickhousedbops_role to both a clickhousedbops_user and a clickhousedbops_role using a single clickhousedbops_grant_role stanza. You can do that using two different stanzas, one with grantee_user_name and the other with grantee_role_name fields set.It's not possible to grant a role to a grantee role when a user with the same name exists: ClickHouse resolves grantee names to users first, so the grant would silently target the user instead. The provider rejects such grants.
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane\\.io/external-name"

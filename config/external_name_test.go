@@ -162,8 +162,11 @@ func TestIdWithClusterNameDatabase_GetExternalNameFn(t *testing.T) {
 			wantName: "some-id",
 		},
 		"SentinelUUID": {
+			// The sentinel is a placeholder for "not created yet". Writing it to the
+			// annotation after a failed create makes the resource look up the sentinel
+			// forever, so the external name stays empty instead.
 			tfstate:  map[string]any{"uuid": sentinelUUID},
-			wantName: sentinelUUID,
+			wantName: "",
 		},
 	}
 
@@ -223,6 +226,62 @@ func TestIDFromClusterName(t *testing.T) {
 			}
 			if got != tc.wantID {
 				t.Errorf("IDFromClusterName(%q) = %q, want %q", tc.externalName, got, tc.wantID)
+			}
+		})
+	}
+}
+
+func TestNameFromState_GetExternalNameFn(t *testing.T) {
+	e := nameFromState()
+
+	cases := map[string]struct {
+		tfstate  map[string]any
+		wantName string
+	}{
+		"StateWithName":    {tfstate: map[string]any{"name": "s3_prod", "cluster_name": "c1"}, wantName: "s3_prod"},
+		"StateWithoutName": {tfstate: map[string]any{}, wantName: ""},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			got, err := e.GetExternalNameFn(tc.tfstate)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.wantName {
+				t.Errorf("GetExternalNameFn() = %q, want %q", got, tc.wantName)
+			}
+		})
+	}
+}
+
+func TestExternalNameFromClusterName_IgnoresSentinel(t *testing.T) {
+	cases := map[string]struct {
+		tfstate  map[string]any
+		wantName string
+	}{
+		"RealUUID": {
+			tfstate:  map[string]any{"id": "mycluster:11111111-2222-3333-4444-555555555555"},
+			wantName: "11111111-2222-3333-4444-555555555555",
+		},
+		"Sentinel": {
+			tfstate:  map[string]any{"id": sentinelUUID},
+			wantName: "",
+		},
+		"ClusterPrefixedSentinel": {
+			tfstate:  map[string]any{"id": "mycluster:" + sentinelUUID},
+			wantName: "",
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			got, err := ExternalNameFromClusterName(sep)(tc.tfstate)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.wantName {
+				t.Errorf("external name = %q, want %q", got, tc.wantName)
 			}
 		})
 	}

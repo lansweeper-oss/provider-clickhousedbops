@@ -31,6 +31,6 @@ the DDL for these resources.
 |----------|-----------|--------|
 | Masking Policy | `clickhousedbops.crossplane.io` / `clickhousedbops.m.crossplane.io` | Masking policies are only available on ClickHouse Cloud (v25.12+). OSS ClickHouse rejects `CREATE MASKING POLICY`. |
 
-All other resources (Database, User, Role, GrantRole, GrantPrivilege,
+All other resources (Database, User, Role, GrantRole, GrantPrivilege, NamedCollection,
 SettingProfile, SettingProfileAssociation, Setting, Row Policy) work on
 OSS ClickHouse and are testable in the e2e suite.

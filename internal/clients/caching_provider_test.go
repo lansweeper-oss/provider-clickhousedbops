@@ -2,6 +2,7 @@ package clients
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -147,4 +148,37 @@ func TestCachingProvider_EvictsExpiredEntries(t *testing.T) {
 
 	assert.NotSame(t, resp1.ResourceData, resp2.ResourceData, "expired entry should be evicted and reconfigured")
 	assert.Equal(t, int64(2), inner.configureCalls.Load(), "inner Configure should be called again after expiry")
+}
+
+// probeClient is a fake dbops client. Like the upstream client, it returns the
+// same GetCapabilityFlags error for its whole lifetime.
+type probeClient struct{ err error }
+
+func (c *probeClient) GetCapabilityFlags(context.Context) (struct{}, error) { return struct{}{}, c.err }
+
+type probeProvider struct {
+	fakeProvider
+	errs []error
+}
+
+func (f *probeProvider) Configure(_ context.Context, _ provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+	n := f.configureCalls.Add(1)
+	resp.ResourceData = &probeClient{err: f.errs[n-1]}
+	resp.DataSourceData = resp.ResourceData
+}
+
+// A client whose first GetCapabilityFlags call failed must not be cached,
+// because the upstream client returns that error for its whole lifetime.
+func TestCachingProvider_DoesNotCacheClientWithFailedProbe(t *testing.T) {
+	inner := &probeProvider{errs: []error{errors.New("connection reset by peer"), nil, nil}}
+	cached := NewCachingProvider(inner, logging.NewNopLogger(), 30*time.Minute)
+	ctx := context.Background()
+	req := makeConfigureRequest("clickhouse.example.com")
+
+	for range 3 {
+		cached.Configure(ctx, req, &provider.ConfigureResponse{})
+	}
+
+	// Call 1 gets a broken client, so call 2 configures again. Call 3 reuses the client from call 2.
+	assert.Equal(t, int64(2), inner.configureCalls.Load())
 }

@@ -19,6 +19,9 @@ func (tr *GrantRole) Hub() {}
 func (tr *MaskingPolicy) Hub() {}
 
 // Hub marks this type as a conversion hub.
+func (tr *NamedCollection) Hub() {}
+
+// Hub marks this type as a conversion hub.
 func (tr *Role) Hub() {}
 
 // Hub marks this type as a conversion hub.
