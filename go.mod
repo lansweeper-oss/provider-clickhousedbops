@@ -8,7 +8,7 @@ require (
 	dario.cat/mergo v1.0.2
 	github.com/ClickHouse/clickhouse-go/v2 v2.49.0
 	github.com/ClickHouse/terraform-provider-clickhousedbops v1.13.0
-	github.com/alecthomas/kong v1.16.1
+	github.com/alecthomas/kong v1.17.0
 	github.com/crossplane/crossplane-runtime/v2 v2.5.0-rc.0.0.20261019144858-971d73e0799a
 	github.com/crossplane/crossplane-tools v0.0.0-20260719180100-659f1dc036c5
 	github.com/crossplane/crossplane/apis/v2 v2.4.2
