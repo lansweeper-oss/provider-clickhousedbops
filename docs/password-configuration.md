@@ -264,6 +264,9 @@ After verifying that `status.atProvider` matches the desired spec:
 In both cases the ClickHouse user password is replaced. Any application using the
 old password will break until updated.
 
+Anyone who can switch the management policy can take control of the user this way. See
+[Security considerations](import.md#security-considerations) for how to limit this.
+
 ## See Also
 
 - [User Examples](../examples/)
