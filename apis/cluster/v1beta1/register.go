@@ -26,7 +26,7 @@ var (
 
 // ProviderConfig type metadata.
 var (
-	ProviderConfigKind             = reflect.TypeOf(ProviderConfig{}).Name()
+	ProviderConfigKind             = reflect.TypeFor[ProviderConfig]().Name()
 	ProviderConfigGroupKind        = schema.GroupKind{Group: Group, Kind: ProviderConfigKind}.String()
 	ProviderConfigKindAPIVersion   = ProviderConfigKind + "." + SchemeGroupVersion.String()
 	ProviderConfigGroupVersionKind = SchemeGroupVersion.WithKind(ProviderConfigKind)
@@ -34,12 +34,12 @@ var (
 
 // ProviderConfigUsage type metadata.
 var (
-	ProviderConfigUsageKind             = reflect.TypeOf(ProviderConfigUsage{}).Name()
+	ProviderConfigUsageKind             = reflect.TypeFor[ProviderConfigUsage]().Name()
 	ProviderConfigUsageGroupKind        = schema.GroupKind{Group: Group, Kind: ProviderConfigUsageKind}.String()
 	ProviderConfigUsageKindAPIVersion   = ProviderConfigUsageKind + "." + SchemeGroupVersion.String()
 	ProviderConfigUsageGroupVersionKind = SchemeGroupVersion.WithKind(ProviderConfigUsageKind)
 
-	ProviderConfigUsageListKind             = reflect.TypeOf(ProviderConfigUsageList{}).Name()
+	ProviderConfigUsageListKind             = reflect.TypeFor[ProviderConfigUsageList]().Name()
 	ProviderConfigUsageListGroupKind        = schema.GroupKind{Group: Group, Kind: ProviderConfigUsageListKind}.String()
 	ProviderConfigUsageListKindAPIVersion   = ProviderConfigUsageListKind + "." + SchemeGroupVersion.String()
 	ProviderConfigUsageListGroupVersionKind = SchemeGroupVersion.WithKind(ProviderConfigUsageListKind)

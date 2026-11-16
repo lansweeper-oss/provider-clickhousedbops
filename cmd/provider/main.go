@@ -215,17 +215,15 @@ func main() {
 	o := tjcontroller.NewOperationStore(log)
 
 	clusterOpts := tjcontroller.Options{
-		Options: xpcontroller.Options{
-			Logger:                  log,
-			GlobalRateLimiter:       ratelimiter.NewGlobal(cli.Start.MaxReconcileRate),
-			PollInterval:            cli.Start.PollInterval,
-			MaxConcurrentReconciles: cli.Start.MaxReconcileRate,
-			Features:                &feature.Flags{},
-			MetricOptions: &xpcontroller.MetricOptions{
-				PollStateMetricInterval: cli.Start.PollStateMetricInterval,
-				MRMetrics:               metricRecorder,
-				MRStateMetrics:          stateMetrics,
-			},
+		Logger:                  log,
+		GlobalRateLimiter:       ratelimiter.NewGlobal(cli.Start.MaxReconcileRate),
+		PollInterval:            cli.Start.PollInterval,
+		MaxConcurrentReconciles: cli.Start.MaxReconcileRate,
+		Features:                &feature.Flags{},
+		MetricOptions: &xpcontroller.MetricOptions{
+			PollStateMetricInterval: cli.Start.PollStateMetricInterval,
+			MRMetrics:               metricRecorder,
+			MRStateMetrics:          stateMetrics,
 		},
 		Provider:              clusterProvider,
 		SetupFn:               clients.TerraformSetupBuilder(clusterProvider.TerraformPluginFrameworkProvider, log, cli.Start.ClientCacheTTL),
@@ -235,17 +233,15 @@ func main() {
 	}
 
 	namespacedOpts := tjcontroller.Options{
-		Options: xpcontroller.Options{
-			Logger:                  log,
-			GlobalRateLimiter:       ratelimiter.NewGlobal(cli.Start.MaxReconcileRate),
-			PollInterval:            cli.Start.PollInterval,
-			MaxConcurrentReconciles: cli.Start.MaxReconcileRate,
-			Features:                &feature.Flags{},
-			MetricOptions: &xpcontroller.MetricOptions{
-				PollStateMetricInterval: cli.Start.PollStateMetricInterval,
-				MRMetrics:               metricRecorder,
-				MRStateMetrics:          stateMetrics,
-			},
+		Logger:                  log,
+		GlobalRateLimiter:       ratelimiter.NewGlobal(cli.Start.MaxReconcileRate),
+		PollInterval:            cli.Start.PollInterval,
+		MaxConcurrentReconciles: cli.Start.MaxReconcileRate,
+		Features:                &feature.Flags{},
+		MetricOptions: &xpcontroller.MetricOptions{
+			PollStateMetricInterval: cli.Start.PollStateMetricInterval,
+			MRMetrics:               metricRecorder,
+			MRStateMetrics:          stateMetrics,
 		},
 		Provider:              namespacedProvider,
 		SetupFn:               clients.TerraformSetupBuilder(namespacedProvider.TerraformPluginFrameworkProvider, log, cli.Start.ClientCacheTTL),

@@ -157,6 +157,7 @@ pull-docs: $(PROVIDER_VERSION_STAMP)
 		git clone -c advice.detachedHead=false --depth 1 --filter=blob:none --branch "v$(TERRAFORM_PROVIDER_VERSION)" --sparse "$(TERRAFORM_PROVIDER_REPO)" "$(WORK_DIR)/$(TERRAFORM_PROVIDER_SOURCE)"; \
 	fi
 	@git -C "$(WORK_DIR)/$(TERRAFORM_PROVIDER_SOURCE)" sparse-checkout set "$(TERRAFORM_DOCS_PATH)"
+	@python3 scripts/clean_descriptions.py docs "$(WORK_DIR)/$(TERRAFORM_PROVIDER_SOURCE)/$(TERRAFORM_DOCS_PATH)"
 
 $(TERRAFORM_PROVIDER_SCHEMA:.json=.generated.lst): $(TERRAFORM_PROVIDER_SCHEMA)
 	@$(INFO) generating resource list from provider schema
@@ -168,7 +169,7 @@ generate.done: copy-examples clean-descriptions
 
 clean-descriptions:
 	@$(INFO) cleaning generated field descriptions
-	@python3 scripts/clean_descriptions.py package/crds/
+	@python3 scripts/clean_descriptions.py crds package/crds/
 	@$(OK) cleaning generated field descriptions
 
 .PHONY: $(TERRAFORM_PROVIDER_SCHEMA) pull-docs check-terraform-version clean-descriptions
