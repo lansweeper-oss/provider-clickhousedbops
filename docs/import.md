@@ -119,3 +119,45 @@ Background for maintainers (implementation in `config/importinit.go`):
 - Name resolution is cluster-aware: when `clusterName` is set the lookup runs
   across the cluster (`cluster(<name>, system.<table>)`), matching the provider's
   own behavior.
+
+## Security considerations
+
+Adoption by name means a managed resource takes control of any existing ClickHouse
+entity whose name matches `spec.forProvider.name`, whether Crossplane created it or
+not. The provider does not check whether another managed resource already manages
+that entity. It also cannot tell a takeover from the import workflow above: an
+`Observe`-only resource that is later switched to full management looks the same in
+both cases.
+
+Treat permission to create or edit managed resources that reference a provider
+config as equal to holding that provider config's ClickHouse credentials. For
+example, anyone who can create a `User` against credentials that hold `ALTER USER`
+can adopt an existing user, set its password and log in as that user. `ALTER USER`
+is a global privilege in ClickHouse, so it cannot be limited to selected users.
+
+Isolation is the responsibility of the platform team:
+
+- **One provider config per tenant.** For namespaced resources, give each tenant a
+  namespaced `ProviderConfig` in its own namespace. A namespaced `ProviderConfig`
+  only serves resources and secrets in that namespace.
+- **Restrict `ClusterProviderConfig` references.** Kubernetes RBAC does not stop a
+  resource from referencing a provider config, because the provider reads it with
+  its own service account. Use an admission policy (a `ValidatingAdmissionPolicy`
+  is enough) to control which `providerConfigRef` each namespace may use. Only
+  trusted users should be able to create cluster-scoped resources, since those can
+  reference any cluster-scoped `ProviderConfig`.
+- **Least-privilege credentials.** Grant each provider config only the privileges
+  its tenant needs. Credentials that can manage users can manage every user on the
+  server, so do not give user management to a tenant on a shared server unless it
+  is trusted with all users there.
+- **Protect the provider's admin user.** On self-managed ClickHouse, define the user
+  that the provider config credentials log in as in `users.xml`. Users from configuration files
+  are read-only to SQL, so a managed `User` that adopts it cannot change its
+  password or drop it.
+- **Duplicate resources.** Two managed resources with the same name on the same
+  server overwrite each other, for example a `User` password. The provider does not
+  detect this. To reject duplicates, use an admission controller that can look up
+  other objects, such as Kyverno (`apiCall`) or Gatekeeper (referential data).
+  `ValidatingAdmissionPolicy` cannot do this, because CEL cannot read other objects.
+  `Observe`-only resources never write to ClickHouse, so they can safely coexist
+  with a managed resource for the same entity.
