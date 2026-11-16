@@ -670,8 +670,8 @@ type UserInitParameters struct {
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
-	// (Set of String) IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
-	// IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
+	// (Set of String) IP addresses from which the user is allowed to connect. If not specified, user can connect from any host. Changes to this field update the user in place.
+	// IP addresses from which the user is allowed to connect. If not specified, user can connect from any host. Changes to this field update the user in place.
 	// +listType=set
 	HostIps []*string `json:"hostIps,omitempty" tf:"host_ips,omitempty"`
 
@@ -698,8 +698,8 @@ type UserObservation struct {
 	// When using a self hosted ClickHouse instance, this field should only be set when there is more than one replica and you are not using 'replicated' storage for user_directory.
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
-	// (Set of String) IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
-	// IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
+	// (Set of String) IP addresses from which the user is allowed to connect. If not specified, user can connect from any host. Changes to this field update the user in place.
+	// IP addresses from which the user is allowed to connect. If not specified, user can connect from any host. Changes to this field update the user in place.
 	// +listType=set
 	HostIps []*string `json:"hostIps,omitempty" tf:"host_ips,omitempty"`
 
@@ -732,8 +732,8 @@ type UserParameters struct {
 	// +kubebuilder:validation:Optional
 	ClusterName *string `json:"clusterName,omitempty" tf:"cluster_name,omitempty"`
 
-	// (Set of String) IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
-	// IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
+	// (Set of String) IP addresses from which the user is allowed to connect. If not specified, user can connect from any host. Changes to this field update the user in place.
+	// IP addresses from which the user is allowed to connect. If not specified, user can connect from any host. Changes to this field update the user in place.
 	// +kubebuilder:validation:Optional
 	// +listType=set
 	HostIps []*string `json:"hostIps,omitempty" tf:"host_ips,omitempty"`

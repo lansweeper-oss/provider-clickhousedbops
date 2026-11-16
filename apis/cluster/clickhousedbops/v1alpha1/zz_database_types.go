@@ -27,7 +27,26 @@ type DatabaseInitParameters struct {
 	// Comment associated with the database
 	Comment *string `json:"comment,omitempty" tf:"comment,omitempty"`
 
-	// (String) Name of the database
+	// , but not of engine_arguments or engine_settings.
+	// Database engine. When omitted, ClickHouse uses its default engine. Changing it forces a replacement.
+	Engine *string `json:"engine,omitempty" tf:"engine,omitempty"`
+
+	// , engine_settings or engine_parameters_wo_version. The configured values are recorded with a warning, without checking them against the database or recreating it: make sure they match the database.
+	// Arguments of the database engine, as SQL expressions: quote string literals. Changing them forces a replacement.
+	EngineArguments []*string `json:"engineArguments,omitempty" tf:"engine_arguments,omitempty"`
+
+	EngineParametersWo map[string]*string `json:"engineParametersWoSecretRef,omitempty" tf:"-"`
+
+	// apply them. This recreates the database.
+	// Version of 'engine_parameters_wo'. Bump it to re-apply every write-only value, which forces a replacement.
+	EngineParametersWoVersion *float64 `json:"engineParametersWoVersion,omitempty" tf:"engine_parameters_wo_version,omitempty"`
+
+	// (Map of String) Settings of the database engine, as literals: quote string values. Changing them forces a replacement.
+	// Settings of the database engine, as literals: quote string values. Changing them forces a replacement.
+	// +mapType=granular
+	EngineSettings map[string]*string `json:"engineSettings,omitempty" tf:"engine_settings,omitempty"`
+
+	// , engine, engine_arguments, engine_settings or engine_parameters_wo_version destroys and recreates the database as well.
 	// Name of the database
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
 }
@@ -46,9 +65,26 @@ type DatabaseObservation struct {
 	// Comment associated with the database
 	Comment *string `json:"comment,omitempty" tf:"comment,omitempty"`
 
+	// , but not of engine_arguments or engine_settings.
+	// Database engine. When omitted, ClickHouse uses its default engine. Changing it forces a replacement.
+	Engine *string `json:"engine,omitempty" tf:"engine,omitempty"`
+
+	// , engine_settings or engine_parameters_wo_version. The configured values are recorded with a warning, without checking them against the database or recreating it: make sure they match the database.
+	// Arguments of the database engine, as SQL expressions: quote string literals. Changing them forces a replacement.
+	EngineArguments []*string `json:"engineArguments,omitempty" tf:"engine_arguments,omitempty"`
+
+	// apply them. This recreates the database.
+	// Version of 'engine_parameters_wo'. Bump it to re-apply every write-only value, which forces a replacement.
+	EngineParametersWoVersion *float64 `json:"engineParametersWoVersion,omitempty" tf:"engine_parameters_wo_version,omitempty"`
+
+	// (Map of String) Settings of the database engine, as literals: quote string values. Changing them forces a replacement.
+	// Settings of the database engine, as literals: quote string values. Changing them forces a replacement.
+	// +mapType=granular
+	EngineSettings map[string]*string `json:"engineSettings,omitempty" tf:"engine_settings,omitempty"`
+
 	ID *string `json:"id,omitempty" tf:"id,omitempty"`
 
-	// (String) Name of the database
+	// , engine, engine_arguments, engine_settings or engine_parameters_wo_version destroys and recreates the database as well.
 	// Name of the database
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
 
@@ -73,7 +109,32 @@ type DatabaseParameters struct {
 	// +kubebuilder:validation:Optional
 	Comment *string `json:"comment,omitempty" tf:"comment,omitempty"`
 
-	// (String) Name of the database
+	// , but not of engine_arguments or engine_settings.
+	// Database engine. When omitted, ClickHouse uses its default engine. Changing it forces a replacement.
+	// +kubebuilder:validation:Optional
+	Engine *string `json:"engine,omitempty" tf:"engine,omitempty"`
+
+	// , engine_settings or engine_parameters_wo_version. The configured values are recorded with a warning, without checking them against the database or recreating it: make sure they match the database.
+	// Arguments of the database engine, as SQL expressions: quote string literals. Changing them forces a replacement.
+	// +kubebuilder:validation:Optional
+	EngineArguments []*string `json:"engineArguments,omitempty" tf:"engine_arguments,omitempty"`
+
+	// 11.11. Bump 'engine_parameters_wo_version' to re-apply the values, ClickHouse never returns them so the provider cannot detect that they changed.
+	// +kubebuilder:validation:Optional
+	EngineParametersWoSecretRef *v2.SecretReference `json:"engineParametersWoSecretRef,omitempty" tf:"-"`
+
+	// apply them. This recreates the database.
+	// Version of 'engine_parameters_wo'. Bump it to re-apply every write-only value, which forces a replacement.
+	// +kubebuilder:validation:Optional
+	EngineParametersWoVersion *float64 `json:"engineParametersWoVersion,omitempty" tf:"engine_parameters_wo_version,omitempty"`
+
+	// (Map of String) Settings of the database engine, as literals: quote string values. Changing them forces a replacement.
+	// Settings of the database engine, as literals: quote string values. Changing them forces a replacement.
+	// +kubebuilder:validation:Optional
+	// +mapType=granular
+	EngineSettings map[string]*string `json:"engineSettings,omitempty" tf:"engine_settings,omitempty"`
+
+	// , engine, engine_arguments, engine_settings or engine_parameters_wo_version destroys and recreates the database as well.
 	// Name of the database
 	// +kubebuilder:validation:Optional
 	Name *string `json:"name,omitempty" tf:"name,omitempty"`
@@ -106,7 +167,7 @@ type DatabaseStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
-// Database is the Schema for the Databases API. Use the clickhousedbops_database resource to create a database in a ClickHouse instance. Known limitations: Changing the comment on a database resource is unsupported and will cause the database to be destroyed and recreated. WARNING: you will lose any content of the database if you do so!
+// Database is the Schema for the Databases API. You can use the clickhousedbops_database resource to create a database in a ClickHouse instance. Engines engine sets the database engine https://clickhouse.com/docs/engines/database-engines. When omitted, ClickHouse uses its default engine. engine_arguments and engine_settings are passed to the engine as written, so the resource supports every engine without knowing their signatures: arguments are SQL expressions and setting values are literals, so quote string values. Secrets Engine arguments and settings often hold credentials.11.Engine arguments accept query parameters on every supported ClickHouse version, engine settings only on ClickHouse 26.7 or newer.ClickHouse itself may still record the values, for example in the distributed DDL queue of an ON CLUSTER query.ClickHouse never returns these values, so the provider cannot tell when one changes: bump engine_parameters_wo_version to re-apply them. This recreates the database. Known limitations: Changing the comment on a database resource is unsupported and will cause the database to be destroyed and recreated. WARNING: you will lose any content of the database if you do so!Changing name, engine, engine_arguments, engine_settings or engine_parameters_wo_version destroys and recreates the database as well.The provider compares only the engine name with the database, so it detects drift of engine, but not of engine_arguments or engine_settings.ClickHouse reports HDFS databases as S3, so the provider can't manage databases with engine = "HDFS": their engine never matches the configuration.After an import, or with state from a provider version without engine support, the state has no engine_arguments, engine_settings or engine_parameters_wo_version. The configured values are recorded with a warning, without checking them against the database or recreating it: make sure they match the database.
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane\\.io/external-name"

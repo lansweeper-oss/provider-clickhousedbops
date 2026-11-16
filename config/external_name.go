@@ -169,8 +169,8 @@ func nameFromState() config.ExternalName {
 }
 
 func stripClusterPrefix(id, sep string) string {
-	if i := strings.Index(id, sep); i >= 0 {
-		return id[i+len(sep):]
+	if _, after, ok := strings.Cut(id, sep); ok {
+		return after
 	}
 	return id
 }

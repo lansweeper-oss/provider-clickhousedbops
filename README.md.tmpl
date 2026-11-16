@@ -152,6 +152,10 @@ Build binary:
 make build
 ```
 
+The binary also serves upjet's diff gRPC service for the Crossplane CLI with
+`provider internal diff-server`; it computes plans offline and never contacts
+ClickHouse or a Kubernetes cluster.
+
 ## Contributing
 
 Refer to Crossplane's [CONTRIBUTING.md] file for more information on how the

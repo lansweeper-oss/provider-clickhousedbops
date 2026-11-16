@@ -21,7 +21,7 @@ func (mg *Database) GetTerraformResourceType() string {
 
 // GetConnectionDetailsMapping for this Database
 func (tr *Database) GetConnectionDetailsMapping() map[string]string {
-	return nil
+	return map[string]string{"engine_parameters_wo": "engineParametersWoSecretRef"}
 }
 
 // GetObservation of this Database

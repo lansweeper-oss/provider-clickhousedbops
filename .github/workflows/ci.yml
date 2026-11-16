@@ -7,6 +7,10 @@ on:
   pull_request:
     branches:
       - main
+    # Matched against the PR's whole diff with its base, so a docs-only PR
+    # skips CI even if intermediate commits touched code.
+    paths-ignore:
+      - "**.md"
   workflow_dispatch: {}
 
 concurrency:

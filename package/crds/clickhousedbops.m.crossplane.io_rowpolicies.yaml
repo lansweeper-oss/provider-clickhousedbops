@@ -40,7 +40,13 @@ spec:
           and roles without a matching policy will see zero rows from that table.
           You must create an additional permissive policy (e.g. USING 1 to ALL EXCEPT
           ...) for any users or roles that should retain full access. Resource can
-          be imported by id or'
+          be imported by id or <database>.<table>.<short_name> triple. Grantees A
+          policy applies either to a specific set of grantees or to everyone. Set
+          exactly one of: grantee_names: a list of user and role names. ClickHouse
+          stores these as one untyped list and resolves each name to a user before
+          a role, so users and roles are not distinguished here.grantee_all_except:
+          apply to all users and roles, excluding the ones listed. An empty set ([])
+          applies to everyone with no exclusions.'
         properties:
           apiVersion:
             description: |-

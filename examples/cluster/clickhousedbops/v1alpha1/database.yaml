@@ -4,9 +4,18 @@ metadata:
   annotations:
     meta.upbound.io/example-id: clickhousedbops/v1alpha1/database
   labels:
-    testing.upbound.io/example-name: logs
-  name: logs
+    testing.upbound.io/example-name: bucket
+  name: bucket
 spec:
   forProvider:
-    clusterName: cluster
-    name: logs
+    engine: S3
+    engineArguments:
+    - '''https://bucket.s3.amazonaws.com/data/'''
+    - '{access_key_id:String}'
+    - '{secret_access_key:String}'
+    engineParametersWoSecretRef:
+      key: example-key
+      name: example-secret
+      namespace: upbound-system
+    engineParametersWoVersion: 1
+    name: bucket
