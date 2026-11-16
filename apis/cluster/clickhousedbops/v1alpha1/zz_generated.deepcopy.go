@@ -525,6 +525,59 @@ func (in *DatabaseInitParameters) DeepCopyInto(out *DatabaseInitParameters) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.Engine != nil {
+		in, out := &in.Engine, &out.Engine
+		*out = new(string)
+		**out = **in
+	}
+	if in.EngineArguments != nil {
+		in, out := &in.EngineArguments, &out.EngineArguments
+		*out = make([]*string, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(string)
+				**out = **in
+			}
+		}
+	}
+	if in.EngineParametersWo != nil {
+		in, out := &in.EngineParametersWo, &out.EngineParametersWo
+		*out = make(map[string]*string, len(*in))
+		for key, val := range *in {
+			var outVal *string
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				inVal := (*in)[key]
+				in, out := &inVal, &outVal
+				*out = new(string)
+				**out = **in
+			}
+			(*out)[key] = outVal
+		}
+	}
+	if in.EngineParametersWoVersion != nil {
+		in, out := &in.EngineParametersWoVersion, &out.EngineParametersWoVersion
+		*out = new(float64)
+		**out = **in
+	}
+	if in.EngineSettings != nil {
+		in, out := &in.EngineSettings, &out.EngineSettings
+		*out = make(map[string]*string, len(*in))
+		for key, val := range *in {
+			var outVal *string
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				inVal := (*in)[key]
+				in, out := &inVal, &outVal
+				*out = new(string)
+				**out = **in
+			}
+			(*out)[key] = outVal
+		}
+	}
 	if in.Name != nil {
 		in, out := &in.Name, &out.Name
 		*out = new(string)
@@ -587,6 +640,43 @@ func (in *DatabaseObservation) DeepCopyInto(out *DatabaseObservation) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.Engine != nil {
+		in, out := &in.Engine, &out.Engine
+		*out = new(string)
+		**out = **in
+	}
+	if in.EngineArguments != nil {
+		in, out := &in.EngineArguments, &out.EngineArguments
+		*out = make([]*string, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(string)
+				**out = **in
+			}
+		}
+	}
+	if in.EngineParametersWoVersion != nil {
+		in, out := &in.EngineParametersWoVersion, &out.EngineParametersWoVersion
+		*out = new(float64)
+		**out = **in
+	}
+	if in.EngineSettings != nil {
+		in, out := &in.EngineSettings, &out.EngineSettings
+		*out = make(map[string]*string, len(*in))
+		for key, val := range *in {
+			var outVal *string
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				inVal := (*in)[key]
+				in, out := &inVal, &outVal
+				*out = new(string)
+				**out = **in
+			}
+			(*out)[key] = outVal
+		}
+	}
 	if in.ID != nil {
 		in, out := &in.ID, &out.ID
 		*out = new(string)
@@ -626,6 +716,48 @@ func (in *DatabaseParameters) DeepCopyInto(out *DatabaseParameters) {
 		in, out := &in.Comment, &out.Comment
 		*out = new(string)
 		**out = **in
+	}
+	if in.Engine != nil {
+		in, out := &in.Engine, &out.Engine
+		*out = new(string)
+		**out = **in
+	}
+	if in.EngineArguments != nil {
+		in, out := &in.EngineArguments, &out.EngineArguments
+		*out = make([]*string, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(string)
+				**out = **in
+			}
+		}
+	}
+	if in.EngineParametersWoSecretRef != nil {
+		in, out := &in.EngineParametersWoSecretRef, &out.EngineParametersWoSecretRef
+		*out = new(v2.SecretReference)
+		**out = **in
+	}
+	if in.EngineParametersWoVersion != nil {
+		in, out := &in.EngineParametersWoVersion, &out.EngineParametersWoVersion
+		*out = new(float64)
+		**out = **in
+	}
+	if in.EngineSettings != nil {
+		in, out := &in.EngineSettings, &out.EngineSettings
+		*out = make(map[string]*string, len(*in))
+		for key, val := range *in {
+			var outVal *string
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				inVal := (*in)[key]
+				in, out := &inVal, &outVal
+				*out = new(string)
+				**out = **in
+			}
+			(*out)[key] = outVal
+		}
 	}
 	if in.Name != nil {
 		in, out := &in.Name, &out.Name
@@ -944,6 +1076,11 @@ func (in *GrantPrivilegeInitParameters) DeepCopyInto(out *GrantPrivilegeInitPara
 		*out = new(string)
 		**out = **in
 	}
+	if in.SourceFilter != nil {
+		in, out := &in.SourceFilter, &out.SourceFilter
+		*out = new(string)
+		**out = **in
+	}
 	if in.TableName != nil {
 		in, out := &in.TableName, &out.TableName
 		*out = new(string)
@@ -1046,6 +1183,11 @@ func (in *GrantPrivilegeObservation) DeepCopyInto(out *GrantPrivilegeObservation
 		*out = new(string)
 		**out = **in
 	}
+	if in.SourceFilter != nil {
+		in, out := &in.SourceFilter, &out.SourceFilter
+		*out = new(string)
+		**out = **in
+	}
 	if in.TableName != nil {
 		in, out := &in.TableName, &out.TableName
 		*out = new(string)
@@ -1138,6 +1280,11 @@ func (in *GrantPrivilegeParameters) DeepCopyInto(out *GrantPrivilegeParameters) 
 	}
 	if in.PrivilegeName != nil {
 		in, out := &in.PrivilegeName, &out.PrivilegeName
+		*out = new(string)
+		**out = **in
+	}
+	if in.SourceFilter != nil {
+		in, out := &in.SourceFilter, &out.SourceFilter
 		*out = new(string)
 		**out = **in
 	}

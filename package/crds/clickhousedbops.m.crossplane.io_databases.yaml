@@ -34,11 +34,15 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: 'Database is the Schema for the Databases API. Use the clickhousedbops_database
-          resource to create a database in a ClickHouse instance. Known limitations:
-          Changing the comment on a database resource is unsupported and will cause
-          the database to be destroyed and recreated. WARNING: you will lose any content
-          of the database if you do so!'
+        description: 'Database is the Schema for the Databases API. You can use the
+          clickhousedbops_database resource to create a database in a ClickHouse instance.
+          Engines engine sets the database engine https://clickhouse.com/docs/engines/database-engines.
+          When omitted, ClickHouse uses its default engine. engine_arguments and engine_settings
+          are passed to the engine as written, so the resource supports every engine
+          without knowing their signatures: arguments are SQL expressions and setting
+          values are literals, so quote string values. Secrets Engine arguments and
+          settings often hold credentials. Reference them as query parameters, such
+          as {secret_access_key:String}, and set their values in engine_parameters_wo:'
         properties:
           apiVersion:
             description: |-
@@ -72,8 +76,43 @@ spec:
                     description: |-
                       Comment associated with the database
                     type: string
+                  engine:
+                    description: |-
+                      , but not of engine_arguments or engine_settings.
+                      Database engine. When omitted, ClickHouse uses its default engine. Changing it forces a replacement.
+                    type: string
+                  engineArguments:
+                    description: |-
+                      , engine_settings or engine_parameters_wo_version. The configured values are recorded with a warning, without checking them against the database or recreating it: make sure they match the database.
+                      Arguments of the database engine, as SQL expressions: quote string literals. Changing them forces a replacement.
+                    items:
+                      type: string
+                    type: array
+                  engineParametersWoSecretRef:
+                    description: 11.11. Bump 'engine_parameters_wo_version' to re-apply
+                      the values, ClickHouse never returns them so the provider cannot
+                      detect that they changed.
+                    properties:
+                      name:
+                        description: Name of the secret.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  engineParametersWoVersion:
+                    description: |-
+                      Version of 'engine_parameters_wo'. Bump it to re-apply every write-only value, which forces a replacement.
+                    type: number
+                  engineSettings:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      Settings of the database engine, as literals: quote string values. Changing them forces a replacement.
+                    type: object
+                    x-kubernetes-map-type: granular
                   name:
                     description: |-
+                      , engine, engine_arguments, engine_settings or engine_parameters_wo_version destroys and recreates the database as well.
                       Name of the database
                     type: string
                 type: object
@@ -100,8 +139,36 @@ spec:
                     description: |-
                       Comment associated with the database
                     type: string
+                  engine:
+                    description: |-
+                      , but not of engine_arguments or engine_settings.
+                      Database engine. When omitted, ClickHouse uses its default engine. Changing it forces a replacement.
+                    type: string
+                  engineArguments:
+                    description: |-
+                      , engine_settings or engine_parameters_wo_version. The configured values are recorded with a warning, without checking them against the database or recreating it: make sure they match the database.
+                      Arguments of the database engine, as SQL expressions: quote string literals. Changing them forces a replacement.
+                    items:
+                      type: string
+                    type: array
+                  engineParametersWoSecretRef:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  engineParametersWoVersion:
+                    description: |-
+                      Version of 'engine_parameters_wo'. Bump it to re-apply every write-only value, which forces a replacement.
+                    type: number
+                  engineSettings:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      Settings of the database engine, as literals: quote string values. Changing them forces a replacement.
+                    type: object
+                    x-kubernetes-map-type: granular
                   name:
                     description: |-
+                      , engine, engine_arguments, engine_settings or engine_parameters_wo_version destroys and recreates the database as well.
                       Name of the database
                     type: string
                 type: object
@@ -183,10 +250,34 @@ spec:
                     description: |-
                       Comment associated with the database
                     type: string
+                  engine:
+                    description: |-
+                      , but not of engine_arguments or engine_settings.
+                      Database engine. When omitted, ClickHouse uses its default engine. Changing it forces a replacement.
+                    type: string
+                  engineArguments:
+                    description: |-
+                      , engine_settings or engine_parameters_wo_version. The configured values are recorded with a warning, without checking them against the database or recreating it: make sure they match the database.
+                      Arguments of the database engine, as SQL expressions: quote string literals. Changing them forces a replacement.
+                    items:
+                      type: string
+                    type: array
+                  engineParametersWoVersion:
+                    description: |-
+                      Version of 'engine_parameters_wo'. Bump it to re-apply every write-only value, which forces a replacement.
+                    type: number
+                  engineSettings:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      Settings of the database engine, as literals: quote string values. Changing them forces a replacement.
+                    type: object
+                    x-kubernetes-map-type: granular
                   id:
                     type: string
                   name:
                     description: |-
+                      , engine, engine_arguments, engine_settings or engine_parameters_wo_version destroys and recreates the database as well.
                       Name of the database
                     type: string
                   uuid:

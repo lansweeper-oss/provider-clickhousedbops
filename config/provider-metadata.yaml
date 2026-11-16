@@ -2,29 +2,65 @@ name: ClickHouse/clickhousedbops
 resources:
     clickhousedbops_database:
         subCategory: ""
-        description: 'Use the clickhousedbops_database resource to create a database in a ClickHouse instance. Known limitations: Changing the comment on a database resource is unsupported and will cause the database to be destroyed and recreated. WARNING: you will lose any content of the database if you do so!'
+        description: 'You can use the clickhousedbops_database resource to create a database in a ClickHouse instance. Engines engine sets the database engine https://clickhouse.com/docs/engines/database-engines. When omitted, ClickHouse uses its default engine. engine_arguments and engine_settings are passed to the engine as written, so the resource supports every engine without knowing their signatures: arguments are SQL expressions and setting values are literals, so quote string values. Secrets Engine arguments and settings often hold credentials. Reference them as query parameters, such as {secret_access_key:String}, and set their values in engine_parameters_wo:'
         name: clickhousedbops_database
         title: clickhousedbops_database Resource - clickhousedbops
         examples:
+            - name: bucket
+              manifest: |-
+                {
+                  "engine": "S3",
+                  "engine_arguments": [
+                    "'https://bucket.s3.amazonaws.com/data/'",
+                    "{access_key_id:String}",
+                    "{secret_access_key:String}"
+                  ],
+                  "engine_parameters_wo": {
+                    "access_key_id": "${var.access_key_id}",
+                    "secret_access_key": "${var.secret_access_key}"
+                  },
+                  "engine_parameters_wo_version": 1,
+                  "name": "bucket"
+                }
             - name: logs
               manifest: |-
                 {
                   "cluster_name": "cluster",
                   "name": "logs"
                 }
+            - name: replicated_logs
+              manifest: |-
+                {
+                  "cluster_name": "cluster",
+                  "engine": "Replicated",
+                  "engine_arguments": [
+                    "'/clickhouse/databases/{uuid}'",
+                    "'{shard}'",
+                    "'{replica}'"
+                  ],
+                  "name": "replicated_logs"
+                }
         argumentDocs:
+            HDFS: 'databases as S3, so the provider can''t manage databases with engine = "HDFS": their engine never matches the configuration.'
+            ON CLUSTER: query.
             cluster_name: |-
                 (String) Name of the cluster to create the database into. If omitted, the database will be created on the replica hit by the query.
                 This field must be left null when using a ClickHouse Cloud cluster.
                 Should be set when hitting a cluster with more than one replica.
             comment: (String) Comment associated with the database
             database: 'resource is unsupported and will cause the database to be destroyed and recreated. WARNING: you will lose any content of the database if you do so!'
-            name: (String) Name of the database
+            engine: ', but not of engine_arguments or engine_settings.'
+            engine_arguments: ', engine_settings or engine_parameters_wo_version. The configured values are recorded with a warning, without checking them against the database or recreating it: make sure they match the database.'
+            engine_parameters_wo: 'is write-only: ClickHouse binds the values server-side, so they are not part of the SQL the provider sends or logs, and they are never stored in the terraform state. It needs Terraform/OpenTofu >= 1.11.'
+            engine_parameters_wo_version: to re-apply them. This recreates the database.
+            engine_settings: '(Map of String) Settings of the database engine, as literals: quote string values. Changing them forces a replacement.'
+            name: ', engine, engine_arguments, engine_settings or engine_parameters_wo_version destroys and recreates the database as well.'
             uuid: (String) The system-assigned UUID for the database
         importStatements:
             - |-
               # Databases can be imported by specifying the UUID.
               # Find the UUID of the database by checking system.databases table.
+              # Databases of engines such as Memory, S3 or Filesystem share the zero UUID; import those by name.
               terraform import clickhousedbops_database.example xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
               # It's also possible to import databases using the name:
@@ -37,7 +73,7 @@ resources:
               terraform import clickhousedbops_database.example cluster:databasename
     clickhousedbops_grant_privilege:
         subCategory: ""
-        description: 'You can use the clickhousedbops_grant_privilege resource to grant privileges on databases and tables to either a clickhousedbops_user or a clickhousedbops_role. Please note that in order to grant privileges to all database and/or all tables, the database and/or table fields must be set to null, and not to "*". Known limitations: On ClickHouse Cloud some broad privileges (for example ALL, or SELECT on'
+        description: You can use the clickhousedbops_grant_privilege resource to grant privileges on databases and tables to either a clickhousedbops_user or a clickhousedbops_role. Please note that in order to grant privileges to all database and/or all tables, the database and/or table fields must be set to null, and not to "
         name: clickhousedbops_grant_privilege
         title: clickhousedbops_grant_privilege Resource - clickhousedbops
         examples:
@@ -81,9 +117,31 @@ resources:
                   "grantee_role_name": "team_provisioner",
                   "privilege_name": "CREATE USER"
                 }
+            - name: use_collection
+              manifest: |-
+                {
+                  "access_object": "my_collection",
+                  "grantee_user_name": "my_user_name",
+                  "privilege_name": "NAMED COLLECTION"
+                }
+            - name: distributed_engine
+              manifest: |-
+                {
+                  "access_object": "Distributed",
+                  "grantee_role_name": "ddl_role",
+                  "privilege_name": "TABLE ENGINE"
+                }
+            - name: read_public_exports
+              manifest: |-
+                {
+                  "access_object": "URL",
+                  "grantee_role_name": "reader_role",
+                  "privilege_name": "READ",
+                  "source_filter": "https://example\\.com/public/.*"
+                }
         argumentDocs:
             ALL: ', or SELECT on *.*) can''t be granted directly, because the admin user holds them but can''t transfer them. Set current_grants = true to grant them via GRANT CURRENT GRANTS(...). See https://clickhouse.com/docs/en/sql-reference/statements/grant#all'
-            access_object: '(String) The object the privilege applies to: a user/role name for USER_NAME/DEFINER-scoped privileges, or a source name (e.g. S3) for source READ/WRITE grants. Supports a trailing * prefix pattern.'
+            access_object: '(String) The object the privilege applies to: a user/role name for USER_NAME/DEFINER-scoped privileges, a canonical upper-case source name (e.g. S3, MYSQL) for source READ/WRITE grants, a named collection name for NAMED_COLLECTION-scoped privileges, or a table engine (e.g. Distributed) for TABLE ENGINE. Supports a trailing * prefix pattern.'
             clickhousedbops_grant_privilege: to both a clickhousedbops_user and a clickhousedbops_role using a single clickhousedbops_grant_privilege stanza. You can do that using two different stanzas, one with grantee_user_name and the other with grantee_role_name fields set.
             cluster_name: |-
                 (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
@@ -92,10 +150,12 @@ resources:
             column_name: (String) The name of the column in table_name to grant privilege on.
             current_grants: '(Boolean) If true, emit GRANT CURRENT GRANTS(...) so the privilege is copied from the grantor''s own grants instead of granted directly. Required on ClickHouse Cloud for broad privileges (e.g. ALL, or SELECT on *.*) that the admin user holds but cannot transfer directly. Note: the effective grants depend on what the grantor holds at apply time, so drift on a current_grants grant is not reconciled. On destroy the privilege is revoked in full from the grantee on the target.'
             database_name: (String) The name of the database to grant privilege on. Defaults to all databases if left null
+            db.t1*: ) without the trailing *, so with those versions a grant on db.t1 is treated as including db.t10 when checking overlaps, and as the same grant as db.t1*.
             grant_option: (Boolean) If true, the grantee will be able to grant the same privileges to others.
             grantee_role_name: (String) Name of the role to grant privileges to.
             grantee_user_name: (String) Name of the user to grant privileges to.
             privilege_name: (String) The privilege to grant, such as CREATE DATABASE, SELECT, etc. See https://clickhouse.com/docs/en/sql-reference/statements/grant#privileges.
+            source_filter: also revokes the grantee's other grants of that privilege on the source, filtered or not. Terraform plans to re-create them on the next apply. To avoid this, combine several patterns into a single regular expression.
             table_name: (String) The name of the table to grant privilege on. Defaults to all tables if left null.
         importStatements: []
     clickhousedbops_grant_role:
@@ -514,7 +574,7 @@ resources:
             common_name: (String) Certificate Common Name (CN).
             double_sha1_hash: (Block List) Double SHA1 hash authentication. (see below for nested schema)
             double_sha1_password: (Block List) Double SHA1 password authentication. (see below for nested schema)
-            host_ips: (Set of String) IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
+            host_ips: (Set of String) IP addresses from which the user is allowed to connect. If not specified, user can connect from any host. Changes to this field update the user in place.
             http: (Block List) HTTP authentication. Exactly one of server or scheme. (see below for nested schema)
             id: (String) The system-assigned ID for the user
             kerberos: (Block List) Kerberos authentication. (see below for nested schema)

@@ -436,7 +436,7 @@ spec:
                     type: string
                   hostIps:
                     description: |-
-                      IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
+                      IP addresses from which the user is allowed to connect. If not specified, user can connect from any host. Changes to this field update the user in place.
                     items:
                       type: string
                     type: array
@@ -849,7 +849,7 @@ spec:
                     type: string
                   hostIps:
                     description: |-
-                      IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
+                      IP addresses from which the user is allowed to connect. If not specified, user can connect from any host. Changes to this field update the user in place.
                     items:
                       type: string
                     type: array
@@ -1105,7 +1105,7 @@ spec:
                     type: string
                   hostIps:
                     description: |-
-                      IP addresses from which the user is allowed to connect. If not specified, user can connect from any host.
+                      IP addresses from which the user is allowed to connect. If not specified, user can connect from any host. Changes to this field update the user in place.
                     items:
                       type: string
                     type: array

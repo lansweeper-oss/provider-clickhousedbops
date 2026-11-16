@@ -34,13 +34,12 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: 'GrantPrivilege is the Schema for the GrantPrivileges API. You
+        description: GrantPrivilege is the Schema for the GrantPrivileges API. You
           can use the clickhousedbops_grant_privilege resource to grant privileges
           on databases and tables to either a clickhousedbops_user or a clickhousedbops_role.
           Please note that in order to grant privileges to all database and/or all
           tables, the database and/or table fields must be set to null, and not to
-          "*". Known limitations: On ClickHouse Cloud some broad privileges (for example
-          ALL, or SELECT on'
+          "
         properties:
           apiVersion:
             description: |-
@@ -80,7 +79,7 @@ spec:
                 properties:
                   accessObject:
                     description: |-
-                      The object the privilege applies to: a user/role name for USER_NAME/DEFINER-scoped privileges, or a source name (e.g. `S3`) for source READ/WRITE grants. Supports a trailing `*` prefix pattern.
+                      The object the privilege applies to: a user/role name for USER_NAME/DEFINER-scoped privileges, a canonical upper-case source name (e.g. `S3`, `MYSQL`) for source READ/WRITE grants, a named collection name for NAMED_COLLECTION-scoped privileges, or a table engine (e.g. `Distributed`) for TABLE ENGINE. Supports a trailing `*` prefix pattern.
                     type: string
                   clusterName:
                     description: |-
@@ -343,6 +342,10 @@ spec:
                   privilegeName:
                     description: |-
                       The privilege to grant, such as `CREATE DATABASE`, `SELECT`, etc. See https://clickhouse.com/docs/en/sql-reference/statements/grant#privileges.
+                    type: string
+                  sourceFilter:
+                    description: |-
+                      A regular-expression filter for a SOURCE-scoped access object. For example, set `access_object = "URL"` and this attribute to a URL regexp to emit `READ ON URL('<regexp>')`.
                     type: string
                   tableName:
                     description: |-
@@ -364,7 +367,7 @@ spec:
                 properties:
                   accessObject:
                     description: |-
-                      The object the privilege applies to: a user/role name for USER_NAME/DEFINER-scoped privileges, or a source name (e.g. `S3`) for source READ/WRITE grants. Supports a trailing `*` prefix pattern.
+                      The object the privilege applies to: a user/role name for USER_NAME/DEFINER-scoped privileges, a canonical upper-case source name (e.g. `S3`, `MYSQL`) for source READ/WRITE grants, a named collection name for NAMED_COLLECTION-scoped privileges, or a table engine (e.g. `Distributed`) for TABLE ENGINE. Supports a trailing `*` prefix pattern.
                     type: string
                   clusterName:
                     description: |-
@@ -627,6 +630,10 @@ spec:
                   privilegeName:
                     description: |-
                       The privilege to grant, such as `CREATE DATABASE`, `SELECT`, etc. See https://clickhouse.com/docs/en/sql-reference/statements/grant#privileges.
+                    type: string
+                  sourceFilter:
+                    description: |-
+                      A regular-expression filter for a SOURCE-scoped access object. For example, set `access_object = "URL"` and this attribute to a URL regexp to emit `READ ON URL('<regexp>')`.
                     type: string
                   tableName:
                     description: |-
@@ -731,7 +738,7 @@ spec:
                 properties:
                   accessObject:
                     description: |-
-                      The object the privilege applies to: a user/role name for USER_NAME/DEFINER-scoped privileges, or a source name (e.g. `S3`) for source READ/WRITE grants. Supports a trailing `*` prefix pattern.
+                      The object the privilege applies to: a user/role name for USER_NAME/DEFINER-scoped privileges, a canonical upper-case source name (e.g. `S3`, `MYSQL`) for source READ/WRITE grants, a named collection name for NAMED_COLLECTION-scoped privileges, or a table engine (e.g. `Distributed`) for TABLE ENGINE. Supports a trailing `*` prefix pattern.
                     type: string
                   clusterName:
                     description: |-
@@ -768,6 +775,10 @@ spec:
                   privilegeName:
                     description: |-
                       The privilege to grant, such as `CREATE DATABASE`, `SELECT`, etc. See https://clickhouse.com/docs/en/sql-reference/statements/grant#privileges.
+                    type: string
+                  sourceFilter:
+                    description: |-
+                      A regular-expression filter for a SOURCE-scoped access object. For example, set `access_object = "URL"` and this attribute to a URL regexp to emit `READ ON URL('<regexp>')`.
                     type: string
                   tableName:
                     description: |-

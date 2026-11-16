@@ -15,8 +15,8 @@ import (
 
 type GrantPrivilegeInitParameters struct {
 
-	// scoped privileges, or a source name (e.g. S3) for source READ/WRITE grants. Supports a trailing * prefix pattern.
-	// The object the privilege applies to: a user/role name for USER_NAME/DEFINER-scoped privileges, or a source name (e.g. `S3`) for source READ/WRITE grants. Supports a trailing `*` prefix pattern.
+	// scoped privileges, a canonical upper-case source name (e.g. S3, MYSQL) for source READ/WRITE grants, a named collection name for NAMED_COLLECTION-scoped privileges, or a table engine (e.g. Distributed) for TABLE ENGINE. Supports a trailing * prefix pattern.
+	// The object the privilege applies to: a user/role name for USER_NAME/DEFINER-scoped privileges, a canonical upper-case source name (e.g. `S3`, `MYSQL`) for source READ/WRITE grants, a named collection name for NAMED_COLLECTION-scoped privileges, or a table engine (e.g. `Distributed`) for TABLE ENGINE. Supports a trailing `*` prefix pattern.
 	AccessObject *string `json:"accessObject,omitempty" tf:"access_object,omitempty"`
 
 	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
@@ -82,6 +82,10 @@ type GrantPrivilegeInitParameters struct {
 	// The privilege to grant, such as `CREATE DATABASE`, `SELECT`, etc. See https://clickhouse.com/docs/en/sql-reference/statements/grant#privileges.
 	PrivilegeName *string `json:"privilegeName,omitempty" tf:"privilege_name,omitempty"`
 
+	// create them on the next apply. To avoid this, combine several patterns into a single regular expression.
+	// A regular-expression filter for a SOURCE-scoped access object. For example, set `access_object = "URL"` and this attribute to a URL regexp to emit `READ ON URL('<regexp>')`.
+	SourceFilter *string `json:"sourceFilter,omitempty" tf:"source_filter,omitempty"`
+
 	// (String) The name of the table to grant privilege on. Defaults to all tables if left null.
 	// The name of the table to grant privilege on. Defaults to all tables if left null.
 	TableName *string `json:"tableName,omitempty" tf:"table_name,omitempty"`
@@ -89,8 +93,8 @@ type GrantPrivilegeInitParameters struct {
 
 type GrantPrivilegeObservation struct {
 
-	// scoped privileges, or a source name (e.g. S3) for source READ/WRITE grants. Supports a trailing * prefix pattern.
-	// The object the privilege applies to: a user/role name for USER_NAME/DEFINER-scoped privileges, or a source name (e.g. `S3`) for source READ/WRITE grants. Supports a trailing `*` prefix pattern.
+	// scoped privileges, a canonical upper-case source name (e.g. S3, MYSQL) for source READ/WRITE grants, a named collection name for NAMED_COLLECTION-scoped privileges, or a table engine (e.g. Distributed) for TABLE ENGINE. Supports a trailing * prefix pattern.
+	// The object the privilege applies to: a user/role name for USER_NAME/DEFINER-scoped privileges, a canonical upper-case source name (e.g. `S3`, `MYSQL`) for source READ/WRITE grants, a named collection name for NAMED_COLLECTION-scoped privileges, or a table engine (e.g. `Distributed`) for TABLE ENGINE. Supports a trailing `*` prefix pattern.
 	AccessObject *string `json:"accessObject,omitempty" tf:"access_object,omitempty"`
 
 	// (String) Name of the cluster to create the resource into. If omitted, resource will be created on the replica hit by the query.
@@ -131,6 +135,10 @@ type GrantPrivilegeObservation struct {
 	// The privilege to grant, such as `CREATE DATABASE`, `SELECT`, etc. See https://clickhouse.com/docs/en/sql-reference/statements/grant#privileges.
 	PrivilegeName *string `json:"privilegeName,omitempty" tf:"privilege_name,omitempty"`
 
+	// create them on the next apply. To avoid this, combine several patterns into a single regular expression.
+	// A regular-expression filter for a SOURCE-scoped access object. For example, set `access_object = "URL"` and this attribute to a URL regexp to emit `READ ON URL('<regexp>')`.
+	SourceFilter *string `json:"sourceFilter,omitempty" tf:"source_filter,omitempty"`
+
 	// (String) The name of the table to grant privilege on. Defaults to all tables if left null.
 	// The name of the table to grant privilege on. Defaults to all tables if left null.
 	TableName *string `json:"tableName,omitempty" tf:"table_name,omitempty"`
@@ -138,8 +146,8 @@ type GrantPrivilegeObservation struct {
 
 type GrantPrivilegeParameters struct {
 
-	// scoped privileges, or a source name (e.g. S3) for source READ/WRITE grants. Supports a trailing * prefix pattern.
-	// The object the privilege applies to: a user/role name for USER_NAME/DEFINER-scoped privileges, or a source name (e.g. `S3`) for source READ/WRITE grants. Supports a trailing `*` prefix pattern.
+	// scoped privileges, a canonical upper-case source name (e.g. S3, MYSQL) for source READ/WRITE grants, a named collection name for NAMED_COLLECTION-scoped privileges, or a table engine (e.g. Distributed) for TABLE ENGINE. Supports a trailing * prefix pattern.
+	// The object the privilege applies to: a user/role name for USER_NAME/DEFINER-scoped privileges, a canonical upper-case source name (e.g. `S3`, `MYSQL`) for source READ/WRITE grants, a named collection name for NAMED_COLLECTION-scoped privileges, or a table engine (e.g. `Distributed`) for TABLE ENGINE. Supports a trailing `*` prefix pattern.
 	// +kubebuilder:validation:Optional
 	AccessObject *string `json:"accessObject,omitempty" tf:"access_object,omitempty"`
 
@@ -214,6 +222,11 @@ type GrantPrivilegeParameters struct {
 	// +kubebuilder:validation:Optional
 	PrivilegeName *string `json:"privilegeName,omitempty" tf:"privilege_name,omitempty"`
 
+	// create them on the next apply. To avoid this, combine several patterns into a single regular expression.
+	// A regular-expression filter for a SOURCE-scoped access object. For example, set `access_object = "URL"` and this attribute to a URL regexp to emit `READ ON URL('<regexp>')`.
+	// +kubebuilder:validation:Optional
+	SourceFilter *string `json:"sourceFilter,omitempty" tf:"source_filter,omitempty"`
+
 	// (String) The name of the table to grant privilege on. Defaults to all tables if left null.
 	// The name of the table to grant privilege on. Defaults to all tables if left null.
 	// +kubebuilder:validation:Optional
@@ -247,7 +260,7 @@ type GrantPrivilegeStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
-// GrantPrivilege is the Schema for the GrantPrivileges API. You can use the clickhousedbops_grant_privilege resource to grant privileges on databases and tables to either a clickhousedbops_user or a clickhousedbops_role. Please note that in order to grant privileges to all database and/or all tables, the database and/or table fields must be set to null, and not to "*". Known limitations: On ClickHouse Cloud some broad privileges (for example ALL, or SELECT on
+// GrantPrivilege is the Schema for the GrantPrivileges API. You can use the clickhousedbops_grant_privilege resource to grant privileges on databases and tables to either a clickhousedbops_user or a clickhousedbops_role. Please note that in order to grant privileges to all database and/or all tables, the database and/or table fields must be set to null, and not to "
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane\\.io/external-name"

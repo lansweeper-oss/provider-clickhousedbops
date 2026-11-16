@@ -106,3 +106,5 @@ jobs:
 
       - name: Append extensions
         run: make xpkg.append VERSION=${{ github.event.inputs.version }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
