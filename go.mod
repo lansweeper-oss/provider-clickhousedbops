@@ -17,7 +17,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/terraform-plugin-framework v1.19.0
 	github.com/hashicorp/terraform-plugin-go v0.31.0
-	github.com/hashicorp/terraform-plugin-sdk/v2 v2.40.1
+	github.com/hashicorp/terraform-plugin-sdk/v2 v2.41.1
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.12.1
 	google.golang.org/grpc v1.85.0
@@ -80,7 +80,7 @@ require (
 	github.com/hashicorp/go-cty v1.5.0 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
 	github.com/hashicorp/go-plugin v1.8.0 // indirect
-	github.com/hashicorp/go-uuid v1.0.3 // indirect
+	github.com/hashicorp/go-uuid v1.0.4 // indirect
 	github.com/hashicorp/go-version v1.9.0 // indirect
 	github.com/hashicorp/hcl/v2 v2.25.0 // indirect
 	github.com/hashicorp/logutils v1.0.0 // indirect
